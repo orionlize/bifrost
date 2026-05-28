@@ -71,17 +71,20 @@ func (h *SessionHandler) isAuthEnabled(ctx *fasthttp.RequestCtx) {
 		token = string(ctx.Request.Header.Cookie("token"))
 	}
 	hasValidToken := false
+	isAoneUserSession := false
 	if token != "" {
 		session, err := h.configStore.GetSession(ctx, token)
 		if err == nil && session != nil && session.ExpiresAt.After(time.Now()) {
 			hasValidToken = true
+			isAoneUserSession = session.AoneUserID != nil && *session.AoneUserID != ""
 		}
 	}
 	SendJSON(ctx, map[string]any{
-		"is_auth_enabled":    authConfig.IsEnabled,
-		"has_valid_token":    hasValidToken,
-		"auth_type":          dashboardAuthTypeFromConfig(authConfig),
-		"aone_oauth_enabled": aoneOAuthEnabled(authConfig),
+		"is_auth_enabled":       authConfig.IsEnabled,
+		"has_valid_token":       hasValidToken,
+		"auth_type":             dashboardAuthTypeFromConfig(authConfig),
+		"aone_oauth_enabled":    aoneOAuthEnabled(authConfig),
+		"is_aone_user_session":  isAoneUserSession,
 	})
 }
 

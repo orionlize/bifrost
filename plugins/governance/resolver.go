@@ -4,6 +4,7 @@ package governance
 import (
 	"context"
 	"fmt"
+	"strings"
 
 	"github.com/maximhq/bifrost/core/schemas"
 	configstoreTables "github.com/maximhq/bifrost/framework/configstore/tables"
@@ -258,6 +259,12 @@ func (r *BudgetResolver) EvaluateVirtualKeyRequest(ctx *schemas.BifrostContext, 
 		ctx.SetValue(schemas.BifrostContextKeyGovernanceCustomerID, vk.Customer.ID)
 		ctx.SetValue(schemas.BifrostContextKeyGovernanceCustomerName, vk.Customer.Name)
 	}
+	if vk.CreatedByUserID != nil && strings.TrimSpace(*vk.CreatedByUserID) != "" {
+		ctx.SetValue(schemas.BifrostContextKeyUserID, strings.TrimSpace(*vk.CreatedByUserID))
+		if displayName := personalAoneVirtualKeyDisplayName(vk.Name); displayName != "" {
+			ctx.SetValue(schemas.BifrostContextKeyUserName, displayName)
+		}
+	}
 	if !vk.IsActiveValue() {
 		return &EvaluationResult{
 			Decision: DecisionVirtualKeyBlocked,
@@ -340,23 +347,52 @@ func (r *BudgetResolver) isModelAllowed(vk *configstoreTables.TableVirtualKey, p
 
 	// Pass 2: allowlist check — model is allowed if any matching config permits it.
 	for _, pc := range vk.ProviderConfigs {
-		if pc.Provider == string(provider) {
-			if r.modelCatalog != nil && r.governanceInMemoryStore != nil {
-				providerConfig, ok := r.governanceInMemoryStore.GetConfiguredProviders()[provider]
-				providerConfigPtr := &providerConfig
-				if !ok {
-					providerConfigPtr = nil
-				}
-				if r.modelCatalog.IsModelAllowedForProvider(provider, model, providerConfigPtr, pc.AllowedModels) {
-					return true
-				}
-			} else if pc.AllowedModels.IsAllowed(model) {
+		if pc.Provider != string(provider) {
+			continue
+		}
+		// Personal Aone OAuth keys use unrestricted allowlists and should not be
+		// blocked while waiting for the model catalog to catch up with new models.
+		if isPersonalAoneVirtualKey(vk) && pc.AllowedModels.IsUnrestricted() {
+			return true
+		}
+		if r.modelCatalog != nil && r.governanceInMemoryStore != nil {
+			providerConfig, ok := r.governanceInMemoryStore.GetConfiguredProviders()[provider]
+			providerConfigPtr := &providerConfig
+			if !ok {
+				providerConfigPtr = nil
+			}
+			if r.modelCatalog.IsModelAllowedForProvider(provider, model, providerConfigPtr, pc.AllowedModels) {
 				return true
 			}
+		} else if pc.AllowedModels.IsAllowed(model) {
+			return true
 		}
 	}
 
 	return false
+}
+
+func isPersonalAoneVirtualKey(vk *configstoreTables.TableVirtualKey) bool {
+	return vk != nil && vk.CreatedByUserID != nil && strings.TrimSpace(*vk.CreatedByUserID) != ""
+}
+
+func personalAoneVirtualKeyDisplayName(vkName string) string {
+	const prefix = "Aone: "
+	vkName = strings.TrimSpace(vkName)
+	if vkName == "" {
+		return ""
+	}
+	if !strings.HasPrefix(vkName, prefix) {
+		return vkName
+	}
+	rest := strings.TrimSpace(strings.TrimPrefix(vkName, prefix))
+	if rest == "" {
+		return ""
+	}
+	if idx := strings.LastIndex(rest, " ("); idx > 0 {
+		return strings.TrimSpace(rest[:idx])
+	}
+	return rest
 }
 
 // isProviderAllowed checks if the requested provider is allowed for this VK

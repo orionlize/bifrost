@@ -2,13 +2,14 @@ import { LogsFilterSidebar } from "@/components/filters/logsFilterSidebar";
 import { DateTimePickerWithRange } from "@/components/ui/datePickerWithRange";
 import { ScrollArea } from "@/components/ui/scrollArea";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { useGetMCPAvailableFilterDataQuery } from "@/lib/store";
+import { useGetMCPAvailableFilterDataQuery, useIsAuthEnabledQuery } from "@/lib/store";
+import { IS_ENTERPRISE } from "@/lib/constants/config";
 import type { LogFilters, MCPToolLogFilters } from "@/lib/types/logs";
 import { dateUtils } from "@/lib/types/logs";
 import { getRangeForPeriod, TIME_PERIODS } from "@/lib/utils/timeRange";
 import { useLocation } from "@tanstack/react-router";
 import { parseAsInteger, parseAsString, useQueryStates } from "nuqs";
-import { useCallback, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { type ChartType } from "./components/charts/chartTypeToggle";
 import { ModelFilterSelect } from "./components/charts/modelFilterSelect";
 import { ExportPopover } from "./components/exportPopover";
@@ -24,6 +25,9 @@ const toChartType = (value: string): ChartType => (value === "line" ? "line" : "
 const parseCsvParam = (value: string): string[] => (value ? value.split(",").filter(Boolean) : []);
 
 export default function DashboardPage() {
+	const { data: authStatus } = useIsAuthEnabledQuery();
+	const hideGovernanceRankingsTabs = !IS_ENTERPRISE && authStatus?.aone_oauth_enabled === true;
+
 	// MCP filter data
 	const { data: mcpFilterData } = useGetMCPAvailableFilterDataQuery();
 
@@ -207,11 +211,18 @@ export default function DashboardPage() {
 	const buRankingsRef = useRef<DimensionRankingsTabViewHandle>(null);
 	const userRankingsRef = useRef<DimensionRankingsTabViewHandle>(null);
 
-	const allRefs = [overviewRef, providerRef, mcpRef, modelRankingsRef, teamRankingsRef, customerRankingsRef, buRankingsRef, userRankingsRef];
+	const getActiveRefs = useCallback(() => {
+		const refs = [overviewRef, providerRef, mcpRef, modelRankingsRef];
+		if (!hideGovernanceRankingsTabs) {
+			refs.push(teamRankingsRef, customerRankingsRef, buRankingsRef);
+		}
+		refs.push(userRankingsRef);
+		return refs;
+	}, [hideGovernanceRankingsTabs]);
 
 	const getDashboardData = useCallback((): DashboardData => {
 		const merged: Partial<DashboardData> = {};
-		for (const r of allRefs) {
+		for (const r of getActiveRefs()) {
 			if (r.current) Object.assign(merged, r.current.getData());
 		}
 		return {
@@ -233,11 +244,11 @@ export default function DashboardPage() {
 			mcpTopToolsData: null,
 			...merged,
 		};
-	}, []);
+	}, [getActiveRefs]);
 
 	const handlePreloadData = useCallback(async () => {
-		await Promise.all(allRefs.map((r) => r.current?.loadData()));
-	}, []);
+		await Promise.all(getActiveRefs().map((r) => r.current?.loadData()));
+	}, [getActiveRefs]);
 
 	// Tab change handler
 	const handleTabChange = useCallback(
@@ -385,13 +396,17 @@ export default function DashboardPage() {
 			"dashboard-section-provider-usage",
 			"dashboard-section-rankings",
 			"dashboard-section-mcp",
-			"dashboard-section-team-rankings",
-			"dashboard-section-customer-rankings",
-			"dashboard-section-bu-rankings",
+			...(hideGovernanceRankingsTabs
+				? []
+				: [
+						"dashboard-section-team-rankings",
+						"dashboard-section-customer-rankings",
+						"dashboard-section-bu-rankings",
+					]),
 			"dashboard-section-user-rankings",
 		];
 		return ids.map((id) => document.getElementById(id)).filter(Boolean) as HTMLElement[];
-	}, [handlePreloadData]);
+	}, [handlePreloadData, hideGovernanceRankingsTabs]);
 
 	const handlePdfExportDone = useCallback(() => {
 		const dashboardEl = document.getElementById("dashboard-root");
@@ -409,6 +424,13 @@ export default function DashboardPage() {
 	}, []);
 
 	const activeTab = urlState.tab || "overview";
+
+	useEffect(() => {
+		if (!hideGovernanceRankingsTabs) return;
+		if (activeTab === "team-rankings" || activeTab === "customer-rankings" || activeTab === "bu-rankings") {
+			setUrlState({ tab: "overview" });
+		}
+	}, [hideGovernanceRankingsTabs, activeTab, setUrlState]);
 
 	return (
 		<div id="dashboard-root" className="no-padding-parent no-border-parent bg-background flex h-[calc(100vh_-_16px)] w-full gap-3">
@@ -491,18 +513,24 @@ export default function DashboardPage() {
 							<TabsTrigger value="mcp" data-testid="dashboard-tab-mcp">
 								MCP usage
 							</TabsTrigger>
-							<TabsTrigger value="team-rankings" data-testid="dashboard-tab-team-rankings">
-								Team Rankings
-							</TabsTrigger>
+							{!hideGovernanceRankingsTabs && (
+								<TabsTrigger value="team-rankings" data-testid="dashboard-tab-team-rankings">
+									Team Rankings
+								</TabsTrigger>
+							)}
 							<TabsTrigger value="user-rankings" data-testid="dashboard-tab-user-rankings">
 								User Rankings
 							</TabsTrigger>
-							<TabsTrigger value="customer-rankings" data-testid="dashboard-tab-customer-rankings">
-								Customer Rankings
-							</TabsTrigger>
-							<TabsTrigger value="bu-rankings" data-testid="dashboard-tab-bu-rankings">
-								BU Rankings
-							</TabsTrigger>
+							{!hideGovernanceRankingsTabs && (
+								<>
+									<TabsTrigger value="customer-rankings" data-testid="dashboard-tab-customer-rankings">
+										Customer Rankings
+									</TabsTrigger>
+									<TabsTrigger value="bu-rankings" data-testid="dashboard-tab-bu-rankings">
+										BU Rankings
+									</TabsTrigger>
+								</>
+							)}
 						</TabsList>
 
 						{/* Overview Tab */}
@@ -588,49 +616,55 @@ export default function DashboardPage() {
 						</TabsContent>
 
 						{/* Team Rankings Tab */}
-						<TabsContent value="team-rankings" {...(pdfMode && { forceMount: true })}>
-							<div id="dashboard-section-team-rankings">
-								<DimensionRankingsTabView
-									ref={teamRankingsRef}
-									filters={filters}
-									active={activeTab === "team-rankings" || pdfMode}
-									dimension="team"
-									dimensionLabel="Team"
-									testIdPrefix="dashboard-team-rankings"
-									dataKey="teamRankingsData"
-								/>
-							</div>
-						</TabsContent>
+						{!hideGovernanceRankingsTabs && (
+							<TabsContent value="team-rankings" {...(pdfMode && { forceMount: true })}>
+								<div id="dashboard-section-team-rankings">
+									<DimensionRankingsTabView
+										ref={teamRankingsRef}
+										filters={filters}
+										active={activeTab === "team-rankings" || pdfMode}
+										dimension="team"
+										dimensionLabel="Team"
+										testIdPrefix="dashboard-team-rankings"
+										dataKey="teamRankingsData"
+									/>
+								</div>
+							</TabsContent>
+						)}
 
 						{/* Customer Rankings Tab */}
-						<TabsContent value="customer-rankings" {...(pdfMode && { forceMount: true })}>
-							<div id="dashboard-section-customer-rankings">
-								<DimensionRankingsTabView
-									ref={customerRankingsRef}
-									filters={filters}
-									active={activeTab === "customer-rankings" || pdfMode}
-									dimension="customer"
-									dimensionLabel="Customer"
-									testIdPrefix="dashboard-customer-rankings"
-									dataKey="customerRankingsData"
-								/>
-							</div>
-						</TabsContent>
+						{!hideGovernanceRankingsTabs && (
+							<TabsContent value="customer-rankings" {...(pdfMode && { forceMount: true })}>
+								<div id="dashboard-section-customer-rankings">
+									<DimensionRankingsTabView
+										ref={customerRankingsRef}
+										filters={filters}
+										active={activeTab === "customer-rankings" || pdfMode}
+										dimension="customer"
+										dimensionLabel="Customer"
+										testIdPrefix="dashboard-customer-rankings"
+										dataKey="customerRankingsData"
+									/>
+								</div>
+							</TabsContent>
+						)}
 
 						{/* Business Unit Rankings Tab */}
-						<TabsContent value="bu-rankings" {...(pdfMode && { forceMount: true })}>
-							<div id="dashboard-section-bu-rankings">
-								<DimensionRankingsTabView
-									ref={buRankingsRef}
-									filters={filters}
-									active={activeTab === "bu-rankings" || pdfMode}
-									dimension="business_unit"
-									dimensionLabel="Business Unit"
-									testIdPrefix="dashboard-bu-rankings"
-									dataKey="buRankingsData"
-								/>
-							</div>
-						</TabsContent>
+						{!hideGovernanceRankingsTabs && (
+							<TabsContent value="bu-rankings" {...(pdfMode && { forceMount: true })}>
+								<div id="dashboard-section-bu-rankings">
+									<DimensionRankingsTabView
+										ref={buRankingsRef}
+										filters={filters}
+										active={activeTab === "bu-rankings" || pdfMode}
+										dimension="business_unit"
+										dimensionLabel="Business Unit"
+										testIdPrefix="dashboard-bu-rankings"
+										dataKey="buRankingsData"
+									/>
+								</div>
+							</TabsContent>
+						)}
 
 						{/* User Rankings Tab */}
 						<TabsContent value="user-rankings" {...(pdfMode && { forceMount: true })}>

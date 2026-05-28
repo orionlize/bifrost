@@ -1027,6 +1027,10 @@ func (p *LoggerPlugin) GetDimensionRankings(ctx context.Context, filters logstor
 	return p.store.GetDimensionRankings(ctx, filters, dimension)
 }
 
+func (p *LoggerPlugin) GetVirtualKeyUsageRankings(ctx context.Context, filters logstore.SearchFilters, virtualKeyIDs []string) (map[string]logstore.VirtualKeyUsageAggregate, map[string]logstore.VirtualKeyUsageAggregate, error) {
+	return p.store.GetVirtualKeyUsageRankings(ctx, filters, virtualKeyIDs)
+}
+
 // GetAvailableModels returns all unique models from logs.
 // Uses DISTINCT to avoid loading all rows (28K+) when only unique values are needed.
 func (p *LoggerPlugin) GetAvailableModels(ctx context.Context, limit int, query string) ([]string, error) {

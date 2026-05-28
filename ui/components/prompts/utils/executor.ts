@@ -1,5 +1,6 @@
 import { Message, type CompletionUsage, type ToolCall, type VariableMap, replaceVariablesInMessages } from "@/lib/message";
 import { getErrorMessage } from "@/lib/store";
+import { getAoneApiKey, fetchAndCacheAoneApiKey } from "@/lib/utils/aoneUserStorage";
 import type { ModelParams } from "@/lib/types/prompts";
 
 export interface ExecutionConfig {
@@ -7,6 +8,7 @@ export interface ExecutionConfig {
 	model: string;
 	modelParams: ModelParams;
 	apiKeyId: string;
+	useAoneApiKeyAuth?: boolean;
 	variables?: VariableMap;
 	customHeaders?: Record<string, string>;
 }
@@ -29,6 +31,44 @@ export interface ExecutionCallbacks {
 	onFinally: () => void;
 }
 
+async function resolveAoneApiKey(): Promise<string | null> {
+	const freshKey = await fetchAndCacheAoneApiKey();
+	if (freshKey) {
+		return freshKey;
+	}
+	return getAoneApiKey();
+}
+
+async function buildAuthHeaders(config: ExecutionConfig): Promise<Record<string, string>> {
+	const headers: Record<string, string> = {};
+
+	if (config.useAoneApiKeyAuth) {
+		const aoneApiKey = await resolveAoneApiKey();
+		if (aoneApiKey) {
+			headers.Authorization = `Bearer ${aoneApiKey}`;
+			return headers;
+		}
+		throw new Error("Personal API key is unavailable. Please sign in again.");
+	}
+
+	if (config.apiKeyId && config.apiKeyId !== "__auto__") {
+		if (config.apiKeyId.startsWith("sk-bf-")) {
+			const aoneApiKey = await resolveAoneApiKey();
+			headers.Authorization = `Bearer ${aoneApiKey ?? config.apiKeyId}`;
+		} else {
+			headers["x-bf-api-key-id"] = config.apiKeyId;
+		}
+		return headers;
+	}
+
+	const aoneApiKey = getAoneApiKey();
+	if (aoneApiKey) {
+		headers.Authorization = `Bearer ${aoneApiKey}`;
+	}
+
+	return headers;
+}
+
 export async function executePrompt(
 	currentMessages: Message[],
 	pendingMessage: Message | undefined,
@@ -49,14 +89,10 @@ export async function executePrompt(
 	const resolvedMessages = config.variables ? replaceVariablesInMessages(allMessages, config.variables) : allMessages;
 
 	try {
-		const headers: Record<string, string> = { "Content-Type": "application/json" };
-		if (config.apiKeyId && config.apiKeyId !== "__auto__") {
-			if (config.apiKeyId.startsWith("sk-bf-")) {
-				headers["Authorization"] = `Bearer ${config.apiKeyId}`;
-			} else {
-				headers["x-bf-api-key-id"] = config.apiKeyId;
-			}
-		}
+		const headers: Record<string, string> = {
+			"Content-Type": "application/json",
+			...(await buildAuthHeaders(config)),
+		};
 		if (config.customHeaders) {
 			// System headers we set above; custom headers must not overwrite them — doing
 			// so would break JSON parsing (Content-Type) or silently swap auth credentials.

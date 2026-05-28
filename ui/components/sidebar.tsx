@@ -24,6 +24,7 @@ import {
   PanelLeftOpen,
   Plug,
   Puzzle,
+  Rocket,
   ScrollText,
   Search,
   SearchCheck,
@@ -68,6 +69,7 @@ import {
   useGetCoreConfigQuery,
   useGetLatestReleaseQuery,
   useGetVersionQuery,
+  useIsAuthEnabledQuery,
   useLogoutMutation,
 } from "@/lib/store";
 import { RbacOperation, RbacResource, useRbac } from "@enterprise/lib";
@@ -86,6 +88,9 @@ import { useCookies } from "react-cookie";
 import { ThemeToggle } from "./themeToggle";
 import { Badge } from "./ui/badge";
 import { PromoCardStack } from "./ui/promoCardStack";
+import { useAoneCurrentUser } from "@/hooks/useAoneCurrentUser";
+import { useIsAoneUserSession } from "@/hooks/useIsAoneUserSession";
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 
 // Cookie name for dismissing production setup card
 const PRODUCTION_SETUP_DISMISSED_COOKIE = "bifrost_production_setup_dismissed";
@@ -704,20 +709,51 @@ export default function AppSidebar() {
     RbacResource.AccessProfiles,
     RbacOperation.View,
   );
+  const enterpriseOnly = (allowed: boolean) => IS_ENTERPRISE && allowed;
+  const showMCPToolGroups = enterpriseOnly(hasMCPToolGroupsAccess);
+  const showGovernanceUsers = enterpriseOnly(hasUsersAccess);
+  const showBusinessUnits = enterpriseOnly(hasBusinessUnitsAccess);
+  const showUserProvisioning = enterpriseOnly(hasUserProvisioningAccess);
+  const showRbac = enterpriseOnly(hasRbacAccess);
+  const showAccessProfiles = enterpriseOnly(hasAccessProfilesAccess);
+  const showAuditLogs = enterpriseOnly(hasAuditLogsAccess);
+  const showGuardrails =
+    enterpriseOnly(hasGuardrailsConfigAccess || hasGuardrailsProvidersAccess);
+  const showGuardrailsConfig = enterpriseOnly(hasGuardrailsConfigAccess);
+  const showGuardrailsProviders = enterpriseOnly(hasGuardrailsProvidersAccess);
+  const showClusterConfig = enterpriseOnly(hasClusterConfigAccess);
+  const showAdaptiveRouting = enterpriseOnly(isAdaptiveRoutingAllowed);
+  const { data: authStatus } = useIsAuthEnabledQuery();
+  const isAoneUserSession = useIsAoneUserSession();
+  const showAoneUsers = !IS_ENTERPRISE && (authStatus?.aone_oauth_enabled ?? false);
+  const hideManualVirtualKeys = showAoneUsers;
+  const {
+    enabled: aoneUserEnabled,
+    displayName: aoneDisplayName,
+    avatar: aoneAvatar,
+  } = useAoneCurrentUser();
   const hasAnyGovernanceAccess =
-    hasVirtualKeysAccess ||
-    hasTeamsAccess ||
-    hasUsersAccess ||
-    hasCustomersAccess ||
-    hasBusinessUnitsAccess ||
-    hasRbacAccess ||
-    hasAccessProfilesAccess ||
-    hasGovernanceLegacyAccess;
+    (!hideManualVirtualKeys && hasVirtualKeysAccess) ||
+    hasGovernanceLegacyAccess ||
+    showGovernanceUsers ||
+    showAoneUsers ||
+    showBusinessUnits ||
+    showUserProvisioning ||
+    showRbac ||
+    showAccessProfiles ||
+    showAuditLogs;
   const { data: coreConfig } = useGetCoreConfigQuery({});
   const isDbConnected = coreConfig?.is_db_connected ?? false;
 
   const items = useMemo(
     () => [
+      {
+        title: "Quick Start",
+        url: "/workspace/quick-start",
+        icon: Rocket,
+        description: "Provider setup & CC Switch import",
+        hasAccess: true,
+      },
       {
         title: "Observability",
         url: "/workspace/logs",
@@ -818,7 +854,7 @@ export default function AppSidebar() {
         icon: MCPIcon,
         description: "MCP configuration",
         url: "/workspace/mcp-gateway",
-        hasAccess: hasMCPGatewayAccess || hasMCPToolGroupsAccess,
+        hasAccess: hasMCPGatewayAccess || showMCPToolGroups,
         subItems: [
           {
             title: "MCP Catalog",
@@ -832,7 +868,7 @@ export default function AppSidebar() {
             url: "/workspace/mcp-tool-groups",
             icon: ToolCase,
             description: "Tool Groups",
-            hasAccess: hasMCPToolGroupsAccess,
+            hasAccess: showMCPToolGroups,
           },
 					{
 						title: "Auth Sessions",
@@ -858,10 +894,10 @@ export default function AppSidebar() {
         hasAccess: hasPluginsAccess,
       },
       {
-        title: "Governance",
+        title: "Team",
         url: "/workspace/governance",
         icon: Landmark,
-        description: "Virtual keys, users, teams, customers & roles",
+        description: "Users, roles, and platform administration",
         hasAccess: hasAnyGovernanceAccess,
         subItems: [
           {
@@ -869,63 +905,56 @@ export default function AppSidebar() {
             url: "/workspace/governance/virtual-keys",
             icon: KeyRound,
             description: "Manage virtual keys & access",
-            hasAccess: hasVirtualKeysAccess,
+            hasAccess: hasVirtualKeysAccess && !hideManualVirtualKeys,
           },
           {
             title: "Users",
             url: "/workspace/governance/users",
             icon: Users,
             description: "Manage users",
-            hasAccess: hasUsersAccess,
+            hasAccess: showGovernanceUsers,
           },
           {
-            title: "Teams",
-            url: "/workspace/governance/teams",
-            icon: Building,
-            description: "Manage teams",
-            hasAccess: hasTeamsAccess,
+            title: "Users",
+            url: "/workspace/governance/aone-users",
+            icon: Users,
+            description: "OAuth sign-in users",
+            hasAccess: showAoneUsers,
           },
           {
             title: "Business Units",
             url: "/workspace/governance/business-units",
             icon: Building2,
             description: "Manage business units",
-            hasAccess: hasBusinessUnitsAccess,
-          },
-          {
-            title: "Customers",
-            url: "/workspace/governance/customers",
-            icon: WalletCards,
-            description: "Manage customers",
-            hasAccess: hasCustomersAccess,
+            hasAccess: showBusinessUnits,
           },
           {
             title: "User Provisioning",
             url: "/workspace/scim",
             icon: BookUser,
             description: "User management and provisioning",
-            hasAccess: hasUserProvisioningAccess,
+            hasAccess: showUserProvisioning,
           },
           {
             title: "Roles & Permissions",
             url: "/workspace/governance/rbac",
             icon: UserRoundCheck,
             description: "User roles and permissions",
-            hasAccess: hasRbacAccess,
+            hasAccess: showRbac,
           },
           {
             title: "Access Profiles",
             url: "/workspace/governance/access-profiles",
             icon: ShieldCheck,
             description: "Manage access profiles for roles",
-            hasAccess: hasAccessProfilesAccess,
+            hasAccess: showAccessProfiles,
           },
           {
             title: "Audit Logs",
             url: "/workspace/audit-logs",
             icon: ScrollText,
             description: "Audit logs and compliance",
-            hasAccess: hasAuditLogsAccess,
+            hasAccess: showAuditLogs,
           },
         ],
       },
@@ -934,21 +963,21 @@ export default function AppSidebar() {
         url: "/workspace/guardrails",
         icon: Construction,
         description: "Guardrails configuration",
-        hasAccess: hasGuardrailsConfigAccess || hasGuardrailsProvidersAccess,
+        hasAccess: showGuardrails,
         subItems: [
           {
             title: "Rules",
             url: "/workspace/guardrails/configuration",
             icon: SearchCheck,
             description: "Guardrail rules",
-            hasAccess: hasGuardrailsConfigAccess,
+            hasAccess: showGuardrailsConfig,
           },
           {
             title: "Providers",
             url: "/workspace/guardrails/providers",
             icon: Boxes,
             description: "Guardrail providers configuration",
-            hasAccess: hasGuardrailsProvidersAccess,
+            hasAccess: showGuardrailsProviders,
           },
         ],
       },
@@ -957,14 +986,14 @@ export default function AppSidebar() {
         url: "/workspace/cluster",
         icon: Network,
         description: "Manage Bifrost cluster",
-        hasAccess: hasClusterConfigAccess,
+        hasAccess: showClusterConfig,
       },
       {
         title: "Adaptive Routing",
         url: "/workspace/adaptive-routing",
         icon: Shuffle,
         description: "Manage adaptive load balancer",
-        hasAccess: isAdaptiveRoutingAllowed,
+        hasAccess: showAdaptiveRouting,
       },
       ...(isDbConnected
         ? [
@@ -990,8 +1019,7 @@ export default function AppSidebar() {
         url: "/workspace/config",
         icon: Settings2Icon,
         description: "Bifrost settings",
-        hasAccess:
-          hasSettingsAccess || hasAuditLogsAccess || hasUserProvisioningAccess,
+        hasAccess: hasSettingsAccess || showAuditLogs || showUserProvisioning,
         subItems: [
           {
             title: "Client Settings",
@@ -1063,27 +1091,31 @@ export default function AppSidebar() {
       hasDashboardAccess,
       hasModelProvidersAccess,
       hasMCPGatewayAccess,
-      hasMCPToolGroupsAccess,
       hasMCPLogsAccess,
       hasPluginsAccess,
-      hasUsersAccess,
-      hasUserProvisioningAccess,
-      hasAuditLogsAccess,
       hasCustomersAccess,
       hasTeamsAccess,
-      hasBusinessUnitsAccess,
-      hasRbacAccess,
       hasVirtualKeysAccess,
       hasGovernanceLegacyAccess,
       hasAnyGovernanceAccess,
       hasRoutingRulesAccess,
-      hasGuardrailsProvidersAccess,
-      hasGuardrailsConfigAccess,
-      hasClusterConfigAccess,
-      isAdaptiveRoutingAllowed,
       hasSettingsAccess,
+      hasFeatureFlagsAccess,
       hasPromptRepositoryAccess,
-      hasAccessProfilesAccess,
+      showMCPToolGroups,
+      showGovernanceUsers,
+      showAoneUsers,
+      hideManualVirtualKeys,
+      showUserProvisioning,
+      showAuditLogs,
+      showBusinessUnits,
+      showRbac,
+      showAccessProfiles,
+      showGuardrails,
+      showGuardrailsConfig,
+      showGuardrailsProviders,
+      showClusterConfig,
+      showAdaptiveRouting,
       isDbConnected,
     ],
   );
@@ -1105,11 +1137,19 @@ export default function AppSidebar() {
       .filter(Boolean) as SidebarItem[];
   }, [items]);
 
+  const roleScopedItems: SidebarItem[] = useMemo(() => {
+    if (!isAoneUserSession) {
+      return accessibleItems;
+    }
+    const allowedUrls = new Set(["/workspace/quick-start", "/workspace/prompt-repo"]);
+    return accessibleItems.filter((item) => allowedUrls.has(item.url));
+  }, [accessibleItems, isAoneUserSession]);
+
   const filteredItems: SidebarItem[] = useMemo(() => {
     const query = searchQuery.trim().toLowerCase();
-    if (!query) return accessibleItems;
+    if (!query) return roleScopedItems;
 
-    return accessibleItems
+    return roleScopedItems
       .map((item) => {
         const parentMatches = item.title.toLowerCase().includes(query);
         if (parentMatches) return item;
@@ -1125,7 +1165,7 @@ export default function AppSidebar() {
         return null;
       })
       .filter(Boolean) as SidebarItem[];
-  }, [accessibleItems, searchQuery]);
+  }, [roleScopedItems, searchQuery]);
 
   const { data: version } = useGetVersionQuery();
   const { resolvedTheme } = useTheme();
@@ -1337,6 +1377,25 @@ export default function AppSidebar() {
 
   // Memoize promo cards array to prevent duplicates and unnecessary re-renders
   const promoCards = useMemo(() => {
+    if (showAoneUsers) {
+      if (coreConfig?.restart_required?.required) {
+        return [
+          {
+            id: "restart-required",
+            title: "Restart Required",
+            description: (
+              <div className="text-xs text-amber-700 dark:text-amber-300/80">
+                {coreConfig.restart_required.reason ||
+                  "Configuration changes require a server restart to take effect."}
+              </div>
+            ),
+            dismissible: false,
+            variant: "warning" as const,
+          },
+        ];
+      }
+      return [];
+    }
     const cards = [];
     // Restart required card - non-dismissible, shown first
     if (coreConfig?.restart_required?.required) {
@@ -1389,6 +1448,7 @@ export default function AppSidebar() {
     newReleaseImage,
     isProductionSetupDismissed,
     mounted,
+    showAoneUsers,
   ]);
 
   // Reset areCardsEmpty when promoCards changes
@@ -1399,11 +1459,13 @@ export default function AppSidebar() {
   }, [promoCards]);
 
   const hasPromoCards = promoCards.length > 0 && !areCardsEmpty;
-  // When cards are present: 13rem (header 3rem + bottom section ~10rem)
-  // When no cards: 8rem (header 3rem + bottom section without cards ~5rem)
-  const sidebarGroupHeight = hasPromoCards
-    ? "h-[calc(100vh-13rem)]"
-    : "h-[calc(100vh-8rem)]";
+  const sidebarGroupHeight = showAoneUsers
+    ? hasPromoCards
+      ? "h-[calc(100vh-10rem)]"
+      : "h-[calc(100vh-6rem)]"
+    : hasPromoCards
+      ? "h-[calc(100vh-12rem)]"
+      : "h-[calc(100vh-7rem)]";
 
   const handleCardsEmpty = () => {
     setAreCardsEmpty(true);
@@ -1456,29 +1518,37 @@ export default function AppSidebar() {
               height={70}
             />
           </Link>
-          <button
-            onClick={toggleSidebar}
-            type="button"
-            data-testid="sidebar-collapse-btn"
-            className="text-muted-foreground hover:text-foreground hover:bg-sidebar-accent flex h-7 w-7 items-center justify-center rounded-md transition-colors"
-            aria-label="Collapse sidebar"
-          >
-            <PanelLeftClose className="h-4 w-4" />
-          </button>
+          <div className="flex items-center gap-1">
+            <ThemeToggle />
+            <button
+              onClick={toggleSidebar}
+              type="button"
+              data-testid="sidebar-collapse-btn"
+              className="text-muted-foreground hover:text-foreground hover:bg-sidebar-accent flex h-7 w-7 items-center justify-center rounded-md transition-colors"
+              aria-label="Collapse sidebar"
+            >
+              <PanelLeftClose className="h-4 w-4" />
+            </button>
+          </div>
         </div>
         {/* Collapsed state: vertical layout */}
-        <div
-          className="hidden w-full cursor-pointer flex-col items-center gap-2 py-2 group-data-[collapsible=icon]:flex"
-          onClick={toggleSidebar}
-        >
-          <img
-            className="h-[22px] w-auto"
-            src={iconSrc}
-            alt="Bifrost"
-            width={22}
-            height={22}
-            style={{ width: 18 }}
-          />
+        <div className="hidden w-full flex-col items-center gap-2 py-2 group-data-[collapsible=icon]:flex">
+          <button
+            type="button"
+            onClick={toggleSidebar}
+            className="cursor-pointer"
+            aria-label="Expand sidebar"
+          >
+            <img
+              className="h-[22px] w-auto"
+              src={iconSrc}
+              alt="Bifrost"
+              width={22}
+              height={22}
+              style={{ width: 18 }}
+            />
+          </button>
+          <ThemeToggle />
         </div>
       </SidebarHeader>
       <div className="mx-2 pb-1 group-data-[collapsible=icon]:hidden">
@@ -1541,39 +1611,91 @@ export default function AppSidebar() {
           </SidebarGroupContent>
         </SidebarGroup>
         <div className="flex flex-col gap-4 px-3 group-data-[collapsible=icon]:px-1">
-          <div className="mx-1 group-data-[collapsible=icon]:hidden">
-            <PromoCardStack
-              cards={promoCards}
-              onCardsEmpty={handleCardsEmpty}
-              onDismiss={handlePromoDismiss}
-            />
-          </div>
-          <div className="flex flex-row">
-            <div className="mx-auto flex flex-row gap-4 group-data-[collapsible=icon]:flex-col group-data-[collapsible=icon]:gap-2">
-              {sidebarState !== "collapsed" &&
-                externalLinks.map((item, index) => (
-                  <a
-                    key={index}
-                    href={item.url}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="group flex w-full items-center justify-between"
-                    title={item.title}
+          {aoneUserEnabled && aoneDisplayName ? (
+            <Popover open={userPopoverOpen} onOpenChange={setUserPopoverOpen}>
+              <PopoverTrigger asChild>
+                <button
+                  type="button"
+                  data-testid="sidebar-aone-user-trigger"
+                  className="hover:bg-sidebar-accent flex w-full items-center gap-2 rounded-md px-1 py-1.5 text-left transition-colors group-data-[collapsible=icon]:justify-center"
+                  aria-label="User menu"
+                >
+                  <Avatar className="size-8">
+                    {aoneAvatar ? (
+                      <AvatarImage src={aoneAvatar} alt={aoneDisplayName} />
+                    ) : null}
+                    <AvatarFallback className="text-xs font-medium">
+                      {aoneDisplayName.charAt(0).toUpperCase()}
+                    </AvatarFallback>
+                  </Avatar>
+                  <span className="truncate text-sm font-medium group-data-[collapsible=icon]:hidden">
+                    {aoneDisplayName}
+                  </span>
+                </button>
+              </PopoverTrigger>
+              <PopoverContent side="top" align="start" className="w-56 p-0">
+                <div className="flex flex-col">
+                  <div className="flex items-center gap-3 px-4 py-3">
+                    <Avatar className="size-9">
+                      {aoneAvatar ? (
+                        <AvatarImage src={aoneAvatar} alt={aoneDisplayName} />
+                      ) : null}
+                      <AvatarFallback className="text-xs font-medium">
+                        {aoneDisplayName.charAt(0).toUpperCase()}
+                      </AvatarFallback>
+                    </Avatar>
+                    <p className="truncate text-sm font-medium">
+                      {aoneDisplayName}
+                    </p>
+                  </div>
+                  <Separator />
+                  <button
+                    onClick={handleLogout}
+                    className="hover:bg-accent hover:text-accent-foreground flex w-full items-center gap-2 px-4 py-2.5 text-left text-sm transition-colors"
+                    type="button"
                   >
-                    <div className="flex items-center space-x-3">
-                      <item.icon
-                        className="hover:text-primary text-muted-foreground h-5 w-5"
-                        size={22}
-                        weight="regular"
-                        strokeWidth={item.strokeWidth}
-                      />
-                    </div>
-                  </a>
-                ))}
-              <ThemeToggle />
-              {IS_ENTERPRISE &&
-              userInfo &&
-              (userInfo.name || userInfo.email) ? (
+                    <LogOut className="h-4 w-4" strokeWidth={2} />
+                    <span>Logout</span>
+                  </button>
+                </div>
+              </PopoverContent>
+            </Popover>
+          ) : null}
+          {!showAoneUsers ? (
+            <div className="mx-1 group-data-[collapsible=icon]:hidden">
+              <PromoCardStack
+                cards={promoCards}
+                onCardsEmpty={handleCardsEmpty}
+                onDismiss={handlePromoDismiss}
+              />
+            </div>
+          ) : null}
+          {!showAoneUsers ? (
+            <div className="flex flex-row">
+              <div className="mx-auto flex flex-row gap-4 group-data-[collapsible=icon]:flex-col group-data-[collapsible=icon]:gap-2">
+                {sidebarState !== "collapsed" &&
+                  externalLinks.map((item, index) => (
+                    <a
+                      key={index}
+                      href={item.url}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="group flex w-full items-center justify-between"
+                      title={item.title}
+                    >
+                      <div className="flex items-center space-x-3">
+                        <item.icon
+                          className="hover:text-primary text-muted-foreground h-5 w-5"
+                          size={22}
+                          weight="regular"
+                          strokeWidth={item.strokeWidth}
+                        />
+                      </div>
+                    </a>
+                  ))}
+                {IS_ENTERPRISE &&
+                userInfo &&
+                (userInfo.name || userInfo.email) ? (
                 <Popover
                   open={userPopoverOpen}
                   onOpenChange={setUserPopoverOpen}
@@ -1610,7 +1732,7 @@ export default function AppSidebar() {
                     </div>
                   </PopoverContent>
                 </Popover>
-              ) : isAuthEnabled ? (
+              ) : isAuthEnabled && !showAoneUsers ? (
                 <div>
                   <button
                     className="hover:text-primary text-muted-foreground flex cursor-pointer items-center space-x-3 p-0.5"
@@ -1638,10 +1760,21 @@ export default function AppSidebar() {
                 </button>
               </div>
             </div>
-          </div>
-          <div className="mx-auto flex flex-col items-center gap-1 group-data-[collapsible=icon]:hidden">
-            <div className="font-mono text-xs">{version ?? ""}</div>
-          </div>
+            </div>
+          ) : null}
+          {showAoneUsers ? (
+            <div className="hidden w-full cursor-pointer flex-col items-center group-data-[collapsible=icon]:flex">
+              <button
+                onClick={toggleSidebar}
+                type="button"
+                data-testid="sidebar-expand-btn"
+                className="text-muted-foreground hover:text-foreground hover:bg-sidebar-accent flex cursor-pointer items-center justify-center rounded-md transition-colors"
+                aria-label="Expand sidebar"
+              >
+                <PanelLeftOpen className="h-4 w-4" />
+              </button>
+            </div>
+          ) : null}
         </div>
       </SidebarContent>
     </Sidebar>

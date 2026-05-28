@@ -1,5 +1,6 @@
 import FullPageLoader from "@/components/fullPageLoader";
 import { Badge } from "@/components/ui/badge";
+import { IS_ENTERPRISE } from "@/lib/constants/config";
 import { setSelectedPlugin, useAppDispatch, useGetPluginsQuery } from "@/lib/store";
 import { cn } from "@/lib/utils";
 import { useTheme } from "next-themes";
@@ -21,6 +22,8 @@ type SupportedPlatform = {
 	tag?: string;
 	disabled?: boolean;
 };
+
+const ENTERPRISE_CONNECTOR_IDS = new Set(["datadog", "bigquery", "kafka", "pubsub"]);
 
 const supportedPlatformsList = (resolvedTheme: string): SupportedPlatform[] => [
 	{
@@ -89,7 +92,13 @@ export default function ObservabilityView() {
 	const [selectedPluginId, setSelectedPluginId] = useQueryState("plugin");
 	const { resolvedTheme } = useTheme();
 
-	const supportedPlatforms = useMemo(() => supportedPlatformsList(resolvedTheme || "light"), [resolvedTheme]);
+	const supportedPlatforms = useMemo(() => {
+		const platforms = supportedPlatformsList(resolvedTheme || "light");
+		if (IS_ENTERPRISE) {
+			return platforms;
+		}
+		return platforms.filter((platform) => !ENTERPRISE_CONNECTOR_IDS.has(platform.id));
+	}, [resolvedTheme]);
 
 	// Map UI tab IDs to actual plugin names (prometheus tab uses telemetry plugin)
 	const getPluginNameForTab = (tabId: string) => (tabId === "prometheus" ? "telemetry" : tabId);
@@ -184,10 +193,10 @@ export default function ObservabilityView() {
 				{selectedPluginId === "prometheus" && <PrometheusView />}
 				{selectedPluginId === "otel" && <OtelView />}
 				{selectedPluginId === "maxim" && <MaximView />}
-				{selectedPluginId === "kafka" && <KafkaView />}
-				{selectedPluginId === "datadog" && <DatadogView />}
-				{selectedPluginId === "bigquery" && <BigQueryView />}
-				{selectedPluginId === "pubsub" && <PubSubView />}
+				{IS_ENTERPRISE && selectedPluginId === "kafka" && <KafkaView />}
+				{IS_ENTERPRISE && selectedPluginId === "datadog" && <DatadogView />}
+				{IS_ENTERPRISE && selectedPluginId === "bigquery" && <BigQueryView />}
+				{IS_ENTERPRISE && selectedPluginId === "pubsub" && <PubSubView />}
 				{selectedPluginId === "newrelic" && <NewrelicView />}
 			</div>
 		</div>

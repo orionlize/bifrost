@@ -7,6 +7,7 @@ import { SplitButton } from "@/components/ui/splitButton";
 import { Message, MessageRole } from "@/lib/message";
 import { getErrorMessage } from "@/lib/store";
 import { useCreateSessionMutation, useGetSessionsQuery, useGetVersionsQuery, useRenameSessionMutation } from "@/lib/store/apis/promptsApi";
+import { useIsAuthEnabledQuery } from "@/lib/store/apis/sessionApi";
 import { ModelParams, PromptSession } from "@/lib/types/prompts";
 import { cn } from "@/lib/utils";
 import { Check, GitCommit, PencilIcon, Save, Trash2 } from "lucide-react";
@@ -33,6 +34,9 @@ export default function PromptsViewHeader() {
 		isStreaming,
 		canUpdate,
 	} = usePromptContext();
+
+	const { data: authStatus } = useIsAuthEnabledQuery();
+	const useAoneApiKeyAuth = authStatus?.aone_oauth_enabled === true;
 
 	const [sessionsOpen, setSessionsOpen] = useState(false);
 
@@ -72,11 +76,11 @@ export default function PromptsViewHeader() {
 	// Build model_params with api_key_id for persistence
 	const buildSaveParams = useCallback((): ModelParams => {
 		const params = { ...modelParams };
-		if (apiKeyId && apiKeyId !== "__auto__") {
+		if (!useAoneApiKeyAuth && apiKeyId && apiKeyId !== "__auto__") {
 			params.api_key_id = apiKeyId;
 		}
 		return params;
-	}, [modelParams, apiKeyId]);
+	}, [modelParams, apiKeyId, useAoneApiKeyAuth]);
 
 	const handleSaveSession = useCallback(async () => {
 		if (!selectedPrompt || !hasChanges || isStreaming) return;

@@ -8,6 +8,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { getProviderLabel } from "@/lib/constants/logs";
 import { Input } from "@/components/ui/input";
 import { useGetVirtualKeysQuery } from "@/lib/store";
+import { useIsAuthEnabledQuery } from "@/lib/store/apis/sessionApi";
 import { useGetAllKeysQuery, useGetProvidersQuery } from "@/lib/store/apis/providersApi";
 import { ModelProviderName } from "@/lib/types/config";
 import { ModelParams } from "@/lib/types/prompts";
@@ -35,6 +36,9 @@ export function SettingsPanel() {
 		requiredHeaders,
 		selectedPromptId,
 	} = usePromptContext();
+
+	const { data: authStatus } = useIsAuthEnabledQuery();
+	const hideApiKeySelector = authStatus?.aone_oauth_enabled === true;
 
 	const onProviderChange = useCallback(
 		(p: string) => {
@@ -200,7 +204,7 @@ export function SettingsPanel() {
 									/>
 								</div>
 
-								{(providerKeys.length > 0 || providerVirtualKeys.length > 0) && !!provider && (
+								{(providerKeys.length > 0 || providerVirtualKeys.length > 0) && !!provider && !hideApiKeySelector && (
 									<ApiKeySelectorView
 										providerKeys={providerKeys}
 										virtualKeys={providerVirtualKeys}

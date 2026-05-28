@@ -67,6 +67,9 @@ type LogManager interface {
 	// GetDimensionRankings returns entities ranked by usage grouped by the given dimension
 	GetDimensionRankings(ctx context.Context, filters *logstore.SearchFilters, dimension logstore.RankingDimension) (*logstore.DimensionRankingResult, error)
 
+	// GetVirtualKeyUsageRankings aggregates usage for virtual keys in the current and previous periods.
+	GetVirtualKeyUsageRankings(ctx context.Context, filters *logstore.SearchFilters, virtualKeyIDs []string) (map[string]logstore.VirtualKeyUsageAggregate, map[string]logstore.VirtualKeyUsageAggregate, error)
+
 	// Get the number of dropped requests
 	GetDroppedRequests(ctx context.Context) int64
 
@@ -264,6 +267,13 @@ func (p *PluginLogManager) GetDimensionRankings(ctx context.Context, filters *lo
 		return nil, fmt.Errorf("filters cannot be nil")
 	}
 	return p.plugin.GetDimensionRankings(ctx, *filters, dimension)
+}
+
+func (p *PluginLogManager) GetVirtualKeyUsageRankings(ctx context.Context, filters *logstore.SearchFilters, virtualKeyIDs []string) (map[string]logstore.VirtualKeyUsageAggregate, map[string]logstore.VirtualKeyUsageAggregate, error) {
+	if filters == nil {
+		return nil, nil, fmt.Errorf("filters cannot be nil")
+	}
+	return p.plugin.GetVirtualKeyUsageRankings(ctx, *filters, virtualKeyIDs)
 }
 
 func (p *PluginLogManager) GetDroppedRequests(ctx context.Context) int64 {

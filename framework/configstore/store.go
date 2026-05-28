@@ -7,6 +7,7 @@ import (
 	"time"
 
 	"github.com/maximhq/bifrost/core/schemas"
+	"github.com/maximhq/bifrost/framework/aoneoauth"
 	"github.com/maximhq/bifrost/framework/configstore/tables"
 	"github.com/maximhq/bifrost/framework/logstore"
 	"github.com/maximhq/bifrost/framework/vectorstore"
@@ -256,6 +257,16 @@ type ConfigStore interface {
 	CreateSession(ctx context.Context, session *tables.SessionsTable) error
 	DeleteSession(ctx context.Context, token string) error
 	FlushSessions(ctx context.Context) error
+
+	// Aone OAuth user CRUD
+	UpsertAoneUserFromLogin(ctx context.Context, me *aoneoauth.MeResponse) (*tables.AoneUserTable, error)
+	GetAoneUsersPaginated(ctx context.Context, params AoneUsersQueryParams) ([]tables.AoneUserTable, int64, error)
+	GetAoneUserByAoneID(ctx context.Context, aoneUserID string) (*tables.AoneUserTable, error)
+	SetAoneUserDisabled(ctx context.Context, aoneUserID string, disabled bool) (*tables.AoneUserTable, error)
+	RotateAoneUserVirtualKey(ctx context.Context, aoneUserID string) (*tables.TableVirtualKey, error)
+	DeleteAoneUserSessions(ctx context.Context, aoneUserID string) error
+	EnsureAoneUserVirtualKey(ctx context.Context, aoneUserID string) (*tables.TableVirtualKey, error)
+	ResolveAoneSessionVirtualKey(ctx context.Context, sessionToken string) (vkValue string, aoneUserID string, err error)
 
 	// Temp token CRUD
 	CreateTempToken(ctx context.Context, token *tables.TempToken, tx ...*gorm.DB) error

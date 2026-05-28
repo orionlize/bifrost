@@ -9,6 +9,7 @@ import (
 	"io"
 	"slices"
 	"strings"
+	"sync"
 	"sync/atomic"
 	"time"
 
@@ -16,6 +17,7 @@ import (
 	providerUtils "github.com/maximhq/bifrost/core/providers/utils"
 	"github.com/maximhq/bifrost/core/schemas"
 	"github.com/maximhq/bifrost/framework/configstore"
+	"github.com/maximhq/bifrost/framework/configstore/tables"
 	"github.com/maximhq/bifrost/framework/encrypt"
 	"github.com/maximhq/bifrost/framework/temptoken"
 	"github.com/maximhq/bifrost/framework/tracing"
@@ -23,6 +25,8 @@ import (
 	"github.com/maximhq/bifrost/transports/bifrost-http/lib"
 	"github.com/valyala/fasthttp"
 )
+
+var reloadedAoneVirtualKeys sync.Map
 
 var loggingSkipPaths = []string{"/health", "/_next", "/api/dev"}
 var realtimeTransportPaths = buildRealtimeTransportPathSet()
@@ -693,6 +697,11 @@ func isRealtimeTransportEndpoint(path string) bool {
 	return ok
 }
 
+// VirtualKeyReloader reloads a virtual key into the in-memory governance store.
+type VirtualKeyReloader interface {
+	ReloadVirtualKey(ctx context.Context, id string) (*tables.TableVirtualKey, error)
+}
+
 // AuthMiddleware is a middleware that handles authentication for the API.
 type AuthMiddleware struct {
 	store             configstore.ConfigStore
@@ -749,6 +758,13 @@ func (m *AuthMiddleware) UpdateWhitelistedRoutes(routes []string) {
 // UpdateTempTokenAuthEnabled updates whether scoped temp-token fallback auth is accepted.
 func (m *AuthMiddleware) UpdateTempTokenAuthEnabled(enabled bool) {
 	m.tempTokensEnabled.Store(enabled)
+}
+
+// MarkAoneVirtualKeyReloaded records that a virtual key is already present in the governance store.
+func MarkAoneVirtualKeyReloaded(vkID string) {
+	if vkID != "" {
+		reloadedAoneVirtualKeys.Store(vkID, true)
+	}
 }
 
 // tryTempTokenOrUnauthorized is the last-resort auth path: a request that

@@ -1603,6 +1603,13 @@ type DimensionRankingResult struct {
 	Dimension RankingDimension            `json:"dimension"`
 }
 
+// VirtualKeyUsageAggregate holds rolled-up usage for a single virtual key.
+type VirtualKeyUsageAggregate struct {
+	TotalRequests int64   `json:"total_requests"`
+	TotalTokens   int64   `json:"total_tokens"`
+	TotalCost     float64 `json:"total_cost"`
+}
+
 // NodeUsageCursor identifies the last log row included in a node usage scan.
 // The initial scan uses Timestamp + LogID because each ghost has a timestamp
 // lower bound. Once rows written with IncNumber are seen, subsequent scans use

@@ -2132,6 +2132,83 @@ func (s *RDBLogStore) GetDimensionRankings(ctx context.Context, filters SearchFi
 	return &DimensionRankingResult{Rankings: rankings, Dimension: dimension}, nil
 }
 
+// GetVirtualKeyUsageRankings aggregates usage per virtual key for the current
+// filter window and the previous period of equal duration.
+func (s *RDBLogStore) GetVirtualKeyUsageRankings(ctx context.Context, filters SearchFilters, virtualKeyIDs []string) (map[string]VirtualKeyUsageAggregate, map[string]VirtualKeyUsageAggregate, error) {
+	current, err := s.queryVirtualKeyUsageRankings(ctx, filters, virtualKeyIDs)
+	if err != nil {
+		return nil, nil, err
+	}
+
+	prev := make(map[string]VirtualKeyUsageAggregate)
+	if filters.StartTime != nil && filters.EndTime != nil {
+		duration := filters.EndTime.Sub(*filters.StartTime)
+		prevStart := filters.StartTime.Add(-duration)
+		prevEnd := filters.StartTime.Add(-time.Nanosecond)
+		prevFilters := filters
+		prevFilters.StartTime = &prevStart
+		prevFilters.EndTime = &prevEnd
+		prev, err = s.queryVirtualKeyUsageRankings(ctx, prevFilters, virtualKeyIDs)
+		if err != nil {
+			return nil, nil, err
+		}
+	}
+
+	return current, prev, nil
+}
+
+func (s *RDBLogStore) queryVirtualKeyUsageRankings(ctx context.Context, filters SearchFilters, virtualKeyIDs []string) (map[string]VirtualKeyUsageAggregate, error) {
+	out := make(map[string]VirtualKeyUsageAggregate)
+	if len(virtualKeyIDs) == 0 {
+		return out, nil
+	}
+
+	type row struct {
+		VirtualKeyID string          `gorm:"column:virtual_key_id"`
+		Total        int64           `gorm:"column:total"`
+		TotalTokens  sql.NullInt64   `gorm:"column:total_tokens"`
+		TotalCost    sql.NullFloat64 `gorm:"column:total_cost"`
+	}
+	var results []row
+
+	if s.db.Dialector.Name() == "postgres" && s.canUseMatView(filters) {
+		q := s.ScopedDB(ctx).Table("mv_logs_hourly")
+		q = s.applyMatViewFilters(q, filters)
+		q = q.Where("virtual_key_id IN ?", virtualKeyIDs)
+		if err := q.Select(`
+			virtual_key_id,
+			SUM(count) AS total,
+			SUM(total_tokens) AS total_tokens,
+			COALESCE(SUM(total_cost), 0) AS total_cost
+		`).Group("virtual_key_id").Find(&results).Error; err != nil {
+			return nil, fmt.Errorf("failed to get virtual key usage rankings from matview: %w", err)
+		}
+	} else {
+		q := s.ScopedDB(ctx).Model(&Log{})
+		q = s.applyFilters(q, filters)
+		q = q.Where("status IN ?", []string{"success", "error"})
+		q = q.Where("virtual_key_id IS NOT NULL AND virtual_key_id != ''")
+		q = q.Where("virtual_key_id IN ?", virtualKeyIDs)
+		if err := q.Select(`
+			virtual_key_id,
+			COUNT(*) AS total,
+			COALESCE(SUM(total_tokens), 0) AS total_tokens,
+			COALESCE(SUM(cost), 0) AS total_cost
+		`).Group("virtual_key_id").Find(&results).Error; err != nil {
+			return nil, fmt.Errorf("failed to get virtual key usage rankings: %w", err)
+		}
+	}
+
+	for _, r := range results {
+		out[r.VirtualKeyID] = VirtualKeyUsageAggregate{
+			TotalRequests: r.Total,
+			TotalTokens:   r.TotalTokens.Int64,
+			TotalCost:     r.TotalCost.Float64,
+		}
+	}
+	return out, nil
+}
+
 // pctChange computes the percentage change from old to new.
 func pctChange(old, new float64) float64 {
 	if old == 0 {

@@ -6,6 +6,7 @@ import { ThemeProvider } from "@/components/themeProvider";
 import TrialExpiryBanner from "@/components/trialExpiryBanner";
 import { SidebarProvider } from "@/components/ui/sidebar";
 import { useStoreSync } from "@/hooks/useStoreSync";
+import { useAoneCurrentUser } from "@/hooks/useAoneCurrentUser";
 import { WebSocketProvider } from "@/hooks/useWebSocket";
 import {
   getErrorMessage,
@@ -35,6 +36,7 @@ const DevProfiler = () => (
 
 function StoreSyncInitializer() {
   useStoreSync();
+  useAoneCurrentUser();
   return null;
 }
 

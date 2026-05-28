@@ -663,6 +663,10 @@ func (h *HybridLogStore) GetDimensionRankings(ctx context.Context, filters Searc
 	return h.inner.GetDimensionRankings(ctx, filters, dimension)
 }
 
+func (h *HybridLogStore) GetVirtualKeyUsageRankings(ctx context.Context, filters SearchFilters, virtualKeyIDs []string) (map[string]VirtualKeyUsageAggregate, map[string]VirtualKeyUsageAggregate, error) {
+	return h.inner.GetVirtualKeyUsageRankings(ctx, filters, virtualKeyIDs)
+}
+
 // GetDimensionCostHistogram delegates to the inner store and returns a cost
 // histogram bucketed by bucketSizeSeconds and grouped by the given dimension.
 func (h *HybridLogStore) GetDimensionCostHistogram(ctx context.Context, filters SearchFilters, bucketSizeSeconds int64, dimension HistogramDimension) (*DimensionCostHistogramResult, error) {

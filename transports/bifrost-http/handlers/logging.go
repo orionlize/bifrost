@@ -1094,6 +1094,20 @@ func (h *LoggingHandler) getDimensionRankings(ctx *fasthttp.RequestCtx) {
 
 	filters := parseHistogramFilters(ctx)
 
+	if dim == logstore.RankingDimensionUser && h.aoneOAuthEnabled(ctx) {
+		if filters == nil {
+			filters = &logstore.SearchFilters{}
+		}
+		result, err := h.getAoneUserDimensionRankings(ctx, *filters)
+		if err != nil {
+			logger.Error("failed to get aone user rankings: %v", err)
+			SendError(ctx, fasthttp.StatusInternalServerError, fmt.Sprintf("User rankings calculation failed: %v", err))
+			return
+		}
+		SendJSON(ctx, result)
+		return
+	}
+
 	result, err := h.logManager.GetDimensionRankings(ctx, filters, dim)
 	if err != nil {
 		logger.Error("failed to get dimension rankings: %v", err)
@@ -1262,7 +1276,13 @@ func (h *LoggingHandler) getAvailableFilterData(ctx *fasthttp.RequestCtx) {
 	}
 	if _, ok := want[filterDimUsers]; ok {
 		g.Go(func() error {
-			result, err := h.logManager.GetAvailableUsers(gCtx, defaultFilterDataLimit, query)
+			var result []logging.KeyPair
+			var err error
+			if h.aoneOAuthEnabled(gCtx) {
+				result, err = h.getAoneUsersFilterPairs(gCtx, defaultFilterDataLimit, query)
+			} else {
+				result, err = h.logManager.GetAvailableUsers(gCtx, defaultFilterDataLimit, query)
+			}
 			if err != nil {
 				return err
 			}

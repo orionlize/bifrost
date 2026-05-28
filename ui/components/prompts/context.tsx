@@ -11,11 +11,13 @@ import {
 	useUpdatePromptMutation,
 } from "@/lib/store/apis/promptsApi";
 import { useGetModelParametersQuery } from "@/lib/store/apis/providersApi";
+import { useIsAuthEnabledQuery } from "@/lib/store/apis/sessionApi";
 import { Folder, ModelParams, Prompt, PromptSession, PromptVersion } from "@/lib/types/prompts";
 import { RbacOperation, RbacResource, useRbac } from "@enterprise/lib";
 import { parseAsInteger, parseAsString, useQueryStates } from "nuqs";
 import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { toast } from "sonner";
+import { getAoneApiKey } from "@/lib/utils/aoneUserStorage";
 import { executePrompt } from "./utils/executor";
 
 interface PromptContextValue {
@@ -162,6 +164,22 @@ export function PromptProvider({ children }: { children: ReactNode }) {
 	const activeRunRef = useRef<symbol | null>(null);
 	const [variables, setVariables] = useState<VariableMap>({});
 	const [customHeaders, setCustomHeaders] = useState<Record<string, string>>({});
+	const { data: authStatus } = useIsAuthEnabledQuery();
+	const useAoneApiKeyAuth =
+		authStatus?.aone_oauth_enabled === true || getAoneApiKey() !== null;
+
+	const buildExecutionConfig = useCallback(
+		() => ({
+			provider,
+			model,
+			modelParams,
+			apiKeyId: useAoneApiKeyAuth ? "__auto__" : apiKeyId,
+			useAoneApiKeyAuth,
+			variables,
+			customHeaders,
+		}),
+		[provider, model, modelParams, apiKeyId, useAoneApiKeyAuth, variables, customHeaders],
+	);
 
 	// Sync customHeaders keys with the server-configured required_headers list.
 	// Adds new keys (empty), removes keys no longer required, preserves user-entered values.
@@ -237,7 +255,10 @@ export function PromptProvider({ children }: { children: ReactNode }) {
 		const loadFromParams = (params: ModelParams, prov: string, mod: string) => {
 			const { api_key_id, ...rest } = params || ({} as ModelParams);
 			setModelParams({ stream: true, ...rest });
-			setApiKeyId(api_key_id || "__auto__");
+			const persistedKey = api_key_id || "__auto__";
+			const forcePersonalApiKey =
+				useAoneApiKeyAuth || persistedKey.startsWith("sk-bf-") || getAoneApiKey() !== null;
+			setApiKeyId(forcePersonalApiKey ? "__auto__" : persistedKey);
 			setProvider(prov || "");
 			setModel(mod || "");
 		};
@@ -301,6 +322,7 @@ export function PromptProvider({ children }: { children: ReactNode }) {
 		setUrlState,
 		isSessionsLoading,
 		sessions.length,
+		useAoneApiKeyAuth,
 	]);
 
 	// Auto-select the most recent session when sessions load and none is selected
@@ -463,7 +485,7 @@ export function PromptProvider({ children }: { children: ReactNode }) {
 			await executePrompt(
 				messages,
 				pendingMessage,
-				{ provider, model, modelParams, apiKeyId, variables, customHeaders },
+				buildExecutionConfig(),
 				{
 					onStreamingStart: (allMessages, placeholder) => {
 						if (!isActive()) return;
@@ -514,7 +536,7 @@ export function PromptProvider({ children }: { children: ReactNode }) {
 				},
 			);
 		},
-		[messages, provider, model, modelParams, apiKeyId, variables, customHeaders],
+		[messages, buildExecutionConfig],
 	);
 
 	const handleSubmitToolResult = useCallback(
@@ -542,7 +564,7 @@ export function PromptProvider({ children }: { children: ReactNode }) {
 			await executePrompt(
 				newMessages,
 				undefined,
-				{ provider, model, modelParams, apiKeyId, variables, customHeaders },
+				buildExecutionConfig(),
 				{
 					onStreamingStart: (allMessages, placeholder) => {
 						if (!isActive()) return;
@@ -593,7 +615,7 @@ export function PromptProvider({ children }: { children: ReactNode }) {
 				},
 			);
 		},
-		[messages, provider, model, modelParams, apiKeyId, variables, customHeaders],
+		[messages, buildExecutionConfig],
 	);
 
 	const value: PromptContextValue = {

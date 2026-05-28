@@ -1,4 +1,5 @@
 import { baseApi, clearAuthStorage } from "./baseApi";
+import { clearAoneApiKey } from "@/lib/utils/aoneUserStorage";
 
 export interface LoginRequest {
 	username: string;
@@ -14,6 +15,7 @@ export interface IsAuthEnabledResponse {
 	has_valid_token: boolean;
 	auth_type?: "sso" | "password" | "none";
 	aone_oauth_enabled?: boolean;
+	is_aone_user_session?: boolean;
 }
 
 export interface LogoutResponse {
@@ -67,6 +69,7 @@ export const sessionApi = baseApi.injectEndpoints({
 				} catch {
 				} finally {
 					clearAuthStorage();
+					clearAoneApiKey();
 					dispatch(baseApi.util.resetApiState());
 				}
 			},

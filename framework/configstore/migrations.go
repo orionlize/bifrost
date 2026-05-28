@@ -813,6 +813,18 @@ func triggerMigrations(ctx context.Context, db *gorm.DB) error {
 	if err := migrationAddPerUserHeadersFlowsTable(ctx, db); err != nil {
 		return err
 	}
+	if err := migrationAddAoneUsersTable(ctx, db); err != nil {
+		return err
+	}
+	if err := migrationAddSessionAoneUserIDColumn(ctx, db); err != nil {
+		return err
+	}
+	if err := migrationAddAoneUserVirtualKeyIDColumn(ctx, db); err != nil {
+		return err
+	}
+	if err := migrationAddAoneUserIsDisabledColumn(ctx, db); err != nil {
+		return err
+	}
 	return nil
 }
 
@@ -8891,6 +8903,129 @@ func migrationDropAzureAPIVersionColumn(ctx context.Context, db *gorm.DB) error 
 	}})
 	if err := m.Migrate(); err != nil {
 		return fmt.Errorf("error running drop_azure_api_version_column migration: %s", err.Error())
+	}
+	return nil
+}
+
+func migrationAddAoneUsersTable(ctx context.Context, db *gorm.DB) error {
+	m := migrator.New(db, migrator.DefaultOptions, []*migrator.Migration{{
+		ID: "add_aone_users_table",
+		Migrate: func(tx *gorm.DB) error {
+			tx = tx.WithContext(ctx)
+			mg := tx.Migrator()
+			if !mg.HasTable(&tables.AoneUserTable{}) {
+				if err := mg.CreateTable(&tables.AoneUserTable{}); err != nil {
+					return fmt.Errorf("create aone_users table: %w", err)
+				}
+			}
+			return nil
+		},
+		Rollback: func(tx *gorm.DB) error {
+			tx = tx.WithContext(ctx)
+			mg := tx.Migrator()
+			if mg.HasTable(&tables.AoneUserTable{}) {
+				if err := mg.DropTable(&tables.AoneUserTable{}); err != nil {
+					return fmt.Errorf("drop aone_users table: %w", err)
+				}
+			}
+			return nil
+		},
+	}})
+	if err := m.Migrate(); err != nil {
+		return fmt.Errorf("error running add_aone_users_table migration: %s", err.Error())
+	}
+	return nil
+}
+
+func migrationAddSessionAoneUserIDColumn(ctx context.Context, db *gorm.DB) error {
+	m := migrator.New(db, migrator.DefaultOptions, []*migrator.Migration{{
+		ID: "add_session_aone_user_id_column",
+		Migrate: func(tx *gorm.DB) error {
+			tx = tx.WithContext(ctx)
+			if !tx.Migrator().HasColumn(&tables.SessionsTable{}, "aone_user_id") {
+				if err := tx.Exec("ALTER TABLE sessions ADD COLUMN aone_user_id VARCHAR(255)").Error; err != nil {
+					return fmt.Errorf("failed to add aone_user_id column to sessions: %w", err)
+				}
+				if err := tx.Exec("CREATE INDEX IF NOT EXISTS idx_sessions_aone_user_id ON sessions (aone_user_id)").Error; err != nil {
+					return fmt.Errorf("failed to create index on sessions.aone_user_id: %w", err)
+				}
+			}
+			return nil
+		},
+		Rollback: func(tx *gorm.DB) error {
+			tx = tx.WithContext(ctx)
+			if tx.Migrator().HasColumn(&tables.SessionsTable{}, "aone_user_id") {
+				if err := tx.Exec("ALTER TABLE sessions DROP COLUMN aone_user_id").Error; err != nil {
+					return fmt.Errorf("failed to drop aone_user_id column from sessions: %w", err)
+				}
+			}
+			return nil
+		},
+	}})
+	if err := m.Migrate(); err != nil {
+		return fmt.Errorf("error running add_session_aone_user_id_column migration: %s", err.Error())
+	}
+	return nil
+}
+
+func migrationAddAoneUserIsDisabledColumn(ctx context.Context, db *gorm.DB) error {
+	m := migrator.New(db, migrator.DefaultOptions, []*migrator.Migration{{
+		ID: "add_aone_user_is_disabled_column",
+		Migrate: func(tx *gorm.DB) error {
+			tx = tx.WithContext(ctx)
+			if !tx.Migrator().HasColumn(&tables.AoneUserTable{}, "is_disabled") {
+				if err := tx.Exec("ALTER TABLE aone_users ADD COLUMN is_disabled BOOLEAN NOT NULL DEFAULT FALSE").Error; err != nil {
+					return fmt.Errorf("failed to add is_disabled column to aone_users: %w", err)
+				}
+				if err := tx.Exec("CREATE INDEX IF NOT EXISTS idx_aone_users_is_disabled ON aone_users (is_disabled)").Error; err != nil {
+					return fmt.Errorf("failed to create index on aone_users.is_disabled: %w", err)
+				}
+			}
+			return nil
+		},
+		Rollback: func(tx *gorm.DB) error {
+			tx = tx.WithContext(ctx)
+			if tx.Migrator().HasColumn(&tables.AoneUserTable{}, "is_disabled") {
+				if err := tx.Exec("ALTER TABLE aone_users DROP COLUMN is_disabled").Error; err != nil {
+					return fmt.Errorf("failed to drop is_disabled column from aone_users: %w", err)
+				}
+			}
+			return nil
+		},
+	}})
+	if err := m.Migrate(); err != nil {
+		return fmt.Errorf("error running add_aone_user_is_disabled_column migration: %s", err.Error())
+	}
+	return nil
+}
+
+func migrationAddAoneUserVirtualKeyIDColumn(ctx context.Context, db *gorm.DB) error {
+	m := migrator.New(db, migrator.DefaultOptions, []*migrator.Migration{{
+		ID: "add_aone_user_virtual_key_id_column",
+		Migrate: func(tx *gorm.DB) error {
+			tx = tx.WithContext(ctx)
+			if !tx.Migrator().HasColumn(&tables.AoneUserTable{}, "virtual_key_id") {
+				if err := tx.Exec("ALTER TABLE aone_users ADD COLUMN virtual_key_id VARCHAR(255)").Error; err != nil {
+					return fmt.Errorf("failed to add virtual_key_id column to aone_users: %w", err)
+				}
+				if err := tx.Exec("CREATE INDEX IF NOT EXISTS idx_aone_users_virtual_key_id ON aone_users (virtual_key_id)").Error; err != nil {
+					return fmt.Errorf("failed to create index on aone_users.virtual_key_id: %w", err)
+				}
+			}
+			return nil
+		},
+		Rollback: func(tx *gorm.DB) error {
+			tx = tx.WithContext(ctx)
+			if tx.Migrator().HasColumn(&tables.AoneUserTable{}, "virtual_key_id") {
+				if err := tx.Exec("ALTER TABLE aone_users DROP COLUMN virtual_key_id").Error; err != nil {
+					return fmt.Errorf("failed to drop virtual_key_id column from aone_users: %w", err)
+				}
+			}
+			return nil
+		},
+	}})
+	if err := m.Migrate(); err != nil {
+		return fmt.Errorf("error running add_aone_user_virtual_key_id_column migration: %s", err.Error())
 	}
 	return nil
 }

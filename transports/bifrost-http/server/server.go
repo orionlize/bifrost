@@ -1200,7 +1200,8 @@ func (s *BifrostHTTPServer) RegisterAPIRoutes(ctx context.Context, callbacks Ser
 	configHandler := handlers.NewConfigHandler(callbacks, s.Config)
 	pluginsHandler := handlers.NewPluginsHandler(callbacks, s.Config.ConfigStore)
 	sessionHandler := handlers.NewSessionHandler(s.Config.ConfigStore, s.WSTicketStore)
-	aoneOAuthHandler := handlers.NewAoneOAuthHandler(s.Config.ConfigStore, s.AoneOAuthStateStore)
+	aoneOAuthHandler := handlers.NewAoneOAuthHandler(s.Config.ConfigStore, s.AoneOAuthStateStore, s)
+	aoneUsersHandler := handlers.NewAoneUsersHandler(s.Config.ConfigStore, s)
 	promptsHandler := handlers.NewPromptsHandler(s.Config.ConfigStore, promptsReloader)
 	featureFlagsHandler := handlers.NewFeatureFlagsHandler(s.Config.FeatureFlags, s.Config.ConfigStore)
 	// Going ahead with API handlers
@@ -1219,6 +1220,9 @@ func (s *BifrostHTTPServer) RegisterAPIRoutes(ctx context.Context, callbacks Ser
 	}
 	if aoneOAuthHandler != nil {
 		aoneOAuthHandler.RegisterRoutes(s.Router, middlewares...)
+	}
+	if aoneUsersHandler != nil {
+		aoneUsersHandler.RegisterRoutes(s.Router, middlewares...)
 	}
 	if promptsHandler != nil {
 		promptsHandler.RegisterRoutes(s.Router, middlewares...)
@@ -1539,17 +1543,9 @@ func (s *BifrostHTTPServer) Bootstrap(ctx context.Context) error {
 		}
 		s.AuthMiddleware, err = handlers.InitAuthMiddleware(s.Config.ConfigStore, s.WSTicketStore, s.TempTokens)
 		if err != nil {
-			s.WSTicketStore.Stop()
-			s.WSTicketStore = nil
-			if s.TempTokenSweepWorker != nil {
-				s.TempTokenSweepWorker.Stop()
-				s.TempTokenSweepWorker = nil
-			}
 			return fmt.Errorf("failed to initialize auth middleware: %v", err)
 		}
-		if ctx.Value(schemas.BifrostContextKeyIsEnterprise) == nil {
-			apiMiddlewares = append(apiMiddlewares, s.AuthMiddleware.APIMiddleware())
-		}
+		apiMiddlewares = append(apiMiddlewares, s.AuthMiddleware.APIMiddleware())
 	}
 	// Add semantic cache plugin embedding request executor if it exists
 	semanticCachePlugin, err := lib.FindPluginAs[*semanticcache.Plugin](s.Config, semanticcache.PluginName)

@@ -3,6 +3,7 @@ package handlers
 import (
 	"crypto/rand"
 	"encoding/hex"
+	"errors"
 	"fmt"
 	"net/url"
 	"strings"
@@ -121,13 +122,15 @@ func randomAoneOAuthState() (string, error) {
 type AoneOAuthHandler struct {
 	configStore configstore.ConfigStore
 	stateStore  *AoneOAuthStateStore
+	vkReloader  VirtualKeyReloader
 }
 
 // NewAoneOAuthHandler creates a new Aone OAuth handler.
-func NewAoneOAuthHandler(configStore configstore.ConfigStore, stateStore *AoneOAuthStateStore) *AoneOAuthHandler {
+func NewAoneOAuthHandler(configStore configstore.ConfigStore, stateStore *AoneOAuthStateStore, vkReloader VirtualKeyReloader) *AoneOAuthHandler {
 	return &AoneOAuthHandler{
 		configStore: configStore,
 		stateStore:  stateStore,
+		vkReloader:  vkReloader,
 	}
 }
 
@@ -228,11 +231,33 @@ func (h *AoneOAuthHandler) callback(ctx *fasthttp.RequestCtx) {
 		return
 	}
 
-	if _, err := client.GetMe(ctx, tokenResp.AccessToken); err != nil {
+	meResp, err := client.GetMe(ctx, tokenResp.AccessToken)
+	var aoneUserID string
+	if err != nil {
 		logger.Warn("[aone-oauth] failed to fetch user profile after token exchange: %v", err)
+	} else if meResp != nil && h.configStore != nil {
+		user, upsertErr := h.configStore.UpsertAoneUserFromLogin(ctx, meResp)
+		if upsertErr != nil {
+			if errors.Is(upsertErr, configstore.ErrAoneUserDisabled) {
+				ctx.Redirect(aoneOAuthLoginRedirect(returnTo, "Your account has been disabled"), fasthttp.StatusFound)
+				return
+			}
+			logger.Warn("[aone-oauth] failed to upsert user profile: %v", upsertErr)
+		} else if user != nil {
+			aoneUserID = user.AoneUserID
+			if vk, vkErr := h.configStore.EnsureAoneUserVirtualKey(ctx, user.AoneUserID); vkErr != nil {
+				logger.Warn("[aone-oauth] failed to ensure user virtual key: %v", vkErr)
+			} else if vk != nil && h.vkReloader != nil {
+				if _, reloadErr := h.vkReloader.ReloadVirtualKey(ctx, vk.ID); reloadErr != nil {
+					logger.Warn("[aone-oauth] failed to reload user virtual key: %v", reloadErr)
+				} else {
+					MarkAoneVirtualKeyReloaded(vk.ID)
+				}
+			}
+		}
 	}
 
-	if err := h.createDashboardSession(ctx); err != nil {
+	if err := h.createDashboardSession(ctx, aoneUserID); err != nil {
 		logger.Error("[aone-oauth] failed to create dashboard session: %v", err)
 		ctx.Redirect(aoneOAuthLoginRedirect(returnTo, "Failed to create session"), fasthttp.StatusFound)
 		return
@@ -255,13 +280,16 @@ func (h *AoneOAuthHandler) loadConfiguredAoneOAuth(ctx *fasthttp.RequestCtx) (*c
 	return authConfig.AoneOAuth, nil
 }
 
-func (h *AoneOAuthHandler) createDashboardSession(ctx *fasthttp.RequestCtx) error {
+func (h *AoneOAuthHandler) createDashboardSession(ctx *fasthttp.RequestCtx, aoneUserID string) error {
 	token := uuid.New().String()
 	session := &tables.SessionsTable{
 		Token:     token,
 		ExpiresAt: time.Now().Add(time.Hour * 24 * 30),
 		CreatedAt: time.Now(),
 		UpdatedAt: time.Now(),
+	}
+	if aoneUserID != "" {
+		session.AoneUserID = &aoneUserID
 	}
 	if err := h.configStore.CreateSession(ctx, session); err != nil {
 		return err
