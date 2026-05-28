@@ -4308,11 +4308,16 @@ func (s *RDBConfigStore) GetAuthConfig(ctx context.Context) (*AuthConfig, error)
 	if !isEnabled {
 		disableAuthOnInference = true
 	}
+	aoneOAuth, err := loadAoneOAuthConfig(ctx, s.DB())
+	if err != nil {
+		return nil, err
+	}
 	return &AuthConfig{
 		AdminUserName:          schemas.NewEnvVar(*username),
 		AdminPassword:          schemas.NewEnvVar(*password),
 		IsEnabled:              isEnabled,
 		DisableAuthOnInference: disableAuthOnInference,
+		AoneOAuth:              aoneOAuth,
 	}, nil
 }
 
@@ -4343,7 +4348,7 @@ func (s *RDBConfigStore) UpdateAuthConfig(ctx context.Context, config *AuthConfi
 		}).Error; err != nil {
 			return err
 		}
-		return nil
+		return saveAoneOAuthConfig(ctx, tx, config.AoneOAuth)
 	})
 }
 

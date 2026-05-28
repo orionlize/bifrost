@@ -2771,13 +2771,14 @@ func loadAuthConfig(ctx context.Context, config *Config, configData *ConfigData)
 		} else {
 			passwordMatch, _ = encrypt.CompareHash(dbAuthConfig.AdminPassword.GetValue(), filePassword)
 		}
-		if usernameMatch && passwordMatch && boolsMatch {
+		if usernameMatch && passwordMatch && boolsMatch && !configstore.AoneOAuthConfigChanged(dbAuthConfig, authConfig) {
 			// DB matches file -- use DB hash but preserve file env var references
 			config.GovernanceConfig.AuthConfig = &configstore.AuthConfig{
 				AdminUserName:          authConfig.AdminUserName,
 				AdminPassword:          preserveEnvVar(authConfig.AdminPassword, dbAuthConfig.AdminPassword.GetValue()),
 				IsEnabled:              authConfig.IsEnabled,
 				DisableAuthOnInference: authConfig.DisableAuthOnInference,
+				AoneOAuth:              authConfig.AoneOAuth,
 			}
 			return
 		}
@@ -2808,6 +2809,7 @@ func loadAuthConfig(ctx context.Context, config *Config, configData *ConfigData)
 		AdminPassword:          preserveEnvVar(authConfig.AdminPassword, hashedPassword),
 		IsEnabled:              authConfig.IsEnabled,
 		DisableAuthOnInference: authConfig.DisableAuthOnInference,
+		AoneOAuth:              authConfig.AoneOAuth,
 	}
 	// Persist to config store
 	if err := config.ConfigStore.UpdateAuthConfig(ctx, config.GovernanceConfig.AuthConfig); err != nil {

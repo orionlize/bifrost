@@ -1360,12 +1360,60 @@ func GenerateFrameworkConfigHash(pricingURL *string, modelParametersURL *string,
 	return hex.EncodeToString(h[:]), nil
 }
 
-// AuthConfig represents configured auth config for Bifrost dashboard
+// AoneOAuthConfig configures external Aone OAuth2 login for the dashboard.
+type AoneOAuthConfig struct {
+	Enabled      bool            `json:"enabled"`
+	BaseURL      *schemas.EnvVar `json:"base_url"`
+	ClientID     *schemas.EnvVar `json:"client_id"`
+	ClientSecret *schemas.EnvVar `json:"client_secret"`
+	RedirectURI  *schemas.EnvVar `json:"redirect_uri"`
+}
+
+// IsConfigured reports whether Aone OAuth2 is enabled with all required fields set.
+func (c *AoneOAuthConfig) IsConfigured() bool {
+	if c == nil || !c.Enabled {
+		return false
+	}
+	return c.BaseURL != nil && c.BaseURL.GetValue() != "" &&
+		c.ClientID != nil && c.ClientID.GetValue() != "" &&
+		c.ClientSecret != nil && c.ClientSecret.GetValue() != "" &&
+		c.RedirectURI != nil && c.RedirectURI.GetValue() != ""
+}
+
+// AoneOAuthConfigChanged reports whether the Aone OAuth settings differ between two auth configs.
+func AoneOAuthConfigChanged(existing, updated *AuthConfig) bool {
+	if updated == nil || updated.AoneOAuth == nil {
+		return existing != nil && existing.AoneOAuth != nil && existing.AoneOAuth.Enabled
+	}
+	if existing == nil || existing.AoneOAuth == nil {
+		return updated.AoneOAuth.Enabled
+	}
+	left := existing.AoneOAuth
+	right := updated.AoneOAuth
+	return left.Enabled != right.Enabled ||
+		!envVarValuesEqual(left.BaseURL, right.BaseURL) ||
+		!envVarValuesEqual(left.ClientID, right.ClientID) ||
+		!envVarValuesEqual(left.RedirectURI, right.RedirectURI) ||
+		(right.ClientSecret != nil && !right.ClientSecret.IsRedacted() && right.ClientSecret.GetValue() != "" &&
+			!envVarValuesEqual(left.ClientSecret, right.ClientSecret))
+}
+
+func envVarValuesEqual(a, b *schemas.EnvVar) bool {
+	if a == nil && b == nil {
+		return true
+	}
+	if a == nil || b == nil {
+		return false
+	}
+	return a.Equals(b)
+}
+
 type AuthConfig struct {
-	AdminUserName          *schemas.EnvVar `json:"admin_username"`
-	AdminPassword          *schemas.EnvVar `json:"admin_password"`
-	IsEnabled              bool            `json:"is_enabled"`
-	DisableAuthOnInference bool            `json:"disable_auth_on_inference"`
+	AdminUserName          *schemas.EnvVar  `json:"admin_username"`
+	AdminPassword          *schemas.EnvVar  `json:"admin_password"`
+	IsEnabled              bool             `json:"is_enabled"`
+	DisableAuthOnInference bool             `json:"disable_auth_on_inference"`
+	AoneOAuth              *AoneOAuthConfig `json:"aone_oauth,omitempty"`
 }
 
 // ConfigMap maps provider names to their configurations.

@@ -7,6 +7,7 @@ const (
 	ConfigAdminPasswordKey          = "admin_password"
 	ConfigIsAuthEnabledKey          = "is_auth_enabled"
 	ConfigDisableAuthOnInferenceKey = "disable_auth_on_inference"
+	ConfigAoneOAuthKey              = "aone_oauth_config"
 	ConfigProxyKey                  = "proxy_config"
 	ConfigRestartRequiredKey        = "restart_required"
 	ConfigHeaderFilterKey           = "header_filter_config"

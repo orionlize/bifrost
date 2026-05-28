@@ -129,45 +129,13 @@ func (h *ConfigHandler) getConfig(ctx *fasthttp.RequestCtx) {
 		// Getting username and password from auth config
 		// This username password is for the dashboard authentication
 		if authConfig != nil {
-			// For password, return EnvVar structure with redacted value
-			// If from env, preserve env_var reference but clear value
-			// If not from env, show <redacted> as the value
-			var passwordEnvVar *schemas.EnvVar
-			if authConfig.AdminPassword != nil && authConfig.AdminPassword.IsFromEnv() {
-				passwordEnvVar = &schemas.EnvVar{
-					Val:     "",
-					EnvVar:  authConfig.AdminPassword.EnvVar,
-					FromEnv: true,
-				}
-			} else {
-				passwordEnvVar = &schemas.EnvVar{
-					Val:     "<redacted>",
-					EnvVar:  "",
-					FromEnv: false,
-				}
-			}
-			mapConfig["auth_config"] = map[string]any{
-				"admin_username":            authConfig.AdminUserName,
-				"admin_password":            passwordEnvVar,
-				"is_enabled":                authConfig.IsEnabled,
-				"disable_auth_on_inference": authConfig.DisableAuthOnInference,
-			}
+			mapConfig["auth_config"] = buildAuthConfigResponse(authConfig)
 		} else {
 			// No auth config exists yet, return default empty EnvVar values
-			mapConfig["auth_config"] = map[string]any{
-				"admin_username":            &schemas.EnvVar{Val: "", EnvVar: "", FromEnv: false},
-				"admin_password":            &schemas.EnvVar{Val: "", EnvVar: "", FromEnv: false},
-				"is_enabled":                false,
-				"disable_auth_on_inference": true,
-			}
+			mapConfig["auth_config"] = buildAuthConfigResponse(nil)
 		}
 	} else {
-		mapConfig["auth_config"] = map[string]any{
-			"admin_username":            &schemas.EnvVar{Val: "", EnvVar: "", FromEnv: false},
-			"admin_password":            &schemas.EnvVar{Val: "", EnvVar: "", FromEnv: false},
-			"is_enabled":                false,
-			"disable_auth_on_inference": true,
-		}
+		mapConfig["auth_config"] = buildAuthConfigResponse(nil)
 	}
 	mapConfig["is_db_connected"] = h.store.ConfigStore != nil
 	mapConfig["is_cache_connected"] = h.store.VectorStore != nil
@@ -653,6 +621,9 @@ func (h *ConfigHandler) updateConfig(ctx *fasthttp.RequestCtx) {
 			if payload.AuthConfig.IsEnabled {
 				authChanged = true
 			}
+			if configstore.AoneOAuthConfigChanged(nil, payload.AuthConfig) {
+				authChanged = true
+			}
 		} else {
 			// Compare with existing config using value comparison (not pointer comparison)
 			// Password is considered changed only if it's NOT redacted and has a value
@@ -664,9 +635,17 @@ func (h *ConfigHandler) updateConfig(ctx *fasthttp.RequestCtx) {
 				!payload.AuthConfig.AdminUserName.Equals(authConfig.AdminUserName)
 			if payload.AuthConfig.IsEnabled != authConfig.IsEnabled ||
 				usernameChanged ||
-				passwordChanged {
+				passwordChanged ||
+				configstore.AoneOAuthConfigChanged(authConfig, payload.AuthConfig) {
 				authChanged = true
 			}
+		}
+		if payload.AuthConfig.AoneOAuth == nil && authConfig != nil {
+			payload.AuthConfig.AoneOAuth = authConfig.AoneOAuth
+		}
+		if err := mergeAoneOAuthConfig(payload.AuthConfig, authConfig); err != nil {
+			SendError(ctx, fasthttp.StatusBadRequest, err.Error())
+			return
 		}
 
 		if payload.AuthConfig.IsEnabled {
@@ -1006,5 +985,102 @@ func validateHeaderFilterConfig(config *configstoreTables.GlobalHeaderFilterConf
 		return fmt.Errorf("the following headers are not allowed to be configured: %s. These headers are security headers and are always blocked", strings.Join(foundSecurityHeaders, ", "))
 	}
 
+	return nil
+}
+
+func buildAuthConfigResponse(authConfig *configstore.AuthConfig) map[string]any {
+	defaultEnvVar := &schemas.EnvVar{Val: "", EnvVar: "", FromEnv: false}
+	if authConfig == nil {
+		return map[string]any{
+			"admin_username":            defaultEnvVar,
+			"admin_password":            defaultEnvVar,
+			"is_enabled":                false,
+			"disable_auth_on_inference": true,
+			"aone_oauth":                defaultAoneOAuthResponse(nil),
+		}
+	}
+	var passwordEnvVar *schemas.EnvVar
+	if authConfig.AdminPassword != nil && authConfig.AdminPassword.IsFromEnv() {
+		passwordEnvVar = &schemas.EnvVar{
+			Val:     "",
+			EnvVar:  authConfig.AdminPassword.EnvVar,
+			FromEnv: true,
+		}
+	} else {
+		passwordEnvVar = &schemas.EnvVar{
+			Val:     "<redacted>",
+			EnvVar:  "",
+			FromEnv: false,
+		}
+	}
+	return map[string]any{
+		"admin_username":            authConfig.AdminUserName,
+		"admin_password":            passwordEnvVar,
+		"is_enabled":                authConfig.IsEnabled,
+		"disable_auth_on_inference": authConfig.DisableAuthOnInference,
+		"aone_oauth":                defaultAoneOAuthResponse(authConfig.AoneOAuth),
+	}
+}
+
+func defaultAoneOAuthResponse(cfg *configstore.AoneOAuthConfig) map[string]any {
+	resp := map[string]any{
+		"enabled":       false,
+		"base_url":      &schemas.EnvVar{Val: "", EnvVar: "", FromEnv: false},
+		"client_id":     &schemas.EnvVar{Val: "", EnvVar: "", FromEnv: false},
+		"client_secret": &schemas.EnvVar{Val: "", EnvVar: "", FromEnv: false},
+		"redirect_uri":  &schemas.EnvVar{Val: "", EnvVar: "", FromEnv: false},
+	}
+	if cfg == nil {
+		return resp
+	}
+	resp["enabled"] = cfg.Enabled
+	if cfg.BaseURL != nil {
+		resp["base_url"] = cfg.BaseURL
+	}
+	if cfg.ClientID != nil {
+		resp["client_id"] = cfg.ClientID
+	}
+	if cfg.RedirectURI != nil {
+		resp["redirect_uri"] = cfg.RedirectURI
+	}
+	if cfg.ClientSecret != nil && cfg.ClientSecret.IsFromEnv() {
+		resp["client_secret"] = &schemas.EnvVar{
+			Val:     "",
+			EnvVar:  cfg.ClientSecret.EnvVar,
+			FromEnv: true,
+		}
+	} else if cfg.ClientSecret != nil && cfg.ClientSecret.GetValue() != "" {
+		resp["client_secret"] = &schemas.EnvVar{
+			Val:     "<redacted>",
+			EnvVar:  "",
+			FromEnv: false,
+		}
+	}
+	return resp
+}
+
+func mergeAoneOAuthConfig(payload, existing *configstore.AuthConfig) error {
+	if payload == nil || payload.AoneOAuth == nil {
+		return nil
+	}
+	if existing != nil && existing.AoneOAuth != nil &&
+		payload.AoneOAuth.ClientSecret != nil &&
+		(payload.AoneOAuth.ClientSecret.IsRedacted() || payload.AoneOAuth.ClientSecret.GetValue() == "") {
+		payload.AoneOAuth.ClientSecret = existing.AoneOAuth.ClientSecret
+	}
+	if payload.AoneOAuth.Enabled {
+		if payload.AoneOAuth.BaseURL == nil || payload.AoneOAuth.BaseURL.GetValue() == "" {
+			return fmt.Errorf("aone oauth base_url is required when enabled")
+		}
+		if payload.AoneOAuth.ClientID == nil || payload.AoneOAuth.ClientID.GetValue() == "" {
+			return fmt.Errorf("aone oauth client_id is required when enabled")
+		}
+		if payload.AoneOAuth.ClientSecret == nil || payload.AoneOAuth.ClientSecret.GetValue() == "" {
+			return fmt.Errorf("aone oauth client_secret is required when enabled")
+		}
+		if payload.AoneOAuth.RedirectURI == nil || payload.AoneOAuth.RedirectURI.GetValue() == "" {
+			return fmt.Errorf("aone oauth redirect_uri is required when enabled")
+		}
+	}
 	return nil
 }

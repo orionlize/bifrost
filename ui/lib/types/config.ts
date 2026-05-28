@@ -384,11 +384,20 @@ export interface FrameworkConfig {
 }
 
 // Auth config
+export interface AoneOAuthConfig {
+	enabled: boolean;
+	base_url: EnvVar;
+	client_id: EnvVar;
+	client_secret: EnvVar;
+	redirect_uri: EnvVar;
+}
+
 export interface AuthConfig {
 	admin_username: EnvVar;
 	admin_password: EnvVar;
 	is_enabled: boolean;
 	disable_auth_on_inference?: boolean;
+	aone_oauth?: AoneOAuthConfig;
 }
 
 // Global proxy type (for global proxy configuration, not per-provider)

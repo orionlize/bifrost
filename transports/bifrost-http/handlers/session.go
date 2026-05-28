@@ -78,18 +78,11 @@ func (h *SessionHandler) isAuthEnabled(ctx *fasthttp.RequestCtx) {
 		}
 	}
 	SendJSON(ctx, map[string]any{
-		"is_auth_enabled": authConfig.IsEnabled,
-		"has_valid_token": hasValidToken,
-		"auth_type":       dashboardAuthType(authConfig.IsEnabled),
+		"is_auth_enabled":    authConfig.IsEnabled,
+		"has_valid_token":    hasValidToken,
+		"auth_type":          dashboardAuthTypeFromConfig(authConfig),
+		"aone_oauth_enabled": aoneOAuthEnabled(authConfig),
 	})
-}
-
-// dashboardAuthType reports the dashboard session auth mode for frontend flows.
-func dashboardAuthType(isEnabled bool) string {
-	if isEnabled {
-		return "password"
-	}
-	return "none"
 }
 
 // login handles POST /api/session/login - Login a user
@@ -150,19 +143,7 @@ func (h *SessionHandler) login(ctx *fasthttp.RequestCtx) {
 	}
 
 	// Setting cookies
-	cookie := fasthttp.AcquireCookie()
-	defer fasthttp.ReleaseCookie(cookie)
-	cookie.SetKey("token")
-	cookie.SetValue(token)
-	cookie.SetExpire(time.Now().Add(time.Hour * 24 * 30))
-	cookie.SetPath("/")
-	cookie.SetHTTPOnly(true)
-	cookie.SetSameSite(fasthttp.CookieSameSiteLaxMode)
-	// Check if source is https then set secure
-	if string(ctx.Request.Header.Peek("X-Forwarded-Proto")) == "https" {
-		cookie.SetSecure(true)
-	}
-	ctx.Response.Header.SetCookie(cookie)
+	setSessionCookie(ctx, token, session.ExpiresAt)
 
 	SendJSON(ctx, map[string]any{
 		"message": "Login successful",

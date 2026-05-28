@@ -1,12 +1,13 @@
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { getErrorMessage, useLoginMutation } from "@/lib/store/apis";
+import { getErrorMessage, useIsAuthEnabledQuery, useLoginMutation } from "@/lib/store/apis";
+import { DEFAULT_POST_LOGIN_PATH, normalizeLoginGoto } from "@/lib/utils/loginGoto";
 import { BooksIcon, DiscordLogoIcon, GithubLogoIcon } from "@phosphor-icons/react";
-import { useNavigate } from "@tanstack/react-router";
+import { useNavigate, useSearch } from "@tanstack/react-router";
 import { Eye, EyeOff } from "lucide-react";
 import { useTheme } from "next-themes";
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 
 const externalLinks = [
 	{
@@ -35,12 +36,31 @@ export default function LoginView() {
 	const [showPassword, setShowPassword] = useState(false);
 	const [errorMessage, setErrorMessage] = useState("");
 	const navigate = useNavigate();
+	const search = useSearch({ strict: false }) as { error?: string; goto?: string };
 	const [isLoading, setIsLoading] = useState(false);
 	const [login, { isLoading: isLoggingIn }] = useLoginMutation();
+	const { data: authState } = useIsAuthEnabledQuery();
+	const aoneOAuthEnabled = authState?.aone_oauth_enabled === true;
+	const showPasswordForm = authState?.is_auth_enabled === true;
 
 	useEffect(() => {
 		setMounted(true);
 	}, []);
+
+	useEffect(() => {
+		if (search.error) {
+			setErrorMessage(search.error);
+		}
+	}, [search.error]);
+
+	const postLoginPath = normalizeLoginGoto(search.goto) ?? DEFAULT_POST_LOGIN_PATH;
+	const aoneAuthorizeUrl = useMemo(() => {
+		if (typeof window === "undefined") {
+			return `/api/aone/oauth/authorize?return_to=${encodeURIComponent(DEFAULT_POST_LOGIN_PATH)}`;
+		}
+		const returnTo = encodeURIComponent(`${window.location.origin}${postLoginPath}`);
+		return `/api/aone/oauth/authorize?return_to=${returnTo}`;
+	}, [postLoginPath]);
 
 	const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
 		setIsLoading(true);
@@ -76,6 +96,33 @@ export default function LoginView() {
 					<form onSubmit={handleSubmit} className="space-y-5">
 						{errorMessage && <div className="bg-destructive/10 text-destructive rounded-sm p-3 text-sm">{errorMessage}</div>}
 
+						{aoneOAuthEnabled && (
+							<Button
+								type="button"
+								variant="outline"
+								className="h-9 w-full text-sm"
+								onClick={() => {
+									window.location.href = aoneAuthorizeUrl;
+								}}
+								data-testid="login-aone-oauth-button"
+							>
+								Sign in with Aone
+							</Button>
+						)}
+
+						{aoneOAuthEnabled && showPasswordForm && (
+							<div className="relative">
+								<div className="absolute inset-0 flex items-center">
+									<span className="w-full border-t" />
+								</div>
+								<div className="relative flex justify-center text-xs uppercase">
+									<span className="bg-card text-muted-foreground px-2">Or continue with password</span>
+								</div>
+							</div>
+						)}
+
+						{showPasswordForm && (
+							<>
 						<div className="space-y-2">
 							<Label htmlFor="username" className="text-sm font-medium">
 								Username
@@ -121,6 +168,8 @@ export default function LoginView() {
 						<Button type="submit" className="h-9 w-full text-sm" isLoading={isLoading} disabled={isLoading}>
 							{isLoading || isLoggingIn ? "Signing in..." : "Sign in"}
 						</Button>
+							</>
+						)}
 					</form>
 
 					{/* Social Links */}

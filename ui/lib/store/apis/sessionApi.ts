@@ -13,6 +13,7 @@ export interface IsAuthEnabledResponse {
 	is_auth_enabled: boolean;
 	has_valid_token: boolean;
 	auth_type?: "sso" | "password" | "none";
+	aone_oauth_enabled?: boolean;
 }
 
 export interface LogoutResponse {

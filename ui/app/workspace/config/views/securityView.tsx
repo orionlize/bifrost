@@ -7,7 +7,7 @@ import { Switch } from "@/components/ui/switch";
 import { Textarea } from "@/components/ui/textarea";
 import { IS_ENTERPRISE } from "@/lib/constants/config";
 import { getErrorMessage, useGetCoreConfigQuery, useUpdateCoreConfigMutation } from "@/lib/store";
-import { AuthConfig, CoreConfig, DefaultCoreConfig } from "@/lib/types/config";
+import { AuthConfig, AoneOAuthConfig, CoreConfig, DefaultCoreConfig } from "@/lib/types/config";
 import { EnvVar } from "@/lib/types/schemas";
 import { parseArrayFromText } from "@/lib/utils/array";
 import { validateOrigins } from "@/lib/utils/validation";
@@ -39,11 +39,20 @@ export default function SecurityView() {
 		whitelisted_routes: "",
 	});
 
+	const defaultAoneOAuth = (): AoneOAuthConfig => ({
+		enabled: false,
+		base_url: { value: "", env_var: "", from_env: false },
+		client_id: { value: "", env_var: "", from_env: false },
+		client_secret: { value: "", env_var: "", from_env: false },
+		redirect_uri: { value: "", env_var: "", from_env: false },
+	});
+
 	const [authConfig, setAuthConfig] = useState<AuthConfig>({
 		admin_username: { value: "", env_var: "", from_env: false },
 		admin_password: { value: "", env_var: "", from_env: false },
 		is_enabled: false,
 		disable_auth_on_inference: true,
+		aone_oauth: defaultAoneOAuth(),
 	});
 
 	useEffect(() => {
@@ -57,7 +66,10 @@ export default function SecurityView() {
 			});
 		}
 		if (bifrostConfig?.auth_config) {
-			setAuthConfig(bifrostConfig.auth_config);
+			setAuthConfig({
+				...bifrostConfig.auth_config,
+				aone_oauth: bifrostConfig.auth_config.aone_oauth ?? defaultAoneOAuth(),
+			});
 		}
 	}, [config, bifrostConfig]);
 
@@ -83,7 +95,8 @@ export default function SecurityView() {
 			? authConfig.is_enabled !== bifrostConfig?.auth_config?.is_enabled ||
 				usernameChanged ||
 				passwordChanged ||
-				authConfig.disable_auth_on_inference !== bifrostConfig?.auth_config?.disable_auth_on_inference
+				authConfig.disable_auth_on_inference !== bifrostConfig?.auth_config?.disable_auth_on_inference ||
+				aoneOAuthChanged(authConfig.aone_oauth, bifrostConfig?.auth_config?.aone_oauth)
 			: false;
 
 		const localRequired = localConfig.required_headers?.slice().sort().join(",");
@@ -149,6 +162,26 @@ export default function SecurityView() {
 
 	const handleAuthFieldChange = useCallback((field: "admin_username" | "admin_password", value: EnvVar) => {
 		setAuthConfig((prev) => ({ ...prev, [field]: value }));
+	}, []);
+
+	const handleAoneOAuthToggle = useCallback((checked: boolean) => {
+		setAuthConfig((prev) => ({
+			...prev,
+			aone_oauth: {
+				...(prev.aone_oauth ?? defaultAoneOAuth()),
+				enabled: checked,
+			},
+		}));
+	}, []);
+
+	const handleAoneOAuthFieldChange = useCallback((field: keyof AoneOAuthConfig, value: EnvVar | boolean) => {
+		setAuthConfig((prev) => ({
+			...prev,
+			aone_oauth: {
+				...(prev.aone_oauth ?? defaultAoneOAuth()),
+				[field]: value,
+			},
+		}));
 	}, []);
 
 	const handleSave = useCallback(async () => {
@@ -280,6 +313,77 @@ export default function SecurityView() {
 									</div>
 								)}
 							</div>
+						</div>
+					</div>
+				)}
+				{showPasswordSection && (
+					<div>
+						<div className="space-y-4 rounded-lg border p-4">
+							<div className="flex items-center justify-between">
+								<div className="space-y-0.5">
+									<Label htmlFor="aone-oauth-enabled" className="text-sm font-medium">
+										Aone OAuth2 login
+									</Label>
+									<p className="text-muted-foreground text-sm">
+										Allow users to sign in to the dashboard via an external Aone OAuth2 provider. Register the callback URL{" "}
+										<code className="text-xs">/api/aone/oauth/callback</code> with Aone.
+									</p>
+								</div>
+								<Switch
+									id="aone-oauth-enabled"
+									checked={authConfig.aone_oauth?.enabled ?? false}
+									disabled={!authConfig.is_enabled}
+									onCheckedChange={handleAoneOAuthToggle}
+								/>
+							</div>
+							{authConfig.aone_oauth?.enabled && (
+								<div className="space-y-4">
+									<div className="space-y-2">
+										<Label htmlFor="aone-base-url">Base URL</Label>
+										<EnvVarInput
+											id="aone-base-url"
+											type="text"
+											placeholder="https://aone.example.com/aone"
+											value={authConfig.aone_oauth.base_url}
+											disabled={!authConfig.is_enabled}
+											onChange={(value) => handleAoneOAuthFieldChange("base_url", value)}
+										/>
+									</div>
+									<div className="space-y-2">
+										<Label htmlFor="aone-client-id">Client ID</Label>
+										<EnvVarInput
+											id="aone-client-id"
+											type="text"
+											placeholder="YOUR_CLIENT_ID or env.VAR_NAME"
+											value={authConfig.aone_oauth.client_id}
+											disabled={!authConfig.is_enabled}
+											onChange={(value) => handleAoneOAuthFieldChange("client_id", value)}
+										/>
+									</div>
+									<div className="space-y-2">
+										<Label htmlFor="aone-client-secret">Client Secret</Label>
+										<EnvVarInput
+											id="aone-client-secret"
+											type="password"
+											placeholder="YOUR_CLIENT_SECRET or env.VAR_NAME"
+											value={authConfig.aone_oauth.client_secret}
+											disabled={!authConfig.is_enabled}
+											onChange={(value) => handleAoneOAuthFieldChange("client_secret", value)}
+										/>
+									</div>
+									<div className="space-y-2">
+										<Label htmlFor="aone-redirect-uri">Redirect URI</Label>
+										<EnvVarInput
+											id="aone-redirect-uri"
+											type="text"
+											placeholder="https://bifrost.example.com/api/aone/oauth/callback"
+											value={authConfig.aone_oauth.redirect_uri}
+											disabled={!authConfig.is_enabled}
+											onChange={(value) => handleAoneOAuthFieldChange("redirect_uri", value)}
+										/>
+									</div>
+								</div>
+							)}
 						</div>
 					</div>
 				)}
@@ -417,3 +521,35 @@ const RestartWarning = () => {
 		</Alert>
 	);
 };
+
+function aoneOAuthChanged(current?: AoneOAuthConfig, previous?: AoneOAuthConfig) {
+	const left = current ?? {
+		enabled: false,
+		base_url: { value: "", env_var: "", from_env: false },
+		client_id: { value: "", env_var: "", from_env: false },
+		client_secret: { value: "", env_var: "", from_env: false },
+		redirect_uri: { value: "", env_var: "", from_env: false },
+	};
+	const right = previous ?? {
+		enabled: false,
+		base_url: { value: "", env_var: "", from_env: false },
+		client_id: { value: "", env_var: "", from_env: false },
+		client_secret: { value: "", env_var: "", from_env: false },
+		redirect_uri: { value: "", env_var: "", from_env: false },
+	};
+	return (
+		left.enabled !== right.enabled ||
+		envVarChanged(left.base_url, right.base_url) ||
+		envVarChanged(left.client_id, right.client_id) ||
+		envVarChanged(left.client_secret, right.client_secret) ||
+		envVarChanged(left.redirect_uri, right.redirect_uri)
+	);
+}
+
+function envVarChanged(current: EnvVar, previous: EnvVar) {
+	return (
+		current.value !== previous.value ||
+		current.env_var !== previous.env_var ||
+		current.from_env !== previous.from_env
+	);
+}

@@ -1972,6 +1972,33 @@
         "disable_auth_on_inference": {
           "type": "boolean",
           "description": "Whether authentication is disabled on inference"
+        },
+        "aone_oauth": {
+          "type": "object",
+          "description": "External Aone OAuth2 login configuration for the dashboard",
+          "properties": {
+            "enabled": {
+              "type": "boolean",
+              "description": "Enable Aone OAuth2 login"
+            },
+            "base_url": {
+              "type": "string",
+              "description": "Aone OAuth2 base URL (e.g. https://aone.example.com/aone)"
+            },
+            "client_id": {
+              "type": "string",
+              "description": "OAuth2 client ID registered with Aone"
+            },
+            "client_secret": {
+              "type": "string",
+              "description": "OAuth2 client secret registered with Aone"
+            },
+            "redirect_uri": {
+              "type": "string",
+              "description": "OAuth2 redirect URI registered with Aone (must point to Bifrost callback, e.g. https://bifrost.example.com/api/aone/oauth/callback)"
+            }
+          },
+          "additionalProperties": false
         }
       },
       "additionalProperties": false

@@ -145,6 +145,7 @@ type BifrostHTTPServer struct {
 	AuthMiddleware       *handlers.AuthMiddleware
 	TracingMiddleware    *handlers.TracingMiddleware
 	WSTicketStore        *handlers.WSTicketStore
+	AoneOAuthStateStore  *handlers.AoneOAuthStateStore
 	TempTokens           *temptoken.Service
 	TempTokenSweepWorker *temptoken.SweepWorker
 
@@ -1199,6 +1200,7 @@ func (s *BifrostHTTPServer) RegisterAPIRoutes(ctx context.Context, callbacks Ser
 	configHandler := handlers.NewConfigHandler(callbacks, s.Config)
 	pluginsHandler := handlers.NewPluginsHandler(callbacks, s.Config.ConfigStore)
 	sessionHandler := handlers.NewSessionHandler(s.Config.ConfigStore, s.WSTicketStore)
+	aoneOAuthHandler := handlers.NewAoneOAuthHandler(s.Config.ConfigStore, s.AoneOAuthStateStore)
 	promptsHandler := handlers.NewPromptsHandler(s.Config.ConfigStore, promptsReloader)
 	featureFlagsHandler := handlers.NewFeatureFlagsHandler(s.Config.FeatureFlags, s.Config.ConfigStore)
 	// Going ahead with API handlers
@@ -1214,6 +1216,9 @@ func (s *BifrostHTTPServer) RegisterAPIRoutes(ctx context.Context, callbacks Ser
 	}
 	if sessionHandler != nil {
 		sessionHandler.RegisterRoutes(s.Router, middlewares...)
+	}
+	if aoneOAuthHandler != nil {
+		aoneOAuthHandler.RegisterRoutes(s.Router, middlewares...)
 	}
 	if promptsHandler != nil {
 		promptsHandler.RegisterRoutes(s.Router, middlewares...)
@@ -1504,6 +1509,7 @@ func (s *BifrostHTTPServer) Bootstrap(ctx context.Context) error {
 		// so tickets are verifiable across nodes; otherwise fall back to in-memory.
 		// NewSignedWSTicketStore handles empty key by degrading to in-memory mode.
 		s.WSTicketStore = handlers.NewSignedWSTicketStore(encrypt.Key())
+		s.AoneOAuthStateStore = handlers.NewAoneOAuthStateStore()
 		// Initialize the temp-token service and register all scopes owned by the
 		// handlers package. The service is the seam every "scoped, anonymous,
 		// browser-only" workflow plugs into (currently just the MCP per-user OAuth
