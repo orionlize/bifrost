@@ -1,4 +1,6 @@
 import { ThemeProvider } from "@/components/themeProvider";
+import { LoginBrandHeader } from "@/components/loginBrandHeader";
+import { WebsiteDocumentHead } from "@/components/websiteDocumentHead";
 import { ReduxProvider } from "@/lib/store/provider";
 import {
   DEFAULT_POST_LOGIN_PATH,
@@ -13,6 +15,7 @@ function RouteComponent() {
   return (
     <ThemeProvider attribute="class" defaultTheme="system" enableSystem>
       <ReduxProvider>
+        <WebsiteDocumentHead preferPublicApi />
         <NuqsAdapter>
           <div className="bg-background min-h-screen">
             <LoginPage />
@@ -26,25 +29,21 @@ function RouteComponent() {
 function PendingComponent() {
   return (
     <ThemeProvider attribute="class" defaultTheme="system" enableSystem>
-      <div className="flex min-h-screen items-center justify-center p-4">
-        <div className="w-full max-w-md">
-          <div className="border-border bg-card w-full space-y-6 rounded-sm border p-8">
-            <div className="flex items-center justify-center">
-              <img
-                src="/bifrost-logo.webp"
-                alt="Bifrost"
-                width={160}
-                height={26}
-              />
-            </div>
-            <div className="flex items-center justify-center py-6">
-              <div className="text-muted-foreground text-sm">
-                Checking authentication...
+      <ReduxProvider>
+        <WebsiteDocumentHead preferPublicApi />
+        <div className="flex min-h-screen items-center justify-center p-4">
+          <div className="w-full max-w-md">
+            <div className="border-border bg-card w-full space-y-6 rounded-sm border p-8">
+              <LoginBrandHeader showWelcome={false} />
+              <div className="flex items-center justify-center py-6">
+                <div className="text-muted-foreground text-sm">
+                  Checking authentication...
+                </div>
               </div>
             </div>
           </div>
         </div>
-      </div>
+      </ReduxProvider>
     </ThemeProvider>
   );
 }

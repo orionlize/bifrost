@@ -1,4 +1,6 @@
+import { IS_ENTERPRISE } from "@/lib/constants/config";
 import { baseApi, clearAuthStorage } from "./baseApi";
+import { setLoggingOut } from "./logoutState";
 import { clearAoneApiKey } from "@/lib/utils/aoneUserStorage";
 
 export interface LoginRequest {
@@ -40,7 +42,7 @@ export const sessionApi = baseApi.injectEndpoints({
 				method: "POST",
 				body: credentials,
 			}),
-			invalidatesTags: ["Sessions"],
+			invalidatesTags: ["Sessions", "Config"],
 		}),
 
 		// Logout endpoint
@@ -51,29 +53,34 @@ export const sessionApi = baseApi.injectEndpoints({
 					method: "POST",
 				});
 
-				const oauthLogout = await baseQuery({
-					url: "/scim/oauth/logout",
-					method: "POST",
-				});
-
-				if (passwordLogout.error && oauthLogout.error) {
-					return { error: oauthLogout.error };
+				if (IS_ENTERPRISE) {
+					const oauthLogout = await baseQuery({
+						url: "/scim/oauth/logout",
+						method: "POST",
+					});
+					if (passwordLogout.error && oauthLogout.error) {
+						return { error: passwordLogout.error };
+					}
+				} else if (passwordLogout.error) {
+					return { error: passwordLogout.error };
 				}
 
 				return { data: { message: "Logout successful" } };
 			},
-			// After logout, clear token and all cached data
-			async onQueryStarted(arg, { dispatch, queryFulfilled }) {
+			async onQueryStarted(_arg, { queryFulfilled }) {
+				setLoggingOut(true);
+				clearAuthStorage();
+				clearAoneApiKey();
 				try {
 					await queryFulfilled;
 				} catch {
+					// Server logout may fail; still leave the dashboard.
 				} finally {
-					clearAuthStorage();
-					clearAoneApiKey();
-					dispatch(baseApi.util.resetApiState());
+					if (typeof window !== "undefined") {
+						window.location.replace("/login");
+					}
 				}
 			},
-			invalidatesTags: ["Sessions", "Config", "Providers", "Logs", "VirtualKeys", "Teams", "Customers", "Budgets", "RateLimits"],
 		}),
 	}),
 });

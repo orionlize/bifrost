@@ -5,9 +5,10 @@ import { IS_ENTERPRISE } from "@/lib/constants/config";
 import { useEffect } from "react";
 
 export function useAoneCurrentUser() {
-	const { data: authStatus } = useIsAuthEnabledQuery();
+	const { data: authStatus, isFetching: authFetching } = useIsAuthEnabledQuery();
 	const enabled =
 		!IS_ENTERPRISE &&
+		!authFetching &&
 		authStatus?.aone_oauth_enabled === true &&
 		authStatus?.has_valid_token === true &&
 		authStatus?.is_aone_user_session === true;

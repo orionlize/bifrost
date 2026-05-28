@@ -814,6 +814,7 @@ func (m *AuthMiddleware) APIMiddleware() schemas.BifrostHTTPMiddleware {
 	systemWhitelistedRoutes := []string{
 		"/api/session/is-auth-enabled",
 		"/api/session/login",
+		"/api/config/website",
 		"/api/oauth/callback",
 		"/api/aone/oauth/config",
 		"/api/aone/oauth/authorize",

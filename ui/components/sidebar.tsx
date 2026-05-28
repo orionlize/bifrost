@@ -17,6 +17,7 @@ import {
   KeyRound,
   Landmark,
   LayoutGrid,
+  LayoutTemplate,
   LogOut,
   Logs,
   Network,
@@ -90,6 +91,7 @@ import { Badge } from "./ui/badge";
 import { PromoCardStack } from "./ui/promoCardStack";
 import { useAoneCurrentUser } from "@/hooks/useAoneCurrentUser";
 import { useIsAoneUserSession } from "@/hooks/useIsAoneUserSession";
+import { useWebsiteBranding } from "@/lib/hooks/useWebsiteBranding";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 
 // Cookie name for dismissing production setup card
@@ -1029,6 +1031,13 @@ export default function AppSidebar() {
             hasAccess: hasSettingsAccess,
           },
           {
+            title: "Website",
+            url: "/workspace/config/website",
+            icon: LayoutTemplate,
+            description: "Website name and branding",
+            hasAccess: hasSettingsAccess,
+          },
+          {
             title: "Compatibility",
             url: "/workspace/config/compatibility",
             icon: Plug,
@@ -1189,6 +1198,19 @@ export default function AppSidebar() {
     return false;
   }, [latestRelease, version]);
   const isAuthEnabled = coreConfig?.auth_config?.is_enabled || false;
+  const showAoneUserMenu = aoneUserEnabled && !!aoneDisplayName;
+  const showEnterpriseUserMenu =
+    IS_ENTERPRISE && !!userInfo && !!(userInfo.name || userInfo.email);
+  const showAdminUserMenu =
+    isAuthEnabled &&
+    authStatus?.has_valid_token === true &&
+    !isAoneUserSession &&
+    !showAoneUserMenu &&
+    !showEnterpriseUserMenu;
+  const adminDisplayName = useMemo(() => {
+    const username = coreConfig?.auth_config?.admin_username?.value?.trim();
+    return username || "Admin";
+  }, [coreConfig?.auth_config?.admin_username?.value]);
 
   useEffect(() => {
     setMounted(true);
@@ -1357,15 +1379,7 @@ export default function AppSidebar() {
     return false;
   };
 
-  // Always render the light theme version for SSR to avoid hydration mismatch
-  const logoSrc =
-    mounted && resolvedTheme === "dark"
-      ? "/bifrost-logo-dark.webp"
-      : "/bifrost-logo.webp";
-  const iconSrc =
-    mounted && resolvedTheme === "dark"
-      ? "/bifrost-icon-dark.webp"
-      : "/bifrost-icon.webp";
+  const { siteName, hasCustomName, brandSrc, collapsedBrandSrc, isLoaded } = useWebsiteBranding();
 
   const { isConnected: isWebSocketConnected } = useWebSocket();
 
@@ -1486,13 +1500,11 @@ export default function AppSidebar() {
   );
 
   const handleLogout = async () => {
+    setUserPopoverOpen(false);
     try {
-      setUserPopoverOpen(false);
       await logout().unwrap();
-      navigate("/login");
     } catch {
-      // Even if logout fails on server, redirect to login
-      navigate("/login");
+      // Redirect is handled in the logout mutation lifecycle.
     }
   };
 
@@ -1510,13 +1522,22 @@ export default function AppSidebar() {
             to="/workspace/logs"
             className="group flex items-center gap-2 pl-2"
           >
-            <img
-              className="h-[22px] w-auto"
-              src={logoSrc}
-              alt="Bifrost"
-              width={70}
-              height={70}
-            />
+            {isLoaded ? (
+              <>
+                <img
+                  className="h-[22px] w-auto shrink-0"
+                  src={brandSrc}
+                  alt={siteName}
+                  width={70}
+                  height={70}
+                />
+                {hasCustomName ? (
+                  <span className="truncate text-sm font-medium">{siteName}</span>
+                ) : null}
+              </>
+            ) : (
+              <span className="inline-block h-[22px] w-[70px]" aria-hidden />
+            )}
           </Link>
           <div className="flex items-center gap-1">
             <ThemeToggle />
@@ -1539,14 +1560,18 @@ export default function AppSidebar() {
             className="cursor-pointer"
             aria-label="Expand sidebar"
           >
-            <img
-              className="h-[22px] w-auto"
-              src={iconSrc}
-              alt="Bifrost"
-              width={22}
-              height={22}
-              style={{ width: 18 }}
-            />
+            {isLoaded ? (
+              <img
+                className="h-[22px] w-auto"
+                src={collapsedBrandSrc}
+                alt={siteName}
+                width={22}
+                height={22}
+                style={{ width: 18 }}
+              />
+            ) : (
+              <span className="inline-block h-[22px] w-[18px]" aria-hidden />
+            )}
           </button>
           <ThemeToggle />
         </div>
@@ -1611,7 +1636,7 @@ export default function AppSidebar() {
           </SidebarGroupContent>
         </SidebarGroup>
         <div className="flex flex-col gap-4 px-3 group-data-[collapsible=icon]:px-1">
-          {aoneUserEnabled && aoneDisplayName ? (
+          {showAoneUserMenu ? (
             <Popover open={userPopoverOpen} onOpenChange={setUserPopoverOpen}>
               <PopoverTrigger asChild>
                 <button
@@ -1661,6 +1686,49 @@ export default function AppSidebar() {
               </PopoverContent>
             </Popover>
           ) : null}
+          {showAdminUserMenu ? (
+            <Popover open={userPopoverOpen} onOpenChange={setUserPopoverOpen}>
+              <PopoverTrigger asChild>
+                <button
+                  type="button"
+                  data-testid="sidebar-admin-user-trigger"
+                  className="hover:bg-sidebar-accent flex w-full items-center gap-2 rounded-md px-1 py-1.5 text-left transition-colors group-data-[collapsible=icon]:justify-center"
+                  aria-label="User menu"
+                >
+                  <Avatar className="size-8">
+                    <AvatarFallback className="text-xs font-medium">
+                      {adminDisplayName.charAt(0).toUpperCase()}
+                    </AvatarFallback>
+                  </Avatar>
+                  <span className="truncate text-sm font-medium group-data-[collapsible=icon]:hidden">
+                    {adminDisplayName}
+                  </span>
+                </button>
+              </PopoverTrigger>
+              <PopoverContent side="top" align="start" className="w-56 p-0">
+                <div className="flex flex-col">
+                  <div className="flex items-center gap-3 px-4 py-3">
+                    <Avatar className="size-9">
+                      <AvatarFallback className="text-xs font-medium">
+                        {adminDisplayName.charAt(0).toUpperCase()}
+                      </AvatarFallback>
+                    </Avatar>
+                    <p className="truncate text-sm font-medium">{adminDisplayName}</p>
+                  </div>
+                  <Separator />
+                  <button
+                    onClick={handleLogout}
+                    className="hover:bg-accent hover:text-accent-foreground flex w-full items-center gap-2 px-4 py-2.5 text-left text-sm transition-colors"
+                    type="button"
+                    data-testid="sidebar-admin-logout-btn"
+                  >
+                    <LogOut className="h-4 w-4" strokeWidth={2} />
+                    <span>Logout</span>
+                  </button>
+                </div>
+              </PopoverContent>
+            </Popover>
+          ) : null}
           {!showAoneUsers ? (
             <div className="mx-1 group-data-[collapsible=icon]:hidden">
               <PromoCardStack
@@ -1693,9 +1761,7 @@ export default function AppSidebar() {
                       </div>
                     </a>
                   ))}
-                {IS_ENTERPRISE &&
-                userInfo &&
-                (userInfo.name || userInfo.email) ? (
+                {showEnterpriseUserMenu ? (
                 <Popover
                   open={userPopoverOpen}
                   onOpenChange={setUserPopoverOpen}
@@ -1732,21 +1798,6 @@ export default function AppSidebar() {
                     </div>
                   </PopoverContent>
                 </Popover>
-              ) : isAuthEnabled && !showAoneUsers ? (
-                <div>
-                  <button
-                    className="hover:text-primary text-muted-foreground flex cursor-pointer items-center space-x-3 p-0.5"
-                    onClick={handleLogout}
-                    type="button"
-                    aria-label="Logout"
-                  >
-                    <LogOut
-                      className="hover:text-primary text-muted-foreground h-4 w-4"
-                      size={20}
-                      strokeWidth={2}
-                    />
-                  </button>
-                </div>
               ) : null}
               <div className="hidden w-full cursor-pointer flex-col items-center group-data-[collapsible=icon]:flex">
                 <button

@@ -29,6 +29,13 @@ export const configApi = baseApi.injectEndpoints({
 			providesTags: ["Config"],
 		}),
 
+		getWebsiteConfig: builder.query<{ website?: unknown }, void>({
+			query: () => ({
+				url: "/config/website",
+			}),
+			providesTags: ["WebsiteConfig"],
+		}),
+
 		// Get version information
 		getVersion: builder.query<string, void>({
 			query: () => ({
@@ -138,6 +145,7 @@ export const configApi = baseApi.injectEndpoints({
 					patchResults.forEach((patchResult) => patchResult.undo());
 				}
 			},
+			invalidatesTags: ["WebsiteConfig"],
 		}),
 	}),
 });
@@ -145,6 +153,7 @@ export const configApi = baseApi.injectEndpoints({
 export const {
 	useGetVersionQuery,
 	useGetCoreConfigQuery,
+	useGetWebsiteConfigQuery,
 	useUpdateCoreConfigMutation,
 	useUpdateProxyConfigMutation,
 	useForcePricingSyncMutation,

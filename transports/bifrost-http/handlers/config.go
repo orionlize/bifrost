@@ -74,6 +74,7 @@ func NewConfigHandler(configManager ConfigManager, store *lib.Config) *ConfigHan
 // It adds the `PUT /api/config` endpoint.
 func (h *ConfigHandler) RegisterRoutes(r *router.Router, middlewares ...schemas.BifrostHTTPMiddleware) {
 	r.GET("/api/config", lib.ChainMiddlewares(h.getConfig, middlewares...))
+	r.GET("/api/config/website", lib.ChainMiddlewares(h.getWebsiteConfig, middlewares...))
 	r.PUT("/api/config", lib.ChainMiddlewares(h.updateConfig, middlewares...))
 	r.POST("/api/config/metadata", lib.ChainMiddlewares(h.updateMetadata, middlewares...))
 	r.GET("/api/version", lib.ChainMiddlewares(h.getVersion, middlewares...))
@@ -170,6 +171,23 @@ func (h *ConfigHandler) getConfig(ctx *fasthttp.RequestCtx) {
 		}
 	}
 	SendJSON(ctx, mapConfig)
+}
+
+// getWebsiteConfig handles GET /api/config/website - returns public website branding
+// (name + icon URLs) from the client metadata blob. Safe to expose without auth.
+func (h *ConfigHandler) getWebsiteConfig(ctx *fasthttp.RequestCtx) {
+	response := map[string]any{}
+	if h.store.ConfigStore != nil {
+		metadata, err := h.store.ConfigStore.GetClientMetadata(ctx)
+		if err != nil && !errors.Is(err, configstore.ErrNotFound) {
+			logger.Warn("failed to get client metadata for website config: %v", err)
+		} else if len(metadata) > 0 {
+			if website, ok := metadata["website"]; ok && website != nil {
+				response["website"] = website
+			}
+		}
+	}
+	SendJSON(ctx, response)
 }
 
 // updateMetadata handles POST /api/config/metadata - merges a JSON object of

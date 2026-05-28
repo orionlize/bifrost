@@ -2,6 +2,7 @@ import FullPageLoader from "@/components/fullPageLoader";
 import NotAvailableBanner from "@/components/notAvailableBanner";
 import ProgressProvider from "@/components/progressBar";
 import Sidebar from "@/components/sidebar";
+import { WebsiteDocumentHead } from "@/components/websiteDocumentHead";
 import { ThemeProvider } from "@/components/themeProvider";
 import TrialExpiryBanner from "@/components/trialExpiryBanner";
 import { SidebarProvider } from "@/components/ui/sidebar";
@@ -64,11 +65,10 @@ function AppContent({ children }: { children: React.ReactNode }) {
       true,
   );
 
-  // Probe dashboard auth state on opted-in routes. is-auth-enabled is whitelisted
-  // (no 401 risk) and returns whether the current cookie is a valid session.
-  const { data: authState, isLoading: authLoading } = useIsAuthEnabledQuery(
+  // Probe dashboard auth state. is-auth-enabled is whitelisted (no 401 risk).
+  const { data: authState, isLoading: authLoading, isFetching: authFetching } = useIsAuthEnabledQuery(
     undefined,
-    { skip: !tempTokenScoped },
+    { skip: publicShell },
   );
 
   // Snapshot fragment presence at mount: TempTokenScope strips the fragment
@@ -87,22 +87,34 @@ function AppContent({ children }: { children: React.ReactNode }) {
     !authState?.has_valid_token &&
     hadFragmentTempToken;
 
+  const authSessionReady =
+    authState?.is_auth_enabled !== true || authState.has_valid_token === true;
+
   const {
     data: bifrostConfig,
     error,
     isLoading,
+    isFetching,
   } = useGetCoreConfigQuery(
     {},
     {
-      skip: publicShell || useMinimalShell || (tempTokenScoped && authLoading),
+      skip:
+        publicShell ||
+        useMinimalShell ||
+        (tempTokenScoped && authLoading) ||
+        (!publicShell && !useMinimalShell && !authSessionReady && (authLoading || authFetching)),
     },
   );
 
   useEffect(() => {
-    if (error) {
-      toast.error(getErrorMessage(error));
+    if (!error || isLoading || isFetching) {
+      return;
     }
-  }, [error]);
+    if ((error as { status?: unknown }).status === 401) {
+      return;
+    }
+    toast.error(getErrorMessage(error));
+  }, [error, isFetching, isLoading]);
 
   if (publicShell) {
     return <MinimalShell>{children}</MinimalShell>;
@@ -177,6 +189,7 @@ export function ClientLayout({ children }: { children: React.ReactNode }) {
       <ThemeProvider attribute="class" defaultTheme="system" enableSystem>
         <Toaster closeButton />
         <ReduxProvider>
+          <WebsiteDocumentHead />
           <NuqsAdapter>
             <RbacProvider>
               <AppContent>{children}</AppContent>

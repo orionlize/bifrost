@@ -5,6 +5,7 @@ import { createBaseQueryWithRefresh } from "@enterprise/lib/store/utils/baseQuer
 import { clearOAuthStorage } from "@enterprise/lib/store/utils/tokenManager";
 import { createApi, fetchBaseQuery } from "@reduxjs/toolkit/query/react";
 import { getActiveTempToken, getSuppressGlobal401 } from "./tempToken";
+import { getLoggingOut, isLogoutRequest } from "./logoutState";
 
 // Auth tokens are now stored in HTTP-only cookies (set by server)
 // No client-side token needed — handled by credentials: "include"
@@ -72,6 +73,15 @@ const baseQueryWithErrorHandling: typeof baseQueryWithRefresh = async (
   api: any,
   extraOptions: any,
 ) => {
+  if (getLoggingOut() && !isLogoutRequest(args)) {
+    return {
+      error: {
+        status: "CUSTOM_ERROR",
+        error: "Logging out",
+      },
+    };
+  }
+
   // First apply refresh logic (enterprise-specific, handles 401)
   const result = await baseQueryWithRefresh(args, api, extraOptions);
 
@@ -84,7 +94,7 @@ const baseQueryWithErrorHandling: typeof baseQueryWithRefresh = async (
 			// When a TempTokenScope wrapper is active, the wrapped page handles
 			// its own 401 display (an "invalid/expired link" view). Skip the
 			// global redirect so the user stays on the page they opened.
-			if (getSuppressGlobal401()) {
+			if (getSuppressGlobal401() || getLoggingOut()) {
 				return result;
 			}
 			clearAuthStorage();
@@ -145,6 +155,7 @@ export const baseApi = createApi({
     "Providers",
     "MCPClients",
     "Config",
+    "WebsiteConfig",
     "CacheConfig",
     "VirtualKeys",
     "Teams",
