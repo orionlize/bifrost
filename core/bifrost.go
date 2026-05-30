@@ -26,11 +26,13 @@ import (
 	"github.com/maximhq/bifrost/core/providers/bedrock"
 	"github.com/maximhq/bifrost/core/providers/cerebras"
 	"github.com/maximhq/bifrost/core/providers/cohere"
+	"github.com/maximhq/bifrost/core/providers/deepseek"
 	"github.com/maximhq/bifrost/core/providers/elevenlabs"
 	"github.com/maximhq/bifrost/core/providers/fireworks"
 	"github.com/maximhq/bifrost/core/providers/gemini"
 	"github.com/maximhq/bifrost/core/providers/groq"
 	"github.com/maximhq/bifrost/core/providers/huggingface"
+	"github.com/maximhq/bifrost/core/providers/mimo"
 	"github.com/maximhq/bifrost/core/providers/mistral"
 	"github.com/maximhq/bifrost/core/providers/nebius"
 	"github.com/maximhq/bifrost/core/providers/ollama"
@@ -3942,6 +3944,10 @@ func (bifrost *Bifrost) createBaseProvider(providerKey schemas.ModelProvider, co
 		return huggingface.NewHuggingFaceProvider(config, bifrost.logger), nil
 	case schemas.XAI:
 		return xai.NewXAIProvider(config, bifrost.logger)
+	case schemas.DeepSeek:
+		return deepseek.NewDeepSeekProvider(config, bifrost.logger)
+	case schemas.MiMo:
+		return mimo.NewMiMoProvider(config, bifrost.logger)
 	case schemas.Replicate:
 		return replicate.NewReplicateProvider(config, bifrost.logger)
 	case schemas.VLLM:

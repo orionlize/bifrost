@@ -661,6 +661,66 @@ export const ProviderIcons = {
 			</svg>
 		);
 	},
+
+	deepseek: ({ size = "md", className = "" }: IconProps) => {
+		const resolvedSize = resolveSize(size);
+
+		return (
+			<svg
+				width={resolvedSize}
+				height={resolvedSize}
+				viewBox="0 0 32 32"
+				fill="none"
+				xmlns="http://www.w3.org/2000/svg"
+				className={className}
+			>
+				<title>DeepSeek</title>
+				<rect width="32" height="32" rx="7" fill="#4D6BFE" />
+				<text
+					x="50%"
+					y="53%"
+					dominantBaseline="central"
+					textAnchor="middle"
+					fontFamily="ui-sans-serif, system-ui, sans-serif"
+					fontSize="14"
+					fontWeight="700"
+					fill="#FFFFFF"
+				>
+					DS
+				</text>
+			</svg>
+		);
+	},
+
+	mimo: ({ size = "md", className = "" }: IconProps) => {
+		const resolvedSize = resolveSize(size);
+
+		return (
+			<svg
+				width={resolvedSize}
+				height={resolvedSize}
+				viewBox="0 0 32 32"
+				fill="none"
+				xmlns="http://www.w3.org/2000/svg"
+				className={className}
+			>
+				<title>Xiaomi MiMo</title>
+				<rect width="32" height="32" rx="7" fill="#FF6900" />
+				<text
+					x="50%"
+					y="53%"
+					dominantBaseline="central"
+					textAnchor="middle"
+					fontFamily="ui-sans-serif, system-ui, sans-serif"
+					fontSize="13"
+					fontWeight="700"
+					fill="#FFFFFF"
+				>
+					Mi
+				</text>
+			</svg>
+		);
+	},
 } as const;
 
 // Routing Engine Icons

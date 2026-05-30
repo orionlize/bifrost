@@ -59,6 +59,8 @@ const (
 	VLLM        ModelProvider = "vllm"
 	Runway      ModelProvider = "runway"
 	Fireworks   ModelProvider = "fireworks"
+	DeepSeek    ModelProvider = "deepseek"
+	MiMo        ModelProvider = "mimo"
 )
 
 // SupportedBaseProviders is the list of base providers allowed for custom providers.
@@ -97,6 +99,8 @@ var StandardProviders = []ModelProvider{
 	VLLM,
 	Runway,
 	Fireworks,
+	DeepSeek,
+	MiMo,
 }
 
 // RequestType represents the type of request being made to a provider.

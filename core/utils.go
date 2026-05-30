@@ -91,6 +91,8 @@ var dynamicallyConfigurableProviders = []schemas.ModelProvider{
 	schemas.Perplexity,
 	schemas.Vertex,
 	schemas.XAI,
+	schemas.DeepSeek,
+	schemas.MiMo,
 }
 
 // isModelRequired returns true if the request type requires a model

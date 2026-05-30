@@ -23,6 +23,8 @@ export const KnownProvidersNames = [
 	"vllm",
 	"runway",
 	"fireworks",
+	"deepseek",
+	"mimo",
 ] as const;
 
 // Local Provider type derived from KNOWN_PROVIDERS constant
@@ -122,6 +124,8 @@ export const ProviderLabels: Record<ProviderName, string> = {
 	vllm: "vLLM",
 	runway: "Runway",
 	fireworks: "Fireworks AI",
+	deepseek: "DeepSeek",
+	mimo: "Xiaomi MiMo",
 } as const;
 
 // Helper function to get provider label, supporting custom providers
