@@ -55,6 +55,7 @@ func (p *LoggerPlugin) insertInitialLogEntry(
 	if parentRequestID != "" {
 		entry.ParentRequestID = &parentRequestID
 	}
+	sanitizeLogEntryContent(entry)
 	return p.store.CreateIfNotExists(ctx, entry)
 }
 
@@ -278,6 +279,7 @@ func (p *LoggerPlugin) updateLogEntry(
 	}
 
 	if needsSerialization {
+		sanitizeLogEntryContent(tempEntry)
 		if err := tempEntry.SerializeFields(); err != nil {
 			p.logger.Error("failed to serialize log update fields: %v", err)
 		} else {

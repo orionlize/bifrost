@@ -128,6 +128,18 @@ export const ProviderLabels: Record<ProviderName, string> = {
 	mimo: "Xiaomi MiMo",
 } as const;
 
+/** Built-in providers that expose an OpenAI-compatible HTTP API. */
+export const OpenAICompatibleProviders: readonly ProviderName[] = ["deepseek", "mimo"] as const;
+
+export const ProviderSelectionNotes: Partial<Record<ProviderName, string>> = {
+	deepseek: "OpenAI-compatible API",
+	mimo: "OpenAI-compatible API",
+};
+
+export function isOpenAICompatibleProvider(provider: string): boolean {
+	return OpenAICompatibleProviders.includes(provider as ProviderName);
+}
+
 // Helper function to get provider label, supporting custom providers
 export const getProviderLabel = (provider: string): string => {
 	// Use hasOwnProperty for safe lookup without checking prototype chain

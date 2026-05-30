@@ -17,6 +17,7 @@ import (
 
 	"github.com/google/uuid"
 	"github.com/maximhq/bifrost/core/schemas"
+	"github.com/maximhq/bifrost/framework/configstore"
 	"github.com/maximhq/bifrost/plugins/governance"
 	"github.com/maximhq/bifrost/plugins/maxim"
 	"github.com/maximhq/bifrost/plugins/semanticcache"
@@ -349,7 +350,8 @@ func ConvertToBifrostContext(ctx *fasthttp.RequestCtx, store HandlerStore) (*sch
 			// Only accept Bearer token format: "Bearer ..."
 			if strings.HasPrefix(strings.ToLower(valueStr), "bearer ") {
 				authHeaderValue := strings.TrimSpace(valueStr[7:]) // Remove "Bearer " prefix
-				if authHeaderValue != "" && strings.HasPrefix(strings.ToLower(authHeaderValue), governance.VirtualKeyPrefix) {
+				authLower := strings.ToLower(authHeaderValue)
+				if authHeaderValue != "" && (strings.HasPrefix(authLower, governance.VirtualKeyPrefix) || strings.HasPrefix(authLower, configstore.GlobalAPIKeyPrefix)) {
 					bifrostCtx.SetValue(schemas.BifrostContextKeyVirtualKey, authHeaderValue)
 					return true
 				}

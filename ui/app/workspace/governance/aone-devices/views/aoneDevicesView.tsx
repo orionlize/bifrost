@@ -22,7 +22,6 @@ import { ChevronLeft, ChevronRight, Laptop, Search } from "lucide-react";
 import { parseAsInteger, parseAsString, useQueryStates } from "nuqs";
 import { useState } from "react";
 import { toast } from "sonner";
-import { AoneUsersNav } from "../../aone-users/views/aoneUsersNav";
 
 const PAGE_SIZE = 25;
 
@@ -68,17 +67,14 @@ export default function AoneDevicesView() {
 
 	return (
 		<div className="flex w-full flex-col gap-6 py-6">
-			<header className="space-y-4">
-				<AoneUsersNav />
-				<div className="space-y-2">
-					<h2 className="flex flex-row items-center gap-2 text-lg font-semibold tracking-tight">
-						<Laptop className="size-4" />
-						Devices
-					</h2>
-					<p className="text-muted-foreground max-w-2xl text-sm">
-						Manage desktop clients authorized through ZD Switch. Each row binds a device fingerprint to an Aone user.
-					</p>
-				</div>
+			<header className="space-y-2">
+				<h2 className="flex flex-row items-center gap-2 text-lg font-semibold tracking-tight">
+					<Laptop className="size-4" />
+					Devices
+				</h2>
+				<p className="text-muted-foreground max-w-2xl text-sm">
+					Manage desktop clients authorized through ZD Switch. Each row binds a device fingerprint to an Aone user.
+				</p>
 			</header>
 
 			<div className="flex flex-col gap-4 rounded-lg border p-4 sm:flex-row sm:items-center sm:justify-between">

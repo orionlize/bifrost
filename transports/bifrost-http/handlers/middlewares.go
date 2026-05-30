@@ -830,6 +830,16 @@ func (m *AuthMiddleware) gateDeviceOnForwarding(ctx *fasthttp.RequestCtx, url st
 		return proceed
 	}
 
+	if globalKey, err := validateGlobalAPIKey(ctx, m.store, token); err != nil {
+		logger.Error("[aone-devices] failed to resolve global API key for forwarding: %v", err)
+		SendError(ctx, fasthttp.StatusInternalServerError, "Internal Server Error")
+		return false
+	} else if globalKey != nil && len(globalKey.AllowedUserIDs) > 0 {
+		// User-scoped global keys must expose AllowedUserIDs to governance even when
+		// inference auth is skipped (DisableAuthOnInference).
+		applyGlobalAPIKeyAuth(ctx, globalKey)
+	}
+
 	userIDs, err := m.resolveDeviceGatedUsers(ctx, token)
 	if err != nil {
 		logger.Error("[aone-devices] failed to resolve device-gated users: %v", err)

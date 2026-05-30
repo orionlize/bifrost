@@ -1,4 +1,4 @@
-import { LogsFilterSidebar } from "@/components/filters/logsFilterSidebar";
+import { LogsFilterSidebar, type LogsFilterSection } from "@/components/filters/logsFilterSidebar";
 import { DateTimePickerWithRange } from "@/components/ui/datePickerWithRange";
 import { ScrollArea } from "@/components/ui/scrollArea";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -24,6 +24,14 @@ const toChartType = (value: string): ChartType => (value === "line" ? "line" : "
 
 const parseCsvParam = (value: string): string[] => (value ? value.split(",").filter(Boolean) : []);
 
+const DASHBOARD_HIDDEN_FILTER_SECTIONS = [
+	"virtual_keys",
+	"customers",
+	"business_units",
+	"metadata",
+	"routing_engines",
+] as const satisfies readonly LogsFilterSection[];
+
 export default function DashboardPage() {
 	const { data: authStatus } = useIsAuthEnabledQuery();
 	const hideGovernanceRankingsTabs = !IS_ENTERPRISE && authStatus?.aone_oauth_enabled === true;
@@ -42,17 +50,14 @@ export default function DashboardPage() {
 			start_time: parseAsInteger.withDefault(defaultTimeRange.startTime),
 			end_time: parseAsInteger.withDefault(defaultTimeRange.endTime),
 			tab: parseAsString.withDefault("overview"),
-			virtual_key_ids: parseAsString.withDefault(""),
 			providers: parseAsString.withDefault(""),
 			models: parseAsString.withDefault(""),
 			selected_key_ids: parseAsString.withDefault(""),
 			objects: parseAsString.withDefault(""),
 			status: parseAsString.withDefault(""),
 			routing_rule_ids: parseAsString.withDefault(""),
-			routing_engine_used: parseAsString.withDefault(""),
 			stop_reasons: parseAsString.withDefault(""),
 			missing_cost_only: parseAsString.withDefault("false"),
-			metadata_filters: parseAsString.withDefault(""),
 			volume_chart: parseAsString.withDefault("bar"),
 			token_chart: parseAsString.withDefault("bar"),
 			cost_chart: parseAsString.withDefault("bar"),
@@ -73,8 +78,6 @@ export default function DashboardPage() {
 			parent_request_id: parseAsString.withDefault(""),
 			user_ids: parseAsString.withDefault(""),
 			team_ids: parseAsString.withDefault(""),
-			customer_ids: parseAsString.withDefault(""),
-			business_unit_ids: parseAsString.withDefault(""),
 			aliases: parseAsString.withDefault(""),
 		},
 		{
@@ -87,29 +90,17 @@ export default function DashboardPage() {
 	const selectedProviders = useMemo(() => parseCsvParam(urlState.providers), [urlState.providers]);
 	const selectedModels = useMemo(() => parseCsvParam(urlState.models), [urlState.models]);
 	const selectedKeyIds = useMemo(() => parseCsvParam(urlState.selected_key_ids), [urlState.selected_key_ids]);
-	const selectedVirtualKeyIds = useMemo(() => parseCsvParam(urlState.virtual_key_ids), [urlState.virtual_key_ids]);
 	const selectedTypes = useMemo(() => parseCsvParam(urlState.objects), [urlState.objects]);
 	const selectedStatuses = useMemo(() => parseCsvParam(urlState.status), [urlState.status]);
 	const selectedRoutingRuleIds = useMemo(() => parseCsvParam(urlState.routing_rule_ids), [urlState.routing_rule_ids]);
-	const selectedRoutingEngines = useMemo(() => parseCsvParam(urlState.routing_engine_used), [urlState.routing_engine_used]);
 	const selectedStopReasons = useMemo(() => parseCsvParam(urlState.stop_reasons), [urlState.stop_reasons]);
 	const missingCostOnly = useMemo(() => urlState.missing_cost_only === "true", [urlState.missing_cost_only]);
-	const metadataFilters = useMemo(() => {
-		if (!urlState.metadata_filters) return undefined;
-		try {
-			return JSON.parse(urlState.metadata_filters) as Record<string, string>;
-		} catch {
-			return undefined;
-		}
-	}, [urlState.metadata_filters]);
 
 	const selectedMcpToolNames = useMemo(() => parseCsvParam(urlState.mcp_tool_names), [urlState.mcp_tool_names]);
 	const selectedMcpServerLabels = useMemo(() => parseCsvParam(urlState.mcp_server_labels), [urlState.mcp_server_labels]);
 
 	const selectedUserIds = useMemo(() => parseCsvParam(urlState.user_ids), [urlState.user_ids]);
 	const selectedTeamIds = useMemo(() => parseCsvParam(urlState.team_ids), [urlState.team_ids]);
-	const selectedCustomerIds = useMemo(() => parseCsvParam(urlState.customer_ids), [urlState.customer_ids]);
-	const selectedBusinessUnitIds = useMemo(() => parseCsvParam(urlState.business_unit_ids), [urlState.business_unit_ids]);
 	const selectedAliases = useMemo(() => parseCsvParam(urlState.aliases), [urlState.aliases]);
 
 	const filters: LogFilters = useMemo(
@@ -117,34 +108,22 @@ export default function DashboardPage() {
 			...(urlState.period
 				? { period: urlState.period }
 				: {
-					start_time: dateUtils.toISOString(urlState.start_time),
-					end_time: dateUtils.toISOString(urlState.end_time),
-				}),
+						start_time: dateUtils.toISOString(urlState.start_time),
+						end_time: dateUtils.toISOString(urlState.end_time),
+					}),
 			...(selectedProviders.length > 0 && { providers: selectedProviders }),
 			...(selectedModels.length > 0 && { models: selectedModels }),
 			...(selectedKeyIds.length > 0 && { selected_key_ids: selectedKeyIds }),
-			...(selectedVirtualKeyIds.length > 0 && {
-				virtual_key_ids: selectedVirtualKeyIds,
-			}),
 			...(selectedTypes.length > 0 && { objects: selectedTypes }),
 			...(selectedStatuses.length > 0 && { status: selectedStatuses }),
 			...(selectedRoutingRuleIds.length > 0 && {
 				routing_rule_ids: selectedRoutingRuleIds,
 			}),
-			...(selectedRoutingEngines.length > 0 && {
-				routing_engine_used: selectedRoutingEngines,
-			}),
 			...(selectedStopReasons.length > 0 && { stop_reasons: selectedStopReasons }),
 			...(missingCostOnly && { missing_cost_only: true }),
-			...(metadataFilters &&
-				Object.keys(metadataFilters).length > 0 && {
-				metadata_filters: metadataFilters,
-			}),
 			...(urlState.parent_request_id && { parent_request_id: urlState.parent_request_id }),
 			...(selectedUserIds.length > 0 && { user_ids: selectedUserIds }),
 			...(selectedTeamIds.length > 0 && { team_ids: selectedTeamIds }),
-			...(selectedCustomerIds.length > 0 && { customer_ids: selectedCustomerIds }),
-			...(selectedBusinessUnitIds.length > 0 && { business_unit_ids: selectedBusinessUnitIds }),
 			...(selectedAliases.length > 0 && { aliases: selectedAliases }),
 		}),
 		[
@@ -155,18 +134,13 @@ export default function DashboardPage() {
 			selectedProviders,
 			selectedModels,
 			selectedKeyIds,
-			selectedVirtualKeyIds,
 			selectedTypes,
 			selectedStatuses,
 			selectedRoutingRuleIds,
-			selectedRoutingEngines,
 			selectedStopReasons,
 			missingCostOnly,
-			metadataFilters,
 			selectedUserIds,
 			selectedTeamIds,
-			selectedCustomerIds,
-			selectedBusinessUnitIds,
 			selectedAliases,
 		],
 	);
@@ -176,9 +150,9 @@ export default function DashboardPage() {
 			...(urlState.period
 				? { period: urlState.period }
 				: {
-					start_time: dateUtils.toISOString(urlState.start_time),
-					end_time: dateUtils.toISOString(urlState.end_time),
-				}),
+						start_time: dateUtils.toISOString(urlState.start_time),
+						end_time: dateUtils.toISOString(urlState.end_time),
+					}),
 			...(selectedMcpToolNames.length > 0 && {
 				tool_names: selectedMcpToolNames,
 			}),
@@ -186,9 +160,6 @@ export default function DashboardPage() {
 				server_labels: selectedMcpServerLabels,
 			}),
 			...(selectedStatuses.length > 0 && { status: selectedStatuses }),
-			...(selectedVirtualKeyIds.length > 0 && {
-				virtual_key_ids: selectedVirtualKeyIds,
-			}),
 		}),
 		[
 			urlState.period,
@@ -197,7 +168,6 @@ export default function DashboardPage() {
 			selectedMcpToolNames,
 			selectedMcpServerLabels,
 			selectedStatuses,
-			selectedVirtualKeyIds,
 		],
 	);
 
@@ -300,22 +270,14 @@ export default function DashboardPage() {
 				providers: (newFilters.providers || []).join(","),
 				models: (newFilters.models || []).join(","),
 				selected_key_ids: (newFilters.selected_key_ids || []).join(","),
-				virtual_key_ids: (newFilters.virtual_key_ids || []).join(","),
 				objects: (newFilters.objects || []).join(","),
 				status: (newFilters.status || []).join(","),
 				routing_rule_ids: (newFilters.routing_rule_ids || []).join(","),
-				routing_engine_used: (newFilters.routing_engine_used || []).join(","),
 				stop_reasons: (newFilters.stop_reasons || []).join(","),
 				missing_cost_only: String(newFilters.missing_cost_only ?? false),
-				metadata_filters:
-					newFilters.metadata_filters && Object.keys(newFilters.metadata_filters).length > 0
-						? JSON.stringify(newFilters.metadata_filters)
-						: "",
 				parent_request_id: newFilters.parent_request_id || "",
 				user_ids: (newFilters.user_ids || []).join(","),
 				team_ids: (newFilters.team_ids || []).join(","),
-				customer_ids: (newFilters.customer_ids || []).join(","),
-				business_unit_ids: (newFilters.business_unit_ids || []).join(","),
 				aliases: (newFilters.aliases || []).join(","),
 			});
 		},
@@ -398,11 +360,7 @@ export default function DashboardPage() {
 			"dashboard-section-mcp",
 			...(hideGovernanceRankingsTabs
 				? []
-				: [
-						"dashboard-section-team-rankings",
-						"dashboard-section-customer-rankings",
-						"dashboard-section-bu-rankings",
-					]),
+				: ["dashboard-section-team-rankings", "dashboard-section-customer-rankings", "dashboard-section-bu-rankings"]),
 			"dashboard-section-user-rankings",
 		];
 		return ids.map((id) => document.getElementById(id)).filter(Boolean) as HTMLElement[];
@@ -435,7 +393,11 @@ export default function DashboardPage() {
 	return (
 		<div id="dashboard-root" className="no-padding-parent no-border-parent bg-background flex h-[calc(100vh_-_16px)] w-full gap-3">
 			{/* Sidebar Filters */}
-			<LogsFilterSidebar filters={filters} onFiltersChange={setFilters} />
+			<LogsFilterSidebar
+				filters={filters}
+				onFiltersChange={setFilters}
+				hiddenSections={DASHBOARD_HIDDEN_FILTER_SECTIONS}
+			/>
 
 			{/* Main Content */}
 			<ScrollArea className="bg-card flex min-w-0 flex-1 flex-col gap-4 rounded-l-md">

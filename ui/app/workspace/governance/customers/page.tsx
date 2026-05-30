@@ -89,7 +89,7 @@ export default function GovernanceCustomersPage() {
 	}
 
 	return (
-		<div className="mx-auto w-full max-w-7xl h-[calc(100vh_-_50px)] flex flex-col">
+		<div className="mx-auto flex h-[calc(100vh_-_50px)] w-full max-w-7xl flex-col">
 			<CustomersTable
 				customers={customersData?.customers || []}
 				totalCount={customersData?.total_count || 0}

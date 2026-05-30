@@ -97,8 +97,6 @@ export enum RoutingRuleScope {
 export const ROUTING_RULE_SCOPES = [
 	{ value: RoutingRuleScope.Global, label: "Global" },
 	{ value: RoutingRuleScope.Team, label: "Team" },
-	{ value: RoutingRuleScope.Customer, label: "Customer" },
-	{ value: RoutingRuleScope.VirtualKey, label: "Virtual Key" },
 ];
 
 export const DEFAULT_ROUTING_TARGET: RoutingTargetFormData = {

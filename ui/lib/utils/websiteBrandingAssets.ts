@@ -1,8 +1,4 @@
-import {
-	DEFAULT_WEBSITE_NAME,
-	hasCustomWebsiteIcon,
-	type WebsiteConfig,
-} from "@/lib/types/websiteConfig";
+import { DEFAULT_WEBSITE_NAME, hasCustomWebsiteIcon, type WebsiteConfig } from "@/lib/types/websiteConfig";
 
 export const DEFAULT_LOGO_LIGHT = "/bifrost-logo.webp";
 export const DEFAULT_LOGO_DARK = "/bifrost-logo-dark.webp";

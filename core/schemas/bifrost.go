@@ -331,8 +331,9 @@ const (
 	BifrostContextKeyDimensions                          BifrostContextKey = "bifrost-dimensions"                            // map[string]string (set by HTTP transport from x-bf-dim-* headers) BifrostContextKeyDimensions holds per-request key/value dimensions supplied via x-bf-dim-<key> request headers. These dimensions are forwarded to internal logs (as metadata)
 	BifrostContextKeySkipModelCatalogProviderSelection   BifrostContextKey = "bifrost-skip-model-catalog-provider-selection" // bool (set by bifrost - DO NOT SET THIS MANUALLY)) - skip model catalog provider selection
 	IsAPIKeyAuthContextKey                               BifrostContextKey = "is_api_key_auth"
-	IsLocalAdminContextKey                               BifrostContextKey = "is_local_admin"                // bool (set by auth middleware when password-based auth succeeds - local admin user bypasses RBAC)
-	BifrostContextKeyPassthroughOverridesPresent         BifrostContextKey = "passthrough_overrides_present" // bool (set by HTTP transport) - passthrough raw request requested
+	IsLocalAdminContextKey                               BifrostContextKey = "is_local_admin"                       // bool (set by auth middleware when password-based auth succeeds - local admin user bypasses RBAC)
+	BifrostContextKeyGlobalAPIKeyAllowedUserIDs          BifrostContextKey = "bifrost-global-api-key-allowed-users" // []string (set by auth middleware for scoped global API keys - empty means unrestricted admin)
+	BifrostContextKeyPassthroughOverridesPresent         BifrostContextKey = "passthrough_overrides_present"        // bool (set by HTTP transport) - passthrough raw request requested
 	BifrostContextKeyConnectionClosed                    BifrostContextKey = "connection_closed"
 	BifrostContextKeyTempTokenScope                      BifrostContextKey = "bifrost-temp-token-scope"       // string (set by auth middleware when a temp token authorized the request - names the scope from the temptoken registry)
 	BifrostContextKeyTempTokenResourceID                 BifrostContextKey = "bifrost-temp-token-resource-id" // string (set by auth middleware alongside the scope - the resource_id the token is bound to, e.g. an OAuth flow ID for mcp_auth)
@@ -1671,15 +1672,15 @@ func (e *ErrorField) UnmarshalJSON(data []byte) error {
 
 // BifrostErrorExtraFields contains additional fields in an error response.
 type BifrostErrorExtraFields struct {
-	Provider                  ModelProvider              `json:"provider,omitempty"`
-	OriginalModelRequested    string                     `json:"original_model_requested,omitempty"`
-	ResolvedModelUsed         string                     `json:"resolved_model_used,omitempty"`
-	RequestType               RequestType                `json:"request_type,omitempty"`
-	MCPRequestType            MCPRequestType             `json:"mcp_request_type,omitempty"`
-	RawRequest                interface{}                `json:"raw_request,omitempty"`
-	RawResponse               interface{}                `json:"raw_response,omitempty"`
-	ConvertedRequestType      RequestType                `json:"converted_request_type,omitempty"`
-	DroppedCompatPluginParams []string                   `json:"dropped_compat_plugin_params,omitempty"`
-	KeyStatuses               []KeyStatus                `json:"key_statuses,omitempty"`
-	MCPAuthRequired           *MCPAuthRequiredError      `json:"mcp_auth_required,omitempty"` // Set when a per-user MCP tool requires the caller to complete an inline auth flow (OAuth or headers)
+	Provider                  ModelProvider         `json:"provider,omitempty"`
+	OriginalModelRequested    string                `json:"original_model_requested,omitempty"`
+	ResolvedModelUsed         string                `json:"resolved_model_used,omitempty"`
+	RequestType               RequestType           `json:"request_type,omitempty"`
+	MCPRequestType            MCPRequestType        `json:"mcp_request_type,omitempty"`
+	RawRequest                interface{}           `json:"raw_request,omitempty"`
+	RawResponse               interface{}           `json:"raw_response,omitempty"`
+	ConvertedRequestType      RequestType           `json:"converted_request_type,omitempty"`
+	DroppedCompatPluginParams []string              `json:"dropped_compat_plugin_params,omitempty"`
+	KeyStatuses               []KeyStatus           `json:"key_statuses,omitempty"`
+	MCPAuthRequired           *MCPAuthRequiredError `json:"mcp_auth_required,omitempty"` // Set when a per-user MCP tool requires the caller to complete an inline auth flow (OAuth or headers)
 }

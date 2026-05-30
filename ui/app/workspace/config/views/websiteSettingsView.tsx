@@ -168,7 +168,7 @@ export default function WebsiteSettingsView() {
 					</div>
 
 					<div className="space-y-4">
-						<p className="text-muted-foreground text-xs font-medium uppercase tracking-wide">Preview</p>
+						<p className="text-muted-foreground text-xs font-medium tracking-wide uppercase">Preview</p>
 						<div className="space-y-3">
 							<div className="space-y-2">
 								<p className="text-muted-foreground text-xs">Expanded</p>

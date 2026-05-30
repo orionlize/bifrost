@@ -16,7 +16,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { ProviderIconType, RenderProviderIcon } from "@/lib/constants/icons";
 import { getProviderLabel } from "@/lib/constants/logs";
 import { getErrorMessage } from "@/lib/store";
-import { useGetCustomersQuery, useGetTeamsQuery, useGetVirtualKeysQuery } from "@/lib/store/apis/governanceApi";
+import { useGetTeamsQuery } from "@/lib/store/apis/governanceApi";
 import { useGetAllKeysQuery, useGetProvidersQuery } from "@/lib/store/apis/providersApi";
 import { useCreateRoutingRuleMutation, useGetRoutingRulesQuery, useUpdateRoutingRuleMutation } from "@/lib/store/apis/routingRulesApi";
 import {
@@ -28,10 +28,11 @@ import {
 	RoutingTargetFormData,
 } from "@/lib/types/routingRules";
 import { validateRateLimitAndBudgetRules, validateRoutingRules } from "@/lib/utils/celConverterRouting";
+import { getScopeLabel } from "@/lib/utils/routingRules";
 import { normalizeRoutingRuleGroupQuery } from "@/lib/utils/routingRuleGroupQuery";
 import { RbacOperation, RbacResource, useRbac } from "@enterprise/lib";
 import { Plus, Trash2, X } from "lucide-react";
-import { lazy, Suspense, useCallback, useEffect, useState } from "react";
+import { lazy, Suspense, useCallback, useEffect, useMemo, useState } from "react";
 import { useForm } from "react-hook-form";
 import { RuleGroupType } from "react-querybuilder";
 import { toast } from "sonner";
@@ -65,9 +66,7 @@ export function RoutingRuleSheet({ open, onOpenChange, editingRule, onSuccess }:
 	const rules = rulesData?.rules || [];
 	const { data: providersData = [] } = useGetProvidersQuery();
 	const { data: allKeysData = [] } = useGetAllKeysQuery();
-	const { data: vksData = { virtual_keys: [] } } = useGetVirtualKeysQuery();
 	const { data: teamsData = { teams: [], count: 0, total_count: 0, limit: 0, offset: 0 } } = useGetTeamsQuery();
-	const { data: customersData = { customers: [] } } = useGetCustomersQuery();
 	const [createRoutingRule, { isLoading: isCreating }] = useCreateRoutingRuleMutation();
 	const [updateRoutingRule, { isLoading: isUpdating }] = useUpdateRoutingRuleMutation();
 
@@ -97,6 +96,18 @@ export function RoutingRuleSheet({ open, onOpenChange, editingRule, onSuccess }:
 	const scope = watch("scope");
 	const scopeId = watch("scope_id");
 	const fallbacks = watch("fallbacks");
+
+	const scopeOptions = useMemo(() => {
+		if (
+			isEditing &&
+			editingRule &&
+			(editingRule.scope === "customer" || editingRule.scope === "virtual_key") &&
+			!ROUTING_RULE_SCOPES.some((option) => option.value === editingRule.scope)
+		) {
+			return [...ROUTING_RULE_SCOPES, { value: editingRule.scope, label: getScopeLabel(editingRule.scope) }];
+		}
+		return ROUTING_RULE_SCOPES;
+	}, [isEditing, editingRule]);
 
 	// Get available providers from configured providers, plus any provider already
 	// referenced by the current targets, existing rules' targets, or rules' fallbacks
@@ -173,7 +184,7 @@ export function RoutingRuleSheet({ open, onOpenChange, editingRule, onSuccess }:
 	const onSubmit = (data: RoutingRuleFormData) => {
 		// Validate scope_id is required when scope is not global
 		if (data.scope !== "global" && !data.scope_id?.trim()) {
-			toast.error(`${data.scope === "team" ? "Team" : data.scope === "customer" ? "Customer" : "Virtual Key"} is required`);
+			toast.error(`${getScopeLabel(data.scope)} is required`);
 			return;
 		}
 
@@ -273,8 +284,8 @@ export function RoutingRuleSheet({ open, onOpenChange, editingRule, onSuccess }:
 					</SheetDescription>
 				</SheetHeader>
 
-				<form onSubmit={handleSubmit(onSubmit)} className="flex flex-col grow">
-					<div className="flex flex-col gap-6 px-8 pb-6 grow">
+				<form onSubmit={handleSubmit(onSubmit)} className="flex grow flex-col">
+					<div className="flex grow flex-col gap-6 px-8 pb-6">
 						{/* Rule Name */}
 						<div className="space-y-3">
 							<Label htmlFor="name">
@@ -336,7 +347,7 @@ export function RoutingRuleSheet({ open, onOpenChange, editingRule, onSuccess }:
 										<SelectValue placeholder="Select scope..." />
 									</SelectTrigger>
 									<SelectContent>
-										{ROUTING_RULE_SCOPES.map((scopeOption) => (
+										{scopeOptions.map((scopeOption) => (
 											<SelectItem key={scopeOption.value} value={scopeOption.value}>
 												{scopeOption.label}
 											</SelectItem>
@@ -366,12 +377,12 @@ export function RoutingRuleSheet({ open, onOpenChange, editingRule, onSuccess }:
 							</div>
 						</div>
 
-						{scope !== "global" && (
+						{scope === "team" && (
 							<div className="space-y-2">
 								<Label htmlFor="scope_id">
-									{scope === "team" ? "Team" : scope === "customer" ? "Customer" : "Virtual Key"} <span className="text-red-500">*</span>
+									Team <span className="text-red-500">*</span>
 								</Label>
-								{scope === "team" && teamsData.teams.length > 0 && (
+								{teamsData.teams.length > 0 ? (
 									<ComboboxSelect
 										options={teamsData.teams.map((team) => ({ label: team.name, value: team.id }))}
 										value={scopeId || null}
@@ -379,34 +390,17 @@ export function RoutingRuleSheet({ open, onOpenChange, editingRule, onSuccess }:
 										placeholder="Select a team..."
 										noPortal
 									/>
-								)}
-								{scope === "customer" && customersData.customers.length > 0 && (
-									<ComboboxSelect
-										options={customersData.customers.map((customer) => ({ label: customer.name, value: customer.id }))}
-										value={scopeId || null}
-										onValueChange={(value) => setValue("scope_id", value ?? "")}
-										placeholder="Select a customer..."
-										noPortal
-									/>
-								)}
-								{scope === "virtual_key" && vksData.virtual_keys.length > 0 && (
-									<ComboboxSelect
-										options={vksData.virtual_keys.map((vk) => ({ label: vk.name, value: vk.id }))}
-										value={scopeId || null}
-										onValueChange={(value) => setValue("scope_id", value ?? "")}
-										placeholder="Select a virtual key..."
-										noPortal
-									/>
-								)}
-								{((scope === "team" && teamsData.teams.length === 0) ||
-									(scope === "customer" && customersData.customers.length === 0) ||
-									(scope === "virtual_key" && vksData.virtual_keys.length === 0)) && (
-									<p className="text-muted-foreground text-sm">
-										No {scope === "team" ? "teams" : scope === "customer" ? "customers" : "virtual keys"} available
-									</p>
+								) : (
+									<p className="text-muted-foreground text-sm">No teams available</p>
 								)}
 								{errors.scope_id && <p className="text-destructive text-sm">{errors.scope_id.message}</p>}
 							</div>
+						)}
+
+						{(scope === "customer" || scope === "virtual_key") && isEditing && (
+							<p className="text-muted-foreground text-sm">
+								This rule uses legacy {getScopeLabel(scope)} scope. Change scope to Global or Team to update it.
+							</p>
 						)}
 
 						<Separator />

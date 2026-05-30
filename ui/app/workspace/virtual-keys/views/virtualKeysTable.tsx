@@ -75,11 +75,7 @@ function virtualKeysToCSV(vks: VirtualKey[], accessProfileNames: Record<number, 
 				vk.rate_limit?.request_max_limit &&
 				vk.rate_limit.request_current_usage >= vk.rate_limit.request_max_limit);
 		const status = vk.is_active ? (isExhausted ? "Exhausted" : "Active") : "Inactive";
-		const assignedTo = vk.team
-			? `Team: ${vk.team.name}`
-			: vk.customer
-				? `Customer: ${vk.customer.name}`
-				: "";
+		const assignedTo = vk.team ? `Team: ${vk.team.name}` : vk.customer ? `Customer: ${vk.customer.name}` : "";
 		const budgetLimit = vk.budgets?.length ? vk.budgets.map((b) => formatCurrency(b.max_limit)).join("; ") : "";
 		const budgetSpent = vk.budgets?.length ? vk.budgets.map((b) => formatCurrency(b.current_usage)).join("; ") : "";
 		const budgetReset = vk.budgets?.length ? vk.budgets.map((b) => formatResetDuration(b.reset_duration)).join("; ") : "";
@@ -261,7 +257,7 @@ interface VirtualKeysTableProps {
 	onSortChange: (sortBy: string, order: string) => void;
 	selectedVkId: string;
 	onSelectedVkChange: (id: string, options?: { offset?: number }) => void;
-	isFetching?: boolean
+	isFetching?: boolean;
 }
 
 export default function VirtualKeysTable({
@@ -284,7 +280,7 @@ export default function VirtualKeysTable({
 	onSortChange,
 	selectedVkId,
 	onSelectedVkChange,
-	isFetching
+	isFetching,
 }: VirtualKeysTableProps) {
 	const [showVirtualKeySheet, setShowVirtualKeySheet] = useState(false);
 	const [editingVirtualKeyId, setEditingVirtualKeyId] = useState<string | null>(null);
@@ -726,7 +722,7 @@ export default function VirtualKeysTable({
 			</AlertDialog>
 
 			<div className="flex min-h-0 w-full grow flex-col overflow-hidden">
-				<div className="flex shrink-0 items-center justify-between mb-4">
+				<div className="mb-4 flex shrink-0 items-center justify-between">
 					<div>
 						<h2 className="text-lg font-semibold">Virtual Keys</h2>
 						<p className="text-muted-foreground text-sm">Manage virtual keys, their permissions, budgets, and rate limits.</p>
@@ -755,7 +751,7 @@ export default function VirtualKeysTable({
 				</div>
 
 				{/* Toolbar: Search + Filters */}
-				<div className="flex shrink-0 items-center gap-3  mb-4">
+				<div className="mb-4 flex shrink-0 items-center gap-3">
 					<div className="relative max-w-sm flex-1">
 						<Search className="text-muted-foreground absolute top-1/2 left-3 h-4 w-4 -translate-y-1/2" />
 						<Input
@@ -786,7 +782,7 @@ export default function VirtualKeysTable({
 					/>
 				</div>
 
-				<div className="min-h-0 grow overflow-hidden rounded-sm border mb-2">
+				<div className="mb-2 min-h-0 grow overflow-hidden rounded-sm border">
 					<Table containerClassName="h-full overflow-auto" className="w-full min-w-[1528px] table-fixed" data-testid="vk-table">
 						<TableHeader className="bg-muted sticky top-0 z-20">
 							<TableRow>
@@ -914,7 +910,8 @@ export default function VirtualKeysTable({
 				{totalCount > 0 && (
 					<div className="flex shrink-0 items-center justify-between text-xs" data-testid="pagination">
 						<div className="text-muted-foreground flex items-center gap-2">
-							{(offset + 1).toLocaleString()}-{Math.min(offset + limit, totalCount).toLocaleString()} of {totalCount.toLocaleString()} entries
+							{(offset + 1).toLocaleString()}-{Math.min(offset + limit, totalCount).toLocaleString()} of {totalCount.toLocaleString()}{" "}
+							entries
 						</div>
 
 						<div className="flex items-center gap-2">

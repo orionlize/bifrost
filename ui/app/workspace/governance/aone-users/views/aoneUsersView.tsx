@@ -43,7 +43,6 @@ import {
 import { parseAsInteger, parseAsString, useQueryStates } from "nuqs";
 import { useMemo, useState, type ReactNode } from "react";
 import { toast } from "sonner";
-import { AoneUsersNav } from "./aoneUsersNav";
 
 const PAGE_SIZE = 25;
 
@@ -115,18 +114,15 @@ export default function AoneUsersView() {
 
 	return (
 		<div className="flex w-full flex-col gap-6 py-6">
-			<header className="space-y-4">
-				<AoneUsersNav />
-				<div className="space-y-2">
-					<h2 className="flex flex-row items-center gap-2 text-lg font-semibold tracking-tight">
-						<UserRound className="size-4" />
-						Users
-					</h2>
-					<p className="text-muted-foreground max-w-2xl text-sm">
-						Manage users who sign in through Aone OAuth. Profiles are synced from{" "}
-						<code className="bg-muted rounded px-1.5 py-0.5 text-xs">/api/oauth2/me</code> on each login.
-					</p>
-				</div>
+			<header className="space-y-2">
+				<h2 className="flex flex-row items-center gap-2 text-lg font-semibold tracking-tight">
+					<UserRound className="size-4" />
+					Users
+				</h2>
+				<p className="text-muted-foreground max-w-2xl text-sm">
+					Manage users who sign in through Aone OAuth. Profiles are synced from{" "}
+					<code className="bg-muted rounded px-1.5 py-0.5 text-xs">/api/oauth2/me</code> on each login.
+				</p>
 			</header>
 
 			<div className="flex flex-col gap-4 rounded-lg border p-4 sm:flex-row sm:items-center sm:justify-between">

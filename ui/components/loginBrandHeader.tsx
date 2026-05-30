@@ -11,11 +11,7 @@ export function LoginBrandHeader({ showWelcome = true }: LoginBrandHeaderProps) 
 		<>
 			<div className="flex items-center justify-center">
 				{isLoaded ? (
-					<img
-						src={brandSrc}
-						alt={siteName}
-						className={hasCustomIcon ? "h-12 w-12 object-contain" : "h-[26px] w-auto max-w-[160px]"}
-					/>
+					<img src={brandSrc} alt={siteName} className={hasCustomIcon ? "h-12 w-12 object-contain" : "h-[26px] w-auto max-w-[160px]"} />
 				) : (
 					<span className="inline-block h-[26px] w-[160px]" aria-hidden />
 				)}

@@ -93,7 +93,7 @@ export function TeamsView() {
 	}
 
 	return (
-		<div className="mx-auto w-full max-w-7xl h-[calc(100vh_-_50px)] flex flex-col overflow-y-auto">
+		<div className="mx-auto flex h-[calc(100vh_-_50px)] w-full max-w-7xl flex-col overflow-y-auto">
 			<TeamsTable
 				teams={teamsData?.teams || []}
 				totalCount={teamsData?.total_count || 0}

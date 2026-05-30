@@ -1091,6 +1091,9 @@ func (l *Log) BuildContentSummary() string {
 
 	// Add input messages
 	for _, msg := range l.InputHistoryParsed {
+		if msg.Role == schemas.ChatMessageRoleSystem || msg.Role == schemas.ChatMessageRoleDeveloper {
+			continue
+		}
 		if msg.Content != nil {
 			// Access content through the Content field
 			if msg.Content.ContentStr != nil && *msg.Content.ContentStr != "" {
@@ -1110,6 +1113,15 @@ func (l *Log) BuildContentSummary() string {
 	// Add responses input history
 	if l.ResponsesInputHistoryParsed != nil {
 		for _, msg := range l.ResponsesInputHistoryParsed {
+			if msg.Type != nil && *msg.Type == schemas.ResponsesMessageTypeReasoning {
+				continue
+			}
+			if msg.Role != nil {
+				switch *msg.Role {
+				case schemas.ResponsesInputMessageRoleSystem, schemas.ResponsesInputMessageRoleDeveloper:
+					continue
+				}
+			}
 			if msg.Content != nil {
 				if msg.Content.ContentStr != nil && *msg.Content.ContentStr != "" {
 					parts = append(parts, *msg.Content.ContentStr)
@@ -1121,11 +1133,6 @@ func (l *Log) BuildContentSummary() string {
 							parts = append(parts, *block.Text)
 						}
 					}
-				}
-			}
-			if msg.ResponsesReasoning != nil {
-				for _, summary := range msg.ResponsesReasoning.Summary {
-					parts = append(parts, summary.Text)
 				}
 			}
 		}
@@ -1151,6 +1158,9 @@ func (l *Log) BuildContentSummary() string {
 	// Add responses output content
 	if l.ResponsesOutputParsed != nil {
 		for _, msg := range l.ResponsesOutputParsed {
+			if msg.Type != nil && *msg.Type == schemas.ResponsesMessageTypeReasoning {
+				continue
+			}
 			if msg.Content != nil {
 				if msg.Content.ContentStr != nil && *msg.Content.ContentStr != "" {
 					parts = append(parts, *msg.Content.ContentStr)
@@ -1162,11 +1172,6 @@ func (l *Log) BuildContentSummary() string {
 							parts = append(parts, *block.Text)
 						}
 					}
-				}
-			}
-			if msg.ResponsesReasoning != nil {
-				for _, summary := range msg.ResponsesReasoning.Summary {
-					parts = append(parts, summary.Text)
 				}
 			}
 		}

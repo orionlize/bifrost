@@ -122,11 +122,7 @@ const ClientForm: React.FC<ClientFormProps> = ({ open, onClose, onSaved }) => {
 	// opens MCPHeadersAuthorizer with an invalid config the server has to
 	// reject.
 	let headersValidationError: string | null = null;
-	if (
-		(connectionType === "http" || connectionType === "sse") &&
-		(authType === "headers" || authType === "per_user_headers") &&
-		headers
-	) {
+	if ((connectionType === "http" || connectionType === "sse") && (authType === "headers" || authType === "per_user_headers") && headers) {
 		for (const [key, envVar] of Object.entries(headers)) {
 			if (!envVar.value && !envVar.env_var) {
 				headersValidationError = `Header "${key}" must have a value`;
@@ -213,25 +209,25 @@ const ClientForm: React.FC<ClientFormProps> = ({ open, onClose, onSaved }) => {
 			stdio_config:
 				connectionType === "stdio"
 					? {
-						command: data.stdio_config?.command || "",
-						args: parseArrayFromText(argsText),
-						envs: parseArrayFromText(envsText),
-					}
+							command: data.stdio_config?.command || "",
+							args: parseArrayFromText(argsText),
+							envs: parseArrayFromText(envsText),
+						}
 					: undefined,
 			oauth_config:
 				authType === "oauth" || authType === "per_user_oauth"
 					? {
-						client_id: data.oauth_config?.client_id ?? emptyEnvVar,
-						client_secret:
-							data.oauth_config?.client_secret?.value || data.oauth_config?.client_secret?.from_env
-								? data.oauth_config.client_secret
-								: undefined,
-						authorize_url: data.oauth_config?.authorize_url || undefined,
-						token_url: data.oauth_config?.token_url || undefined,
-						registration_url: data.oauth_config?.registration_url || undefined,
-						scopes: scopesText.trim() ? parseArrayFromText(scopesText) : undefined,
-						server_url: data.connection_string?.value || undefined,
-					}
+							client_id: data.oauth_config?.client_id ?? emptyEnvVar,
+							client_secret:
+								data.oauth_config?.client_secret?.value || data.oauth_config?.client_secret?.from_env
+									? data.oauth_config.client_secret
+									: undefined,
+							authorize_url: data.oauth_config?.authorize_url || undefined,
+							token_url: data.oauth_config?.token_url || undefined,
+							registration_url: data.oauth_config?.registration_url || undefined,
+							scopes: scopesText.trim() ? parseArrayFromText(scopesText) : undefined,
+							server_url: data.connection_string?.value || undefined,
+						}
 					: undefined,
 			// "headers" and "per_user_headers" both can carry static admin
 			// headers on data.headers (per-user values are submitted
@@ -518,9 +514,7 @@ const ClientForm: React.FC<ClientFormProps> = ({ open, onClose, onSaved }) => {
 											    tool use via the inline auth landing page. */}
 											<div className="space-y-1">
 												<div className="space-y-0.5">
-													<div className="text-sm font-medium">
-														Required Headers
-													</div>
+													<div className="text-sm font-medium">Required Headers</div>
 													<p className="text-muted-foreground text-sm">
 														Comma-separated list of header names each caller must supply when they first use this server (e.g.{" "}
 														<code>X-API-Key, X-Tenant-ID</code>). Values are submitted per user - never stored on this server config.
@@ -709,7 +703,12 @@ const ClientForm: React.FC<ClientFormProps> = ({ open, onClose, onSaved }) => {
 													{/* Scopes (local state, not RHF field) */}
 													<div className="space-y-2">
 														<Label>Scopes (optional, comma-separated)</Label>
-														<Input value={scopesText} onChange={(e) => setScopesText(e.target.value)} placeholder="read, write, admin" data-testid="mcp-oauth-scopes-input" />
+														<Input
+															value={scopesText}
+															onChange={(e) => setScopesText(e.target.value)}
+															placeholder="read, write, admin"
+															data-testid="mcp-oauth-scopes-input"
+														/>
 													</div>
 												</AccordionContent>
 											</AccordionItem>

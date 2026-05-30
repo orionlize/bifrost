@@ -35,6 +35,12 @@ const availableTabs = (hasCustomProviderConfig: boolean, hasGovernanceAccess: bo
 		id: "network",
 		label: "Network",
 	});
+	if (isOpenAI) {
+		tabs.push({
+			id: "openai-config",
+			label: "OpenAI Config",
+		});
+	}
 	tabs.push({
 		id: "proxy",
 		label: "Proxy",
@@ -59,12 +65,6 @@ const availableTabs = (hasCustomProviderConfig: boolean, hasGovernanceAccess: bo
 		id: "debugging",
 		label: "Debugging",
 	});
-	if (isOpenAI) {
-		tabs.push({
-			id: "openai-config",
-			label: "OpenAI Config",
-		});
-	}
 	return tabs;
 };
 

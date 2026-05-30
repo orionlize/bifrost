@@ -13,6 +13,16 @@ import { Ref, useCallback, useEffect, useMemo, useRef, useState } from "react";
 
 const COLLAPSE_STORAGE_KEY = "logs-filter-sidebar-collapsed";
 
+export type LogsFilterSection = "virtual_keys" | "customers" | "business_units" | "metadata" | "routing_engines";
+
+const LOGS_FILTER_SECTION_KEYS: Record<LogsFilterSection, (keyof LogFilters)[]> = {
+	virtual_keys: ["virtual_key_ids"],
+	customers: ["customer_ids"],
+	business_units: ["business_unit_ids"],
+	metadata: ["metadata_filters"],
+	routing_engines: ["routing_engine_used"],
+};
+
 // ---------------------------------------------------------------------------
 // LogsSidebar – orchestrator
 // ---------------------------------------------------------------------------
@@ -20,9 +30,15 @@ const COLLAPSE_STORAGE_KEY = "logs-filter-sidebar-collapsed";
 interface LogsSidebarProps {
 	filters: LogFilters;
 	onFiltersChange: (filters: LogFilters) => void;
+	hiddenSections?: readonly LogsFilterSection[];
 }
 
-export function LogsFilterSidebar({ filters, onFiltersChange }: LogsSidebarProps) {
+export function LogsFilterSidebar({ filters, onFiltersChange, hiddenSections = [] }: LogsSidebarProps) {
+	const hiddenSectionSet = useMemo(() => new Set(hiddenSections), [hiddenSections]);
+	const hiddenFilterKeys = useMemo(
+		() => new Set(hiddenSections.flatMap((section) => LOGS_FILTER_SECTION_KEYS[section])),
+		[hiddenSections],
+	);
 	const [collapsed, setCollapsed] = useState(false);
 
 	// Load persisted collapsed state on mount
@@ -46,14 +62,15 @@ export function LogsFilterSidebar({ filters, onFiltersChange }: LogsSidebarProps
 		const excludedKeys = ["start_time", "end_time", "content_search", "metadata_filters", "period", "polling"];
 		let count = Object.entries(filters).reduce((c, [key, value]) => {
 			if (excludedKeys.includes(key)) return c;
+			if (hiddenFilterKeys.has(key as keyof LogFilters)) return c;
 			if (Array.isArray(value)) return c + value.length;
 			return c + (value ? 1 : 0);
 		}, 0);
-		if (filters.metadata_filters) {
+		if (filters.metadata_filters && !hiddenSectionSet.has("metadata")) {
 			count += Object.keys(filters.metadata_filters).length;
 		}
 		return count;
-	}, [filters]);
+	}, [filters, hiddenFilterKeys, hiddenSectionSet]);
 
 	const handleReset = useCallback(() => {
 		onFiltersChange({
@@ -109,21 +126,31 @@ export function LogsFilterSidebar({ filters, onFiltersChange }: LogsSidebarProps
 					<ModelsFilter filters={filters} onFiltersChange={onFiltersChange} defaultOpen />
 					{/* Rest closed unless they have active filters */}
 					<SelectedKeysFilter filters={filters} onFiltersChange={onFiltersChange} />
-					<VirtualKeysFilter filters={filters} onFiltersChange={onFiltersChange} />
+					{!hiddenSectionSet.has("virtual_keys") && (
+						<VirtualKeysFilter filters={filters} onFiltersChange={onFiltersChange} />
+					)}
 					<ProvidersFilter filters={filters} onFiltersChange={onFiltersChange} />
 					<TypeFilter filters={filters} onFiltersChange={onFiltersChange} />
 					<AliasesFilter filters={filters} onFiltersChange={onFiltersChange} />
-					<RoutingEnginesFilter filters={filters} onFiltersChange={onFiltersChange} />
+					{!hiddenSectionSet.has("routing_engines") && (
+						<RoutingEnginesFilter filters={filters} onFiltersChange={onFiltersChange} />
+					)}
 					<RoutingRulesFilter filters={filters} onFiltersChange={onFiltersChange} />
 					<LocalCachingFilter filters={filters} onFiltersChange={onFiltersChange} />
 					<UserFilter filters={filters} onFiltersChange={onFiltersChange} />
 					<TeamFilter filters={filters} onFiltersChange={onFiltersChange} />
-					<CustomerFilter filters={filters} onFiltersChange={onFiltersChange} />
-					<BusinessUnitFilter filters={filters} onFiltersChange={onFiltersChange} />
+					{!hiddenSectionSet.has("customers") && (
+						<CustomerFilter filters={filters} onFiltersChange={onFiltersChange} />
+					)}
+					{!hiddenSectionSet.has("business_units") && (
+						<BusinessUnitFilter filters={filters} onFiltersChange={onFiltersChange} />
+					)}
 					<SessionFilter filters={filters} onFiltersChange={onFiltersChange} />
 					<CostFilter filters={filters} onFiltersChange={onFiltersChange} />
 					<StopReasonFilter filters={filters} onFiltersChange={onFiltersChange} />
-					<MetadataFilters filters={filters} onFiltersChange={onFiltersChange} />
+					{!hiddenSectionSet.has("metadata") && (
+						<MetadataFilters filters={filters} onFiltersChange={onFiltersChange} />
+					)}
 				</div>
 			</ScrollArea>
 		</div>

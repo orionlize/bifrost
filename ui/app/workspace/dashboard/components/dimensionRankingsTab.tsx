@@ -81,12 +81,7 @@ function TopDimensionChart({
 				{chartData.length > 0 ? (
 					<ChartErrorBoundary resetKey={`${chartData.length}`}>
 						<ResponsiveContainer width="100%" height="100%">
-							<BarChart
-								data={chartData}
-								layout="vertical"
-								margin={{ top: 6, right: 20, left: 4, bottom: 0 }}
-								barCategoryGap={4}
-							>
+							<BarChart data={chartData} layout="vertical" margin={{ top: 6, right: 20, left: 4, bottom: 0 }} barCategoryGap={4}>
 								<CartesianGrid strokeDasharray="3 3" horizontal={false} className="stroke-zinc-200 dark:stroke-zinc-700" />
 								<XAxis
 									type="number"
@@ -104,12 +99,7 @@ function TopDimensionChart({
 									width={110}
 								/>
 								<Tooltip content={<TopDimensionTooltip />} />
-								<Bar
-									dataKey="total_requests"
-									isAnimationActive={false}
-									barSize={24}
-									radius={[0, 4, 4, 0]}
-								>
+								<Bar dataKey="total_requests" isAnimationActive={false} barSize={24} radius={[0, 4, 4, 0]}>
 									{chartData.map((entry, idx) => (
 										<Cell key={entry.id} fill={getModelColor(idx)} />
 									))}
@@ -169,12 +159,7 @@ function DimensionRankingsTabImpl({ data, loading, dimensionLabel, testIdPrefix 
 
 	return (
 		<div className="flex flex-col gap-4">
-			<TopDimensionChart
-				data={data}
-				loading={loading}
-				dimensionLabel={dimensionLabel}
-				testIdPrefix={testIdPrefix}
-			/>
+			<TopDimensionChart data={data} loading={loading} dimensionLabel={dimensionLabel} testIdPrefix={testIdPrefix} />
 
 			{loading ? (
 				<Card className="rounded-sm p-4 shadow-none">
@@ -227,9 +212,7 @@ function DimensionRankingsTabImpl({ data, loading, dimensionLabel, testIdPrefix 
 									<TableCell>
 										<div className="flex flex-col">
 											<span className="font-medium">{entry.name || entry.id}</span>
-											{entry.name && entry.name !== entry.id && (
-												<span className="text-muted-foreground text-xs">{entry.id}</span>
-											)}
+											{entry.name && entry.name !== entry.id && <span className="text-muted-foreground text-xs">{entry.id}</span>}
 										</div>
 									</TableCell>
 									<TableCell className="text-right">

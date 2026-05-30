@@ -188,19 +188,7 @@ func (s *BifrostHTTPServer) loadBuiltinPlugins(ctx context.Context) error {
 	}
 	s.Config.SetPluginOrderInfo(prompts.PluginName, builtinPlacement, schemas.Ptr(2))
 
-	// 3. Logging (if enabled)
-	if (s.Config.ClientConfig.EnableLogging == nil || *s.Config.ClientConfig.EnableLogging) && s.Config.LogsStore != nil {
-		config := &logging.Config{
-			DisableContentLogging: &s.Config.ClientConfig.DisableContentLogging,
-			LoggingHeaders:        &s.Config.ClientConfig.LoggingHeaders,
-		}
-		s.registerPluginWithStatus(ctx, logging.PluginName, nil, config, false)
-	} else {
-		s.markPluginDisabled(logging.PluginName)
-	}
-	s.Config.SetPluginOrderInfo(logging.PluginName, builtinPlacement, schemas.Ptr(3))
-
-	// 4. Governance (if enabled and not enterprise)
+	// 3. Governance (before logging so request rewrites are reflected in audit logs)
 	if ctx.Value(schemas.BifrostContextKeyIsEnterprise) == nil {
 		config := &governance.Config{
 			IsVkMandatory:         &s.Config.ClientConfig.EnforceAuthOnInference,
@@ -212,7 +200,19 @@ func (s *BifrostHTTPServer) loadBuiltinPlugins(ctx context.Context) error {
 	} else {
 		s.markPluginDisabled(governance.PluginName)
 	}
-	s.Config.SetPluginOrderInfo(governance.PluginName, builtinPlacement, schemas.Ptr(4))
+	s.Config.SetPluginOrderInfo(governance.PluginName, builtinPlacement, schemas.Ptr(3))
+
+	// 4. Logging (if enabled)
+	if (s.Config.ClientConfig.EnableLogging == nil || *s.Config.ClientConfig.EnableLogging) && s.Config.LogsStore != nil {
+		config := &logging.Config{
+			DisableContentLogging: &s.Config.ClientConfig.DisableContentLogging,
+			LoggingHeaders:        &s.Config.ClientConfig.LoggingHeaders,
+		}
+		s.registerPluginWithStatus(ctx, logging.PluginName, nil, config, false)
+	} else {
+		s.markPluginDisabled(logging.PluginName)
+	}
+	s.Config.SetPluginOrderInfo(logging.PluginName, builtinPlacement, schemas.Ptr(4))
 
 	// 5. OTEL (if configured in PluginConfigs)
 	otelConfig := s.getPluginConfig(otel.PluginName)

@@ -550,8 +550,8 @@ func (p *LoggerPlugin) PreLLMHook(ctx *schemas.BifrostContext, req *schemas.Bifr
 
 	if p.contentLoggingEnabled(ctx) {
 		inputHistory, responsesInputHistory := p.extractInputHistory(req)
-		initialData.InputHistory = inputHistory
-		initialData.ResponsesInputHistory = responsesInputHistory
+		initialData.InputHistory = sanitizeChatInputHistory(inputHistory)
+		initialData.ResponsesInputHistory = sanitizeResponsesMessages(responsesInputHistory)
 
 		switch req.RequestType {
 		case schemas.TextCompletionRequest, schemas.TextCompletionStreamRequest:

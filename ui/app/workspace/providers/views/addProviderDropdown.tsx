@@ -7,7 +7,7 @@ import {
 	DropdownMenuTrigger,
 } from "@/components/ui/dropdownMenu";
 import { ProviderIconType, RenderProviderIcon } from "@/lib/constants/icons";
-import { ProviderLabels } from "@/lib/constants/logs";
+import { ProviderLabels, ProviderSelectionNotes } from "@/lib/constants/logs";
 import { PlusIcon, Settings2Icon } from "lucide-react";
 
 export type ProviderOption = { name: string };
@@ -55,12 +55,29 @@ export function AddProviderDropdown({
 				className="custom-scrollbar max-h-[min(70vh,24rem)] min-w-[var(--radix-dropdown-menu-trigger-width)] overflow-y-auto"
 				data-testid="add-provider-dropdown"
 			>
-				{availableKnown.map((p) => (
-					<DropdownMenuItem key={p.name} data-testid={`add-provider-option-${p.name}`} onSelect={() => onSelectKnownProvider(p.name)}>
-						<RenderProviderIcon provider={p.name as ProviderIconType} size="sm" className="h-4 w-4" />
-						<span>{ProviderLabels[p.name as keyof typeof ProviderLabels] ?? p.name}</span>
-					</DropdownMenuItem>
-				))}
+				{availableKnown.map((p) => {
+					const label = ProviderLabels[p.name as keyof typeof ProviderLabels] ?? p.name;
+					const note = ProviderSelectionNotes[p.name as keyof typeof ProviderSelectionNotes];
+
+					return (
+						<DropdownMenuItem
+							key={p.name}
+							className={note ? "items-start py-2" : undefined}
+							data-testid={`add-provider-option-${p.name}`}
+							onSelect={() => onSelectKnownProvider(p.name)}
+						>
+							<RenderProviderIcon provider={p.name as ProviderIconType} size="sm" className="mt-0.5 h-4 w-4 shrink-0" />
+							{note ? (
+								<div className="flex min-w-0 flex-col gap-0.5">
+									<span>{label}</span>
+									<span className="text-muted-foreground text-xs">{note}</span>
+								</div>
+							) : (
+								<span>{label}</span>
+							)}
+						</DropdownMenuItem>
+					);
+				})}
 				{hasKnown && <DropdownMenuSeparator />}
 				{/* Add New Provider > Custom provider... — used by E2E (add-provider-option-custom) */}
 				<DropdownMenuItem data-testid="add-provider-option-custom" onSelect={onAddCustomProvider}>

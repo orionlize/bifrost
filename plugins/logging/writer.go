@@ -264,6 +264,7 @@ func (p *LoggerPlugin) enqueueLogEntry(entry *logstore.Log, callback func(entry 
 	if p.closed.Load() {
 		return
 	}
+	sanitizeLogEntryContent(entry)
 	defer func() {
 		if r := recover(); r != nil {
 			// Channel was closed between the check and send; entry is dropped
@@ -414,6 +415,7 @@ func buildInitialLogEntry(pending *PendingLogData) *logstore.Log {
 	if len(pending.RoutingEnginesUsed) > 0 {
 		entry.RoutingEnginesUsed = pending.RoutingEnginesUsed
 	}
+	sanitizeLogEntryContent(entry)
 	return entry
 }
 

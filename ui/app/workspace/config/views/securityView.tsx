@@ -427,7 +427,7 @@ export default function SecurityView() {
 							</label>
 							<p className="text-muted-foreground text-sm">
 								Comma-separated list of allowed origins for CORS and WebSocket connections. Localhost origins are always allowed. Each
-								origin must be a complete URL with protocol (e.g., https://app.example.com, http://10.0.0.100:3000). Wildcards are supported
+								origin must be a complete URL with protocol (e.g., https://app.example.com, http://localhost:8080). Wildcards are supported
 								for subdomains (e.g., https://*.example.com) or use "*" to allow all origins.
 							</p>
 						</div>
@@ -547,9 +547,5 @@ function aoneOAuthChanged(current?: AoneOAuthConfig, previous?: AoneOAuthConfig)
 }
 
 function envVarChanged(current: EnvVar, previous: EnvVar) {
-	return (
-		current.value !== previous.value ||
-		current.env_var !== previous.env_var ||
-		current.from_env !== previous.from_env
-	);
+	return current.value !== previous.value || current.env_var !== previous.env_var || current.from_env !== previous.from_env;
 }

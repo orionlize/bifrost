@@ -106,21 +106,21 @@ export default function CustomerSheet({ open, onOpenChange, customer, onSuccess 
 				Validator.custom(formData.isDirty, "No changes to save"),
 				...(formData.budgetMaxLimit !== undefined && formData.budgetMaxLimit !== null
 					? [
-						Validator.minValue(budgetMaxLimitNum ?? 0, 0.01, "Budget max limit must be greater than $0.01"),
-						Validator.required(formData.budgetResetDuration, "Budget reset duration is required"),
-					]
+							Validator.minValue(budgetMaxLimitNum ?? 0, 0.01, "Budget max limit must be greater than $0.01"),
+							Validator.required(formData.budgetResetDuration, "Budget reset duration is required"),
+						]
 					: []),
 				...(formData.tokenMaxLimit !== undefined && formData.tokenMaxLimit !== null
 					? [
-						Validator.minValue(tokenMaxLimitNum ?? 0, 1, "Token max limit must be at least 1"),
-						Validator.required(formData.tokenResetDuration, "Token reset duration is required"),
-					]
+							Validator.minValue(tokenMaxLimitNum ?? 0, 1, "Token max limit must be at least 1"),
+							Validator.required(formData.tokenResetDuration, "Token reset duration is required"),
+						]
 					: []),
 				...(formData.requestMaxLimit !== undefined && formData.requestMaxLimit !== null
 					? [
-						Validator.minValue(requestMaxLimitNum ?? 0, 1, "Request max limit must be at least 1"),
-						Validator.required(formData.requestResetDuration, "Request reset duration is required"),
-					]
+							Validator.minValue(requestMaxLimitNum ?? 0, 1, "Request max limit must be at least 1"),
+							Validator.required(formData.requestResetDuration, "Request reset duration is required"),
+						]
 					: []),
 			]),
 		[formData, budgetMaxLimitNum, tokenMaxLimitNum, requestMaxLimitNum],
@@ -219,7 +219,7 @@ export default function CustomerSheet({ open, onOpenChange, customer, onSuccess 
 
 	return (
 		<Sheet open={open} onOpenChange={onOpenChange}>
-			<SheetContent className="sm:max-w-2xl max-w-[900px]" data-testid="customer-dialog-content">
+			<SheetContent className="max-w-[900px] sm:max-w-2xl" data-testid="customer-dialog-content">
 				<SheetHeader className="flex flex-col items-start p-8 pb-6" headerClassName="mb-0">
 					<SheetTitle className="flex items-center gap-2">{isEditing ? "Edit Customer" : "Create Customer"}</SheetTitle>
 					<SheetDescription>

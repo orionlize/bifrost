@@ -43,9 +43,7 @@ export function normalizeWebsiteConfig(config: WebsiteConfig): WebsiteConfig | n
 
 export function websiteConfigEqual(a: WebsiteConfig, b: WebsiteConfig): boolean {
 	return (
-		(a.name ?? "") === (b.name ?? "") &&
-		(a.icon_url ?? "") === (b.icon_url ?? "") &&
-		(a.icon_dark_url ?? "") === (b.icon_dark_url ?? "")
+		(a.name ?? "") === (b.name ?? "") && (a.icon_url ?? "") === (b.icon_url ?? "") && (a.icon_dark_url ?? "") === (b.icon_dark_url ?? "")
 	);
 }
 

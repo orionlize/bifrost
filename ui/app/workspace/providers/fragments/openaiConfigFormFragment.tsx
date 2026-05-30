@@ -16,6 +16,12 @@ interface OpenAIConfigFormFragmentProps {
 	provider: ModelProvider;
 }
 
+function toOpenAIConfigFormValues(provider: ModelProvider): OpenAIConfigFormSchema {
+	return {
+		disable_store: provider.openai_config?.disable_store ?? false,
+	};
+}
+
 export function OpenAIConfigFormFragment({ provider }: OpenAIConfigFormFragmentProps) {
 	const dispatch = useAppDispatch();
 	const hasUpdateProviderAccess = useRbac(RbacResource.ModelProvider, RbacOperation.Update);
@@ -24,9 +30,7 @@ export function OpenAIConfigFormFragment({ provider }: OpenAIConfigFormFragmentP
 		resolver: zodResolver(openaiConfigFormSchema) as Resolver<OpenAIConfigFormSchema, any, OpenAIConfigFormSchema>,
 		mode: "onChange",
 		reValidateMode: "onChange",
-		defaultValues: {
-			disable_store: provider.openai_config?.disable_store ?? false,
-		},
+		defaultValues: toOpenAIConfigFormValues(provider),
 	});
 
 	useEffect(() => {
@@ -34,10 +38,9 @@ export function OpenAIConfigFormFragment({ provider }: OpenAIConfigFormFragmentP
 	}, [form.formState.isDirty, dispatch]);
 
 	useEffect(() => {
-		form.reset({
-			disable_store: provider.openai_config?.disable_store ?? false,
-		});
-	}, [form, provider.name, provider.openai_config?.disable_store]);
+		form.reset(toOpenAIConfigFormValues(provider));
+		// eslint-disable-next-line react-hooks/exhaustive-deps
+	}, [provider.name, provider.openai_config?.disable_store]);
 
 	const onSubmit = (data: OpenAIConfigFormSchema) => {
 		updateProvider(
@@ -48,9 +51,9 @@ export function OpenAIConfigFormFragment({ provider }: OpenAIConfigFormFragmentP
 			}),
 		)
 			.unwrap()
-			.then(() => {
+			.then((updatedProvider) => {
 				toast.success("OpenAI configuration updated successfully");
-				form.reset(data);
+				form.reset(toOpenAIConfigFormValues(updatedProvider));
 			})
 			.catch((err) => {
 				toast.error("Failed to update OpenAI configuration", {
@@ -84,8 +87,10 @@ export function OpenAIConfigFormFragment({ provider }: OpenAIConfigFormFragmentP
 											checked={field.value}
 											disabled={!hasUpdateProviderAccess}
 											onCheckedChange={(checked) => {
-												field.onChange(checked);
-												form.trigger("disable_store");
+												form.setValue("disable_store", checked, {
+													shouldDirty: true,
+													shouldValidate: true,
+												});
 											}}
 										/>
 									</FormControl>

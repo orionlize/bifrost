@@ -1,10 +1,5 @@
 import { useGetCoreConfigQuery, useGetWebsiteConfigQuery } from "@/lib/store";
-import {
-	DefaultWebsiteConfig,
-	parseWebsiteConfig,
-	websiteConfigFromMetadata,
-	type WebsiteConfig,
-} from "@/lib/types/websiteConfig";
+import { DefaultWebsiteConfig, parseWebsiteConfig, websiteConfigFromMetadata, type WebsiteConfig } from "@/lib/types/websiteConfig";
 import { useMemo } from "react";
 
 export function useWebsiteConfig(options?: { preferPublicApi?: boolean }) {

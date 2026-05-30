@@ -272,6 +272,10 @@ func (h *ProviderHandler) addProvider(ctx *fasthttp.RequestCtx) {
 			return
 		}
 	}
+	if err := validateOpenAIProviderConfig(payload.Provider, payload.OpenAIConfig); err != nil {
+		SendError(ctx, fasthttp.StatusBadRequest, err.Error())
+		return
+	}
 	// Check if provider already exists
 	if _, err := h.inMemoryStore.GetProviderConfigRedacted(payload.Provider); err != nil {
 		if !errors.Is(err, lib.ErrNotFound) {
@@ -439,6 +443,10 @@ func (h *ProviderHandler) updateProvider(ctx *fasthttp.RequestCtx) {
 		SendError(ctx, fasthttp.StatusBadRequest, fmt.Sprintf("Invalid retry backoff: %v", err))
 		return
 	}
+	if err := validateOpenAIProviderConfig(provider, payload.OpenAIConfig); err != nil {
+		SendError(ctx, fasthttp.StatusBadRequest, err.Error())
+		return
+	}
 
 	config.ConcurrencyAndBufferSize = &payload.ConcurrencyAndBufferSize
 	// Merge network config - restore ca_cert_pem if the redacted placeholder was sent back
@@ -466,7 +474,9 @@ func (h *ProviderHandler) updateProvider(ctx *fasthttp.RequestCtx) {
 
 	config.ProxyConfig = payload.ProxyConfig
 	config.CustomProviderConfig = payload.CustomProviderConfig
-	config.OpenAIConfig = payload.OpenAIConfig
+	if payload.OpenAIConfig != nil {
+		config.OpenAIConfig = payload.OpenAIConfig
+	}
 	if payload.SendBackRawRequest != nil {
 		config.SendBackRawRequest = *payload.SendBackRawRequest
 	}
@@ -532,6 +542,7 @@ func (h *ProviderHandler) updateProvider(ctx *fasthttp.RequestCtx) {
 			SendBackRawResponse:      config.SendBackRawResponse,
 			StoreRawRequestResponse:  config.StoreRawRequestResponse,
 			CustomProviderConfig:     config.CustomProviderConfig,
+			OpenAIConfig:             config.OpenAIConfig,
 			Status:                   config.Status,
 			Description:              config.Description,
 		}, ProviderStatusActive)
@@ -1191,5 +1202,9 @@ func validateRetryBackoff(networkConfig *schemas.NetworkConfig) error {
 			}
 		}
 	}
+	return nil
+}
+
+func validateOpenAIProviderConfig(provider schemas.ModelProvider, openAIConfig *schemas.OpenAIConfig) error {
 	return nil
 }
