@@ -1,74 +1,60 @@
 import { ThemeProvider } from "@/components/themeProvider";
-import { LoginBrandHeader } from "@/components/loginBrandHeader";
 import { WebsiteDocumentHead } from "@/components/websiteDocumentHead";
 import { ReduxProvider } from "@/lib/store/provider";
-import {
-  DEFAULT_POST_LOGIN_PATH,
-  getLoginGotoFromSearch,
-} from "@/lib/utils/loginGoto";
-import { getApiBaseUrl } from "@/lib/utils/port";
-import { createFileRoute, redirect } from "@tanstack/react-router";
-import { NuqsAdapter } from "nuqs/adapters/tanstack-router";
+import { defaultAuthenticatedPath, probeAuthSession, shouldEnterDashboard } from "@/lib/utils/authRedirect";
+import { LOGIN_COMPLETE_PATH } from "@/lib/utils/loginGoto";
+import { LOGIN_SOURCE_ZD_SWITCH, LOGIN_ZD_SWITCH_SUCCESS_PATH } from "@/lib/utils/zdSwitchLogin";
+import { createFileRoute, redirect, useChildMatches, useLocation } from "@tanstack/react-router";
+import LoginCompletePage from "./complete/page";
 import LoginPage from "./page";
+import ZdSwitchSuccessPage from "./zd-switch/success/page";
+
+type LoginSearch = {
+	redirect_uri?: string;
+	source?: string;
+	error?: string;
+};
 
 function RouteComponent() {
-  return (
-    <ThemeProvider attribute="class" defaultTheme="system" enableSystem>
-      <ReduxProvider>
-        <WebsiteDocumentHead preferPublicApi />
-        <NuqsAdapter>
-          <div className="bg-background min-h-screen">
-            <LoginPage />
-          </div>
-        </NuqsAdapter>
-      </ReduxProvider>
-    </ThemeProvider>
-  );
-}
+	const childMatches = useChildMatches();
+	const pathname = useLocation({ select: (location) => location.pathname });
+	const isCompleteRoute = childMatches.length > 0 || pathname === LOGIN_COMPLETE_PATH;
+	const isZdSwitchSuccessRoute = pathname === LOGIN_ZD_SWITCH_SUCCESS_PATH || pathname.startsWith(`${LOGIN_ZD_SWITCH_SUCCESS_PATH}/`);
 
-function PendingComponent() {
-  return (
-    <ThemeProvider attribute="class" defaultTheme="system" enableSystem>
-      <ReduxProvider>
-        <WebsiteDocumentHead preferPublicApi />
-        <div className="flex min-h-screen items-center justify-center p-4">
-          <div className="w-full max-w-md">
-            <div className="border-border bg-card w-full space-y-6 rounded-sm border p-8">
-              <LoginBrandHeader showWelcome={false} />
-              <div className="flex items-center justify-center py-6">
-                <div className="text-muted-foreground text-sm">
-                  Checking authentication...
-                </div>
-              </div>
-            </div>
-          </div>
-        </div>
-      </ReduxProvider>
-    </ThemeProvider>
-  );
+	return (
+		<ThemeProvider attribute="class" defaultTheme="system" enableSystem>
+			<ReduxProvider>
+				<WebsiteDocumentHead preferPublicApi />
+				<div className="bg-background min-h-screen">
+					{isZdSwitchSuccessRoute ? <ZdSwitchSuccessPage /> : isCompleteRoute ? <LoginCompletePage /> : <LoginPage />}
+				</div>
+			</ReduxProvider>
+		</ThemeProvider>
+	);
 }
 
 export const Route = createFileRoute("/login")({
-  loader: async ({ location }) => {
-    const postLoginPath =
-      getLoginGotoFromSearch(location.searchStr) ?? DEFAULT_POST_LOGIN_PATH;
-    let data: { is_auth_enabled: boolean; has_valid_token: boolean } | null =
-      null;
-    try {
-      const res = await fetch(`${getApiBaseUrl()}/session/is-auth-enabled`, {
-        credentials: "include",
-      });
-      if (res.ok) {
-        data = await res.json();
-      }
-    } catch {
-      // Fetch failed — fall through to login page
-    }
-    if (data && (!data.is_auth_enabled || data.has_valid_token)) {
-      throw redirect({ href: postLoginPath });
-    }
-  },
-  pendingComponent: PendingComponent,
-  pendingMs: 0,
-  component: RouteComponent,
+	validateSearch: (search: Record<string, unknown>): LoginSearch => ({
+		redirect_uri: typeof search.redirect_uri === "string" ? search.redirect_uri : undefined,
+		source: typeof search.source === "string" ? search.source : undefined,
+		error: typeof search.error === "string" ? search.error : undefined,
+	}),
+	beforeLoad: async ({ location, search }) => {
+		// Only the bare /login page — not /login/complete or /login/zd-switch/success.
+		if (location.pathname !== "/login") {
+			return;
+		}
+		if (search.source === LOGIN_SOURCE_ZD_SWITCH || search.redirect_uri) {
+			return;
+		}
+		if (search.error) {
+			return;
+		}
+
+		const auth = await probeAuthSession();
+		if (shouldEnterDashboard(auth)) {
+			throw redirect({ to: defaultAuthenticatedPath(), replace: true });
+		}
+	},
+	component: RouteComponent,
 });

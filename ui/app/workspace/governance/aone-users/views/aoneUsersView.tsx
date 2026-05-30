@@ -34,7 +34,6 @@ import {
 	Eye,
 	EyeOff,
 	KeyRound,
-	Mail,
 	RefreshCw,
 	Search,
 	ShieldCheck,
@@ -44,6 +43,7 @@ import {
 import { parseAsInteger, parseAsString, useQueryStates } from "nuqs";
 import { useMemo, useState, type ReactNode } from "react";
 import { toast } from "sonner";
+import { AoneUsersNav } from "./aoneUsersNav";
 
 const PAGE_SIZE = 25;
 
@@ -69,11 +69,11 @@ function formatRelativeTime(value?: string) {
 	return formatDistanceToNow(date, { addSuffix: true });
 }
 
-function resolveDisplayName(user?: Pick<AoneUserListItem, "display_name" | "name" | "email" | "id">) {
+function resolveDisplayName(user?: Pick<AoneUserListItem, "display_name" | "name" | "id">) {
 	if (!user) {
 		return "";
 	}
-	return user.display_name || user.name || user.email || user.id;
+	return user.display_name || user.name || user.id;
 }
 
 function resolveAvatar(user?: Pick<AoneUserListItem, "display_avatar" | "avatar">) {
@@ -115,15 +115,18 @@ export default function AoneUsersView() {
 
 	return (
 		<div className="flex w-full flex-col gap-6 py-6">
-			<header className="space-y-2">
-				<h2 className="flex flex-row items-center gap-2 text-lg font-semibold tracking-tight">
-					<UserRound className="size-4" />
-					Users
-				</h2>
-				<p className="text-muted-foreground max-w-2xl text-sm">
-					Manage users who sign in through Aone OAuth. Profiles are synced from{" "}
-					<code className="bg-muted rounded px-1.5 py-0.5 text-xs">/api/oauth2/me</code> on each login.
-				</p>
+			<header className="space-y-4">
+				<AoneUsersNav />
+				<div className="space-y-2">
+					<h2 className="flex flex-row items-center gap-2 text-lg font-semibold tracking-tight">
+						<UserRound className="size-4" />
+						Users
+					</h2>
+					<p className="text-muted-foreground max-w-2xl text-sm">
+						Manage users who sign in through Aone OAuth. Profiles are synced from{" "}
+						<code className="bg-muted rounded px-1.5 py-0.5 text-xs">/api/oauth2/me</code> on each login.
+					</p>
+				</div>
 			</header>
 
 			<div className="flex flex-col gap-4 rounded-lg border p-4 sm:flex-row sm:items-center sm:justify-between">
@@ -132,7 +135,7 @@ export default function AoneUsersView() {
 					<Input
 						data-testid="aone-users-search-input"
 						className="pl-9"
-						placeholder="Search by name, email, department, or title..."
+						placeholder="Search by name, department, or title..."
 						value={urlState.search}
 						onChange={(event) => {
 							void setUrlState({ search: event.target.value, offset: 0 });
@@ -165,9 +168,7 @@ export default function AoneUsersView() {
 						<Users className="text-muted-foreground size-5" />
 					</div>
 					<p className="text-sm font-medium">No Aone users yet</p>
-					<p className="text-muted-foreground mt-1 text-sm">
-						Users appear here after they sign in with Aone OAuth for the first time.
-					</p>
+					<p className="text-muted-foreground mt-1 text-sm">Users appear here after they sign in with Aone OAuth for the first time.</p>
 				</div>
 			)}
 
@@ -247,15 +248,7 @@ export default function AoneUsersView() {
 	);
 }
 
-function AoneUserRow({
-	user,
-	selected,
-	onSelect,
-}: {
-	user: AoneUserListItem;
-	selected: boolean;
-	onSelect: () => void;
-}) {
+function AoneUserRow({ user, selected, onSelect }: { user: AoneUserListItem; selected: boolean; onSelect: () => void }) {
 	const displayName = resolveDisplayName(user);
 	const avatar = resolveAvatar(user);
 
@@ -273,7 +266,7 @@ function AoneUserRow({
 					</Avatar>
 					<div className="min-w-0">
 						<p className="truncate text-sm font-medium">{displayName}</p>
-						<p className="text-muted-foreground truncate text-xs">{user.email || user.id}</p>
+						<p className="text-muted-foreground truncate font-mono text-xs">{user.id}</p>
 					</div>
 				</div>
 			</TableCell>
@@ -371,12 +364,15 @@ function AoneUserDetailSheet({ userId, onClose }: { userId: string; onClose: () 
 		if (!data) {
 			return "";
 		}
-		return data.dingtalk?.profile.name || data.user.display_name || data.user.name || data.user.email || data.user.id;
+		return data.dingtalk?.profile.name || data.user.display_name || data.user.name || data.user.id;
 	}, [data]);
 
 	const avatar = data?.dingtalk?.profile.avatar || data?.user.display_avatar || data?.user.avatar;
 	const departments = data?.dingtalk?.departments ?? [];
-	const departmentPath = departments.map((dept) => dept.name).filter(Boolean).join(" / ");
+	const departmentPath = departments
+		.map((dept) => dept.name)
+		.filter(Boolean)
+		.join(" / ");
 
 	const handleRotateApiKey = async () => {
 		if (!data) {
@@ -393,10 +389,7 @@ function AoneUserDetailSheet({ userId, onClose }: { userId: string; onClose: () 
 
 	return (
 		<Sheet open={Boolean(userId)} onOpenChange={(open) => !open && onClose()}>
-			<SheetContent
-				className="flex w-full flex-col gap-0 overflow-hidden p-0 pt-4 sm:max-w-lg"
-				data-testid="aone-user-detail-sheet"
-			>
+			<SheetContent className="flex w-full flex-col gap-0 overflow-hidden p-0 pt-4 sm:max-w-lg" data-testid="aone-user-detail-sheet">
 				<SheetHeader className="flex flex-col items-start px-6 pb-2" headerClassName="mb-0">
 					<SheetTitle>User details</SheetTitle>
 					<SheetDescription>Aone OAuth profile synced from the identity provider.</SheetDescription>
@@ -416,20 +409,13 @@ function AoneUserDetailSheet({ userId, onClose }: { userId: string; onClose: () 
 
 					{data && (
 						<div className="mt-4 space-y-4">
-							<UserProfileHero
-								data={data}
-								displayName={displayName}
-								avatar={avatar}
-								departmentPath={departmentPath}
-							/>
+							<UserProfileHero data={data} displayName={displayName} avatar={avatar} departmentPath={departmentPath} />
 
 							<DetailSection title="API access" icon={<KeyRound className="size-4" />}>
 								{data.api_key ? (
 									<div className="space-y-3">
 										<div className="flex flex-wrap items-center gap-2">
-											<Badge variant={data.api_key_active ? "default" : "secondary"}>
-												{data.api_key_active ? "Active" : "Inactive"}
-											</Badge>
+											<Badge variant={data.api_key_active ? "default" : "secondary"}>{data.api_key_active ? "Active" : "Inactive"}</Badge>
 											{data.is_disabled ? <Badge variant="destructive">User disabled</Badge> : null}
 										</div>
 										<div className="flex items-center gap-2">
@@ -464,11 +450,6 @@ function AoneUserDetailSheet({ userId, onClose }: { userId: string; onClose: () 
 												<RefreshCw className={`size-4 ${isRotatingApiKey ? "animate-spin" : ""}`} />
 											</Button>
 										</div>
-										{data.virtual_key_id ? (
-											<p className="text-muted-foreground text-xs">
-												Virtual key ID: <span className="font-mono">{data.virtual_key_id}</span>
-											</p>
-										) : null}
 									</div>
 								) : (
 									<p className="text-muted-foreground text-sm">No API key has been provisioned for this user yet.</p>
@@ -477,7 +458,6 @@ function AoneUserDetailSheet({ userId, onClose }: { userId: string; onClose: () 
 
 							<DetailSection title="Account" icon={<ShieldCheck className="size-4" />}>
 								<DetailRow label="User ID" value={data.user.id} mono />
-								<DetailRow label="Email" value={data.user.email} />
 								<DetailRow label="Last login" value={formatRelativeTime(data.last_login_at)} />
 								<DetailRow label="Login count" value={String(data.login_count)} />
 								<DetailRow label="First seen" value={formatRelativeTime(data.record_created_at)} />
@@ -489,7 +469,6 @@ function AoneUserDetailSheet({ userId, onClose }: { userId: string; onClose: () 
 									<DetailRow label="Title" value={data.dingtalk.profile.title} />
 									<DetailRow label="Job number" value={data.dingtalk.profile.jobNumber} />
 									<DetailRow label="Mobile" value={data.dingtalk.profile.mobile} />
-									<DetailRow label="Org email" value={data.dingtalk.profile.orgEmail} />
 									<DetailRow label="Workplace" value={data.dingtalk.profile.workPlace} />
 									<DetailRow label="Telephone" value={data.dingtalk.profile.telephone} />
 									<DetailRow label="Hired date" value={data.dingtalk.profile.hiredDate} />
@@ -499,9 +478,7 @@ function AoneUserDetailSheet({ userId, onClose }: { userId: string; onClose: () 
 
 							{departments.length > 0 && (
 								<DetailSection title="Departments" icon={<Building2 className="size-4" />}>
-									{departmentPath ? (
-										<p className="text-muted-foreground mb-3 text-sm">{departmentPath}</p>
-									) : null}
+									{departmentPath ? <p className="text-muted-foreground mb-3 text-sm">{departmentPath}</p> : null}
 									<div className="flex flex-wrap gap-2">
 										{departments.map((dept) => (
 											<Badge key={`${dept.deptId}-${dept.name}`} variant="secondary">
@@ -516,11 +493,7 @@ function AoneUserDetailSheet({ userId, onClose }: { userId: string; onClose: () 
 								<DetailSection title="Application" icon={<ShieldCheck className="size-4" />}>
 									<div className="mb-3 flex items-center gap-3">
 										{data.application.logo ? (
-											<img
-												src={data.application.logo}
-												alt={data.application.name}
-												className="size-10 rounded-md border object-cover"
-											/>
+											<img src={data.application.logo} alt={data.application.name} className="size-10 rounded-md border object-cover" />
 										) : (
 											<div className="bg-muted flex size-10 items-center justify-center rounded-md border">
 												<ShieldCheck className="text-muted-foreground size-4" />
@@ -556,24 +529,17 @@ function UserProfileHero({
 	return (
 		<div className="bg-muted/40 rounded-xl border p-5">
 			<div className="flex items-start gap-4">
-				<Avatar className="size-16 border-2 border-background shadow-sm">
+				<Avatar className="border-background size-16 border-2 shadow-sm">
 					{avatar ? <AvatarImage src={avatar} alt={displayName} /> : null}
 					<AvatarFallback className="text-base">{userInitials(displayName)}</AvatarFallback>
 				</Avatar>
 				<div className="min-w-0 flex-1 space-y-2">
 					<div>
 						<p className="truncate text-lg font-semibold">{displayName}</p>
-						{data.user.email ? (
-							<p className="text-muted-foreground mt-1 flex items-center gap-1.5 text-sm">
-								<Mail className="size-3.5 shrink-0" />
-								<span className="truncate">{data.user.email}</span>
-							</p>
-						) : null}
 					</div>
 					<div className="flex flex-wrap gap-2">
 						{data.is_disabled ? <Badge variant="destructive">Disabled</Badge> : null}
 						<Badge variant={data.user.status === "ACTIVE" ? "default" : "secondary"}>{data.user.status}</Badge>
-						{data.user.email_verified ? <Badge variant="outline">Email verified</Badge> : null}
 						{data.dingtalk?.profile.title ? <Badge variant="outline">{data.dingtalk.profile.title}</Badge> : null}
 					</div>
 				</div>
@@ -594,7 +560,7 @@ function UserProfileHero({
 
 function DetailSection({ title, icon, children }: { title: string; icon?: ReactNode; children: ReactNode }) {
 	return (
-		<section className="rounded-xl border bg-background p-4">
+		<section className="bg-background rounded-xl border p-4">
 			<div className="mb-3 flex items-center gap-2">
 				{icon ? <span className="text-muted-foreground">{icon}</span> : null}
 				<h3 className="text-sm font-semibold">{title}</h3>

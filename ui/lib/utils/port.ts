@@ -70,23 +70,32 @@ export function getPort(): string {
  * Get the base URL for API calls (includes protocol and host)
  */
 export function getApiBaseUrl(): string {
-	const config = getPortConfig();
-
-	if (config.isDevelopment) {
-		return `${config.baseUrl}/api`;
-	} else {
-		// Production mode: use relative URL for API calls
+	// In the browser, always use same-origin `/api` so session cookies set by the
+	// server are included on every request. In dev, Vite proxies `/api` to the Go
+	// backend; in prod, the Go server serves both UI and API on one origin.
+	if (typeof window !== "undefined") {
 		return "/api";
 	}
+
+	const config = getPortConfig();
+	if (config.isDevelopment) {
+		return `${config.baseUrl}/api`;
+	}
+	return "/api";
 }
 
 /**
  * Get the WebSocket URL for real-time connections
  */
 export function getWebSocketUrl(path: string = ""): string {
-	const config = getPortConfig();
 	const cleanPath = path.startsWith("/") ? path : `/${path}`;
 
+	if (typeof window !== "undefined") {
+		const wsProtocol = window.location.protocol === "https:" ? "wss:" : "ws:";
+		return `${wsProtocol}//${window.location.host}${cleanPath}`;
+	}
+
+	const config = getPortConfig();
 	return `${config.wsUrl}${cleanPath}`;
 }
 
@@ -115,13 +124,15 @@ export function isDevelopmentMode(): boolean {
  * Generate a complete URL for a specific endpoint
  */
 export function getEndpointUrl(endpoint: string): string {
-	const config = getPortConfig();
 	const cleanEndpoint = endpoint.startsWith("/") ? endpoint : `/${endpoint}`;
 
-	if (config.isDevelopment) {
-		return `${config.baseUrl}${cleanEndpoint}`;
-	} else {
-		// Production mode: use relative URLs
+	if (typeof window !== "undefined") {
 		return cleanEndpoint;
 	}
+
+	const config = getPortConfig();
+	if (config.isDevelopment) {
+		return `${config.baseUrl}${cleanEndpoint}`;
+	}
+	return cleanEndpoint;
 }

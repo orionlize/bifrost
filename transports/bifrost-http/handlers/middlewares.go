@@ -16,6 +16,7 @@ import (
 	"github.com/google/uuid"
 	providerUtils "github.com/maximhq/bifrost/core/providers/utils"
 	"github.com/maximhq/bifrost/core/schemas"
+	"github.com/maximhq/bifrost/framework/aoneoauth"
 	"github.com/maximhq/bifrost/framework/configstore"
 	"github.com/maximhq/bifrost/framework/configstore/tables"
 	"github.com/maximhq/bifrost/framework/encrypt"
@@ -24,6 +25,7 @@ import (
 	"github.com/maximhq/bifrost/transports/bifrost-http/integrations"
 	"github.com/maximhq/bifrost/transports/bifrost-http/lib"
 	"github.com/valyala/fasthttp"
+	"golang.org/x/sync/singleflight"
 )
 
 var reloadedAoneVirtualKeys sync.Map
@@ -90,7 +92,7 @@ func CorsMiddleware(config *lib.Config) schemas.BifrostHTTPMiddleware {
 				isLocalhostOrigin(origin) ||
 				slices.Contains(config.ClientConfig.AllowedOrigins, origin)
 
-			allowedHeaders := []string{"Content-Type", "Authorization", "X-Requested-With", "X-Stainless-Timeout", "X-Api-Key", "X-OpenAI-Agents-SDK", "X-Operation-ID"}
+			allowedHeaders := []string{"Content-Type", "Authorization", "X-Requested-With", "X-Stainless-Timeout", "X-Api-Key", "X-OpenAI-Agents-SDK", "X-Operation-ID", "X-Device-Fingerprint"}
 			if slices.Contains(config.ClientConfig.AllowedHeaders, "*") {
 				if credentialed {
 					// Per the Fetch spec, Access-Control-Allow-Headers: * is NOT treated as a
@@ -657,6 +659,357 @@ func validateSession(_ *fasthttp.RequestCtx, store configstore.ConfigStore, toke
 	return true
 }
 
+// validateDashboardSession validates a dashboard session token, transparently
+// refreshing an expired Aone user session against the Aone refresh endpoint.
+// Local-admin sessions are effectively non-expiring, so an expired admin session
+// is simply treated as invalid. Aone sessions are tied to the access token's
+// lifetime: on expiry we attempt a refresh-token exchange and, on success,
+// extend the session (and re-set the cookie). Only when refresh fails is the
+// user forced to re-authenticate.
+func (m *AuthMiddleware) validateDashboardSession(ctx *fasthttp.RequestCtx, token string) bool {
+	session, err := m.store.GetSession(ctx, token)
+	if err != nil || session == nil {
+		return false
+	}
+	if session.ExpiresAt.After(time.Now()) {
+		return true
+	}
+	return refreshDashboardSession(ctx, m.store, session, token)
+}
+
+// refreshDashboardSession refreshes an expired dashboard session. Only Aone user
+// sessions are eligible for server-side refresh (local-admin sessions are
+// effectively non-expiring, so an expired one is simply invalid). On a
+// successful Aone refresh-token exchange it persists the refreshed tokens,
+// extends the session, re-sets the cookie, and returns true. Concurrent
+// refreshes for the same token are coalesced via singleflight so Aone sees a
+// single exchange (the refresh token may be single-use).
+func refreshDashboardSession(ctx *fasthttp.RequestCtx, store configstore.ConfigStore, session *tables.SessionsTable, token string) bool {
+	if session.AoneUserID == nil || strings.TrimSpace(*session.AoneUserID) == "" {
+		return false
+	}
+	authConfig, err := store.GetAuthConfig(ctx)
+	if err != nil || authConfig == nil || authConfig.AoneOAuth == nil || !authConfig.AoneOAuth.IsConfigured() {
+		return false
+	}
+	loginSource := strings.TrimSpace(session.LoginSource)
+	if loginSource == "" {
+		loginSource = loginSourceDashboard
+	}
+	aoneUserID := strings.TrimSpace(*session.AoneUserID)
+
+	result, err, _ := dashboardSessionRefreshGroup.Do(token, func() (any, error) {
+		return doRefreshAoneSession(ctx, store, authConfig.AoneOAuth, aoneUserID, loginSource, token)
+	})
+	if err != nil || result == nil {
+		return false
+	}
+	newExpiry, ok := result.(time.Time)
+	if !ok {
+		return false
+	}
+	// Re-set the cookie so the browser keeps the (refreshed) session alive.
+	setSessionCookie(ctx, token, newExpiry)
+	return true
+}
+
+// doRefreshAoneSession performs the actual Aone refresh-token exchange and
+// persists the refreshed tokens + extended session expiry. Returns the new
+// session expiry on success.
+func doRefreshAoneSession(ctx context.Context, store configstore.ConfigStore, cfg *configstore.AoneOAuthConfig, aoneUserID, loginSource, token string) (time.Time, error) {
+	tokenRow, err := store.GetAoneUserOAuthToken(ctx, aoneUserID, loginSource)
+	if err != nil {
+		return time.Time{}, err
+	}
+	if tokenRow == nil || strings.TrimSpace(tokenRow.RefreshToken) == "" {
+		return time.Time{}, fmt.Errorf("no refresh token available for aone user %s", aoneUserID)
+	}
+
+	client := aoneoauth.NewClient(cfg.BaseURL.GetValue())
+	tokenResp, err := client.RefreshAccessToken(ctx, tokenRow.RefreshToken, cfg.ClientID.GetValue(), cfg.ClientSecret.GetValue())
+	if err != nil {
+		return time.Time{}, err
+	}
+	// Some providers omit a rotated refresh token; keep the existing one so the
+	// next refresh still works.
+	if strings.TrimSpace(tokenResp.RefreshToken) == "" {
+		tokenResp.RefreshToken = tokenRow.RefreshToken
+	}
+	if _, err := store.UpsertAoneUserOAuthToken(ctx, aoneUserID, loginSource, tokenResp); err != nil {
+		return time.Time{}, err
+	}
+	newExpiry := aoneSessionExpiresAt(tokenResp)
+	if err := store.UpdateSessionExpiry(ctx, token, newExpiry); err != nil {
+		return time.Time{}, err
+	}
+	return newExpiry, nil
+}
+
+type sessionReader interface {
+	GetSession(ctx context.Context, token string) (*tables.SessionsTable, error)
+}
+
+func validateLocalAdminSession(store sessionReader, token string) bool {
+	session, err := store.GetSession(context.Background(), token)
+	if err != nil || session == nil {
+		return false
+	}
+	if session.ExpiresAt.Before(time.Now()) {
+		return false
+	}
+	return session.AoneUserID == nil || *session.AoneUserID == ""
+}
+
+func validateGlobalAPIKey(ctx context.Context, store configstore.ConfigStore, token string) (*tables.GlobalAPIKey, error) {
+	if store == nil {
+		return nil, nil
+	}
+	return store.GetActiveGlobalAPIKeyByToken(ctx, token)
+}
+
+// deviceFingerprintHeader carries the caller's device fingerprint on forwarded
+// API requests. The fingerprint must match an active device authorization that
+// belongs to one of the users bound to the presented global API key.
+const deviceFingerprintHeader = "X-Device-Fingerprint"
+
+// enforceDeviceFingerprint gates global-API-key forwarding requests by device
+// fingerprint. For keys scoped to specific Aone users it requires the
+// X-Device-Fingerprint header to match an active device authorization belonging
+// to one of those users; otherwise it writes a 401 and returns false. Admin-scope
+// keys (no bound users) and non-forwarding paths are allowed through unchanged.
+func (m *AuthMiddleware) enforceDeviceFingerprint(ctx *fasthttp.RequestCtx, key *tables.GlobalAPIKey, path string) bool {
+	if !isDeviceForwardingAPIPath(path) {
+		return true
+	}
+	// Strip the device fingerprint header so it is never forwarded upstream.
+	fingerprint := normalizeDeviceFingerprint(string(ctx.Request.Header.Peek(deviceFingerprintHeader)))
+	ctx.Request.Header.Del(deviceFingerprintHeader)
+
+	// Admin-scope keys (no bound users) are not gated by device fingerprint.
+	if key == nil || len(key.AllowedUserIDs) == 0 {
+		return true
+	}
+	if m.bypassDeviceFingerprintForWebSession(ctx, key.AllowedUserIDs) {
+		return true
+	}
+	return m.checkDeviceFingerprint(ctx, key.AllowedUserIDs, fingerprint)
+}
+
+// gateDeviceOnForwarding enforces device-fingerprint gating for a forwarding
+// (inference) request, even on code paths where normal authentication is skipped
+// (DisableAuthOnInference or auth fully disabled). It resolves the Bearer credential
+// to the Aone user(s) it belongs to — either a user-scoped global API key
+// (bf-ak-...) or a personal Aone virtual key (sk-bf-...) — and requires the
+// X-Device-Fingerprint header to match an active device for one of those users,
+// unless the request also carries a valid browser dashboard session cookie for
+// the same user (prompt repository / web playground). Device-bound ZD Switch
+// sessions still require fingerprint enforcement. The fingerprint header is always
+// stripped from forwarding requests. Returns false (and writes a 401/500) when the
+// request must be rejected; returns true (allowing the caller's normal flow) for
+// non-forwarding paths, admin-scope keys, web-session bypass, and credentials not
+// tied to an Aone user.
+func (m *AuthMiddleware) gateDeviceOnForwarding(ctx *fasthttp.RequestCtx, url string) bool {
+	if m.store == nil || !isDeviceForwardingAPIPath(url) {
+		return true
+	}
+
+	// Always strip the fingerprint header from forwarded requests.
+	fingerprint := normalizeDeviceFingerprint(string(ctx.Request.Header.Peek(deviceFingerprintHeader)))
+	ctx.Request.Header.Del(deviceFingerprintHeader)
+
+	authorization := string(ctx.Request.Header.Peek("Authorization"))
+	scheme, token, ok := strings.Cut(authorization, " ")
+	if !ok || scheme != "Bearer" {
+		return true
+	}
+
+	// A device-issued temporary credential (bf-tmp-...) is itself the
+	// device-bound forwarding credential: validate it, enforce the fingerprint,
+	// and rewrite the Authorization header to the user's virtual key.
+	if matched, proceed := m.applyDeviceTemporaryCredential(ctx, token, fingerprint); matched {
+		return proceed
+	}
+
+	userIDs, err := m.resolveDeviceGatedUsers(ctx, token)
+	if err != nil {
+		logger.Error("[aone-devices] failed to resolve device-gated users: %v", err)
+		SendError(ctx, fasthttp.StatusInternalServerError, "Internal Server Error")
+		return false
+	}
+	if len(userIDs) == 0 {
+		// Admin global key, non-Aone virtual key, or unrecognized token: not gated.
+		return true
+	}
+	// Browser flows (prompt repository, dashboard) authenticate via access
+	// token cookie; they do not carry a desktop device fingerprint.
+	if m.bypassDeviceFingerprintForWebSession(ctx, userIDs) {
+		return true
+	}
+	return m.checkDeviceFingerprint(ctx, userIDs, fingerprint)
+}
+
+// resolveDeviceGatedUsers maps a Bearer credential to the Aone user IDs whose
+// devices gate it. A user-scoped global API key resolves to its allowed users; a
+// personal Aone virtual key resolves to its owning user. Anything else (admin
+// global key, generic virtual key, unknown token) resolves to no users.
+func (m *AuthMiddleware) resolveDeviceGatedUsers(ctx *fasthttp.RequestCtx, token string) ([]string, error) {
+	globalKey, err := validateGlobalAPIKey(ctx, m.store, token)
+	if err != nil {
+		return nil, err
+	}
+	if globalKey != nil {
+		return globalKey.AllowedUserIDs, nil // empty slice for admin-scope keys
+	}
+
+	aoneUserID, err := m.store.GetAoneUserIDByVirtualKeyValue(ctx, token)
+	if err != nil {
+		return nil, err
+	}
+	if strings.TrimSpace(aoneUserID) != "" {
+		return []string{aoneUserID}, nil
+	}
+	return nil, nil
+}
+
+// checkDeviceFingerprint verifies the supplied fingerprint matches an active
+// device authorization for one of the given Aone users, writing the appropriate
+// 401/500 response and returning false when it does not.
+func (m *AuthMiddleware) checkDeviceFingerprint(ctx *fasthttp.RequestCtx, userIDs []string, fingerprint string) bool {
+	if fingerprint == "" {
+		SendError(ctx, fasthttp.StatusUnauthorized, "Unauthorized device: missing device fingerprint")
+		return false
+	}
+
+	device, err := m.store.GetActiveAoneDeviceAuthorizationForUsers(ctx, userIDs, fingerprint)
+	if err != nil {
+		if errors.Is(err, configstore.ErrDeviceAuthorizationNotFound) {
+			SendError(ctx, fasthttp.StatusUnauthorized, "Unauthorized device: device is not authorized for this user")
+			return false
+		}
+		logger.Error("[aone-devices] failed to validate device fingerprint: %v", err)
+		SendError(ctx, fasthttp.StatusInternalServerError, "Internal Server Error")
+		return false
+	}
+
+	// Record the latest forwarding access for the matched device (best-effort).
+	if device != nil && device.ID > 0 {
+		deviceID := device.ID
+		go func() {
+			if touchErr := m.store.TouchAoneDeviceAuthorizationLastAPIAccess(context.Background(), deviceID); touchErr != nil {
+				logger.Warn("[aone-devices] failed to record last api access for device=%d: %v", deviceID, touchErr)
+			}
+		}()
+	}
+	return true
+}
+
+func isAoneDeviceBoundSession(session *tables.SessionsTable) bool {
+	if session == nil {
+		return false
+	}
+	return session.DeviceAuthorizationID != nil && *session.DeviceAuthorizationID > 0
+}
+
+// bypassDeviceFingerprintForWebSession allows browser-authenticated users (prompt
+// repository, dashboard playground) to call inference APIs with their personal
+// virtual key without a desktop device fingerprint. Device-bound ZD Switch sessions
+// still require fingerprint enforcement.
+func (m *AuthMiddleware) bypassDeviceFingerprintForWebSession(ctx *fasthttp.RequestCtx, userIDs []string) bool {
+	if m.store == nil || len(userIDs) == 0 {
+		return false
+	}
+	allowed := make(map[string]struct{}, len(userIDs))
+	for _, id := range userIDs {
+		if trimmed := strings.TrimSpace(id); trimmed != "" {
+			allowed[trimmed] = struct{}{}
+		}
+	}
+	sessionToken := strings.TrimSpace(string(ctx.Request.Header.Cookie("token")))
+	if sessionToken == "" {
+		return false
+	}
+	if !m.validateDashboardSession(ctx, sessionToken) {
+		return false
+	}
+	session, err := m.store.GetSession(ctx, sessionToken)
+	if err != nil || session == nil || session.AoneUserID == nil {
+		return false
+	}
+	if isAoneDeviceBoundSession(session) {
+		return false
+	}
+	_, ok := allowed[strings.TrimSpace(*session.AoneUserID)]
+	return ok
+}
+
+// applyDeviceTemporaryCredential validates a device-issued temporary forwarding
+// credential (bf-tmp-...) for a forwarding request. On success it rewrites the
+// Authorization header to the owning user's internal virtual key so downstream
+// governance/inference resolves it exactly as a normal VK credential — the VK
+// is never exposed to the user. The supplied fingerprint must match the
+// credential's bound device. It returns (matched, proceed):
+//   - matched=false: token is not a temp credential; caller continues normally.
+//   - matched=true, proceed=false: a 401/500 response was already written.
+//   - matched=true, proceed=true: header rewritten; caller should run next.
+func (m *AuthMiddleware) applyDeviceTemporaryCredential(ctx *fasthttp.RequestCtx, token, fingerprint string) (matched bool, proceed bool) {
+	if m.store == nil || !strings.HasPrefix(token, configstore.AoneDeviceCredentialPrefix) {
+		return false, false
+	}
+
+	cred, err := m.store.ResolveActiveAoneDeviceTemporaryCredential(ctx, token)
+	if err != nil {
+		if errors.Is(err, configstore.ErrDeviceCredentialNotFound) || errors.Is(err, configstore.ErrDeviceCredentialExpired) {
+			SendError(ctx, fasthttp.StatusUnauthorized, "Invalid or expired credential")
+			return true, false
+		}
+		logger.Error("[aone-devices] failed to resolve temporary credential: %v", err)
+		SendError(ctx, fasthttp.StatusInternalServerError, "Internal Server Error")
+		return true, false
+	}
+	if fingerprint == "" {
+		SendError(ctx, fasthttp.StatusUnauthorized, "Unauthorized device: missing device fingerprint")
+		return true, false
+	}
+	if cred.DeviceFingerprint != fingerprint {
+		SendError(ctx, fasthttp.StatusUnauthorized, "Unauthorized device: device fingerprint mismatch")
+		return true, false
+	}
+
+	vk, err := m.store.GetVirtualKey(ctx, cred.VirtualKeyID)
+	if err != nil || vk == nil || !vk.IsActiveValue() || strings.TrimSpace(vk.Value) == "" {
+		SendError(ctx, fasthttp.StatusUnauthorized, "Invalid or expired credential")
+		return true, false
+	}
+
+	// Rewrite the credential to the user's virtual key for downstream
+	// governance, and drop any client-supplied x-bf-vk so it cannot be used to
+	// escalate to a different key.
+	ctx.Request.Header.Set("Authorization", "Bearer "+vk.Value)
+	ctx.Request.Header.Del(string(schemas.BifrostContextKeyVirtualKey))
+
+	credID := cred.ID
+	deviceID := cred.DeviceAuthorizationID
+	go func() {
+		bg := context.Background()
+		if touchErr := m.store.TouchAoneDeviceTemporaryCredentialLastUsed(bg, credID); touchErr != nil {
+			logger.Warn("[aone-devices] failed to record credential use id=%d: %v", credID, touchErr)
+		}
+		if touchErr := m.store.TouchAoneDeviceAuthorizationLastAPIAccess(bg, deviceID); touchErr != nil {
+			logger.Warn("[aone-devices] failed to record device access id=%d: %v", deviceID, touchErr)
+		}
+	}()
+	return true, true
+}
+
+func applyGlobalAPIKeyAuth(ctx *fasthttp.RequestCtx, key *tables.GlobalAPIKey) {
+	ctx.SetUserValue(schemas.IsAPIKeyAuthContextKey, true)
+	if len(key.AllowedUserIDs) == 0 {
+		ctx.SetUserValue(schemas.IsLocalAdminContextKey, true)
+		return
+	}
+	ctx.SetUserValue(schemas.BifrostContextKeyGlobalAPIKeyAllowedUserIDs, key.AllowedUserIDs)
+}
+
 // isInferenceWSEndpoint returns true for WebSocket endpoints that should use
 // standard inference auth (Bearer/Basic/VK) rather than dashboard session tokens.
 func isInferenceWSEndpoint(path string) bool {
@@ -711,6 +1064,13 @@ type AuthMiddleware struct {
 	tempTokensService *temptoken.Service // optional; when nil, temp-token fallback is disabled
 	tempTokensEnabled atomic.Bool
 }
+
+// dashboardSessionRefreshGroup de-duplicates concurrent Aone token refreshes for
+// the same dashboard session, so a burst of requests after expiry triggers a
+// single refresh-token exchange (Aone may rotate/burn the refresh token). It is
+// package-level so the auth middleware and the (whitelisted) is-auth-enabled
+// endpoint coalesce against the same in-flight refresh.
+var dashboardSessionRefreshGroup singleflight.Group
 
 // InitAuthMiddleware initializes the auth middleware. The tempTokens service
 // is optional and still gated by client config — when nil or disabled, the
@@ -819,7 +1179,12 @@ func (m *AuthMiddleware) APIMiddleware() schemas.BifrostHTTPMiddleware {
 		"/api/aone/oauth/config",
 		"/api/aone/oauth/authorize",
 		"/api/aone/oauth/callback",
+		"/api/aone/oauth/zd-switch/callback",
+		"/api/aone/oauth/zd-switch/handoff",
+		"/api/aone/devices/token",
+		"/api/aone/devices/revoke",
 		"/health",
+		"/",
 		"/login",
 		"/favicon.ico",
 		"/assets/*",
@@ -875,6 +1240,11 @@ func (m *AuthMiddleware) middleware(shouldSkip func(*configstore.AuthConfig, str
 			authConfig := m.authConfig.Load()
 			if authConfig == nil || !authConfig.IsEnabled {
 				// logger.Debug("auth middleware is disabled because auth config is not present or not enabled")
+				// Even with auth disabled, a credential presented on a forwarding
+				// request must still pass device-fingerprint gating.
+				if !m.gateDeviceOnForwarding(ctx, string(ctx.Path())) {
+					return
+				}
 				ctx.SetUserValue(schemas.BifrostContextKeySessionToken, "")
 				// Mark as local admin so downstream RBAC bypasses cleanly when
 				// auth is fully disabled; otherwise RBAC 401s and the UI enters
@@ -887,6 +1257,11 @@ func (m *AuthMiddleware) middleware(shouldSkip func(*configstore.AuthConfig, str
 			url := string(ctx.Path())
 			// We skip authorization for the login route
 			if shouldSkip(authConfig, url) {
+				// Inference auth may be disabled (DisableAuthOnInference), but a
+				// credential on a forwarding request must still pass device gating.
+				if !m.gateDeviceOnForwarding(ctx, url) {
+					return
+				}
 				next(ctx)
 				return
 			}
@@ -943,9 +1318,12 @@ func (m *AuthMiddleware) middleware(shouldSkip func(*configstore.AuthConfig, str
 				// Cookie-based auth fallback: if no Authorization header, check for the HTTPOnly session cookie.
 				// This supports the dashboard which relies on cookies instead of localStorage tokens.
 				cookieToken := string(ctx.Request.Header.Cookie("token"))
-				if cookieToken != "" && validateSession(ctx, m.store, cookieToken) {
+				if cookieToken != "" && m.validateDashboardSession(ctx, cookieToken) {
 					ctx.SetUserValue(schemas.BifrostContextKeySessionToken, cookieToken)
-					ctx.SetUserValue(schemas.IsLocalAdminContextKey, true)
+					if validateLocalAdminSession(m.store, cookieToken) {
+						ctx.SetUserValue(schemas.IsLocalAdminContextKey, true)
+					}
+					recordDeviceForwardingAccessIfApplicable(m.store, cookieToken, url)
 					next(ctx)
 					return
 				}
@@ -998,11 +1376,36 @@ func (m *AuthMiddleware) middleware(shouldSkip func(*configstore.AuthConfig, str
 				return
 			}
 			// Checking bearer auth for dashboard calls
-			if scheme == "Bearer" {
-				// We are checking for API keys first; it it seems like a valid Bifrost API key
+		if scheme == "Bearer" {
+			// A device-issued temporary credential (bf-tmp-...) on a forwarding
+			// path is the device-bound AI credential: validate it, enforce the
+			// fingerprint, and rewrite Authorization to the user's virtual key.
+			if isDeviceForwardingAPIPath(url) && strings.HasPrefix(token, configstore.AoneDeviceCredentialPrefix) {
+				fingerprint := normalizeDeviceFingerprint(string(ctx.Request.Header.Peek(deviceFingerprintHeader)))
+				ctx.Request.Header.Del(deviceFingerprintHeader)
+				if matched, proceed := m.applyDeviceTemporaryCredential(ctx, token, fingerprint); matched {
+					if !proceed {
+						return
+					}
+					next(ctx)
+					return
+				}
+			}
+			// We are checking for API keys first; it it seems like a valid Bifrost API key
 
 				// Verify the session
-				if !validateSession(ctx, m.store, token) {
+				if !m.validateDashboardSession(ctx, token) {
+					if globalKey, err := validateGlobalAPIKey(ctx, m.store, token); err != nil {
+						SendError(ctx, fasthttp.StatusInternalServerError, "Internal Server Error")
+						return
+					} else if globalKey != nil {
+						if !m.enforceDeviceFingerprint(ctx, globalKey, url) {
+							return
+						}
+						applyGlobalAPIKeyAuth(ctx, globalKey)
+						next(ctx)
+						return
+					}
 					// Here we will check if its the base64 of username:password
 					// This is for backward compatibility with the old auth system
 					decodedBytes, err := base64.StdEncoding.DecodeString(token)
@@ -1041,7 +1444,10 @@ func (m *AuthMiddleware) middleware(shouldSkip func(*configstore.AuthConfig, str
 				}
 				// setting up session in the request
 				ctx.SetUserValue(schemas.BifrostContextKeySessionToken, token)
-				ctx.SetUserValue(schemas.IsLocalAdminContextKey, true)
+				if validateLocalAdminSession(m.store, token) {
+					ctx.SetUserValue(schemas.IsLocalAdminContextKey, true)
+				}
+				recordDeviceForwardingAccessIfApplicable(m.store, token, url)
 				// Continue with the next handler
 				next(ctx)
 				return

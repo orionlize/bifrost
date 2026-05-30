@@ -257,6 +257,21 @@ type ConfigStore interface {
 	CreateSession(ctx context.Context, session *tables.SessionsTable) error
 	DeleteSession(ctx context.Context, token string) error
 	FlushSessions(ctx context.Context) error
+	// DeleteLocalAdminSessions removes every dashboard session that is not bound
+	// to an Aone user (i.e. password/local-admin sessions). Used to enforce a
+	// single active admin session: a fresh admin login invalidates all prior ones.
+	DeleteLocalAdminSessions(ctx context.Context) error
+	// UpdateSessionExpiry extends an existing session's ExpiresAt. Used by the
+	// Aone refresh path to keep the dashboard session aligned with the refreshed
+	// access token's lifetime.
+	UpdateSessionExpiry(ctx context.Context, token string, expiresAt time.Time) error
+
+	// Global dashboard API keys (admin-created bearer tokens)
+	ListGlobalAPIKeys(ctx context.Context) ([]tables.GlobalAPIKey, error)
+	CreateGlobalAPIKey(ctx context.Context, name string, allowedUserIDs []string) (*tables.GlobalAPIKey, string, error)
+	SetGlobalAPIKeyActive(ctx context.Context, id string, isActive bool) (*tables.GlobalAPIKey, error)
+	DeleteGlobalAPIKey(ctx context.Context, id string) error
+	GetActiveGlobalAPIKeyByToken(ctx context.Context, token string) (*tables.GlobalAPIKey, error)
 
 	// Aone OAuth user CRUD
 	UpsertAoneUserFromLogin(ctx context.Context, me *aoneoauth.MeResponse) (*tables.AoneUserTable, error)
@@ -266,7 +281,28 @@ type ConfigStore interface {
 	RotateAoneUserVirtualKey(ctx context.Context, aoneUserID string) (*tables.TableVirtualKey, error)
 	DeleteAoneUserSessions(ctx context.Context, aoneUserID string) error
 	EnsureAoneUserVirtualKey(ctx context.Context, aoneUserID string) (*tables.TableVirtualKey, error)
-	ResolveAoneSessionVirtualKey(ctx context.Context, sessionToken string) (vkValue string, aoneUserID string, err error)
+	UpsertAoneUserOAuthToken(ctx context.Context, aoneUserID, loginSource string, tokenResp *aoneoauth.TokenResponse) (*tables.AoneUserOAuthTokenTable, error)
+	GetAoneUserOAuthToken(ctx context.Context, aoneUserID, loginSource string) (*tables.AoneUserOAuthTokenTable, error)
+	DeleteAoneUserOAuthTokens(ctx context.Context, aoneUserID string) error
+	UpsertAoneDeviceAuthorization(ctx context.Context, aoneUserID, deviceFingerprint, deviceName string) (authorizationCode string, err error)
+	GetActiveAoneDeviceAuthorizationByCode(ctx context.Context, authorizationCode string) (*tables.AoneDeviceAuthorizationTable, error)
+	GetActiveAoneDeviceAuthorizationForUsers(ctx context.Context, aoneUserIDs []string, deviceFingerprint string) (*tables.AoneDeviceAuthorizationTable, error)
+	GetAoneUserIDByVirtualKeyValue(ctx context.Context, value string) (string, error)
+	RevokeAoneDeviceAuthorization(ctx context.Context, authorizationCode, deviceFingerprint string) error
+	RevokeAllAoneDeviceAuthorizationsForUser(ctx context.Context, aoneUserID string) error
+	CreateAoneUserDeviceAccessSession(ctx context.Context, aoneUserID, loginSource string, deviceAuthorizationID *int, expiresAt time.Time) (token string, err error)
+	GetAoneDeviceAuthorizationsPaginated(ctx context.Context, params AoneDeviceAuthorizationsQueryParams) ([]AoneDeviceAuthorizationListItem, int64, error)
+	GetAoneDeviceAuthorizationByID(ctx context.Context, id int) (*tables.AoneDeviceAuthorizationTable, error)
+	SetAoneDeviceAuthorizationStatus(ctx context.Context, id int, active bool) (*tables.AoneDeviceAuthorizationTable, error)
+	TouchAoneDeviceAuthorizationLastAPIAccess(ctx context.Context, id int) error
+
+	// Aone device temporary forwarding credentials (24h, device-bound)
+	CreateAoneDeviceTemporaryCredential(ctx context.Context, aoneUserID string, deviceAuthorizationID int, deviceFingerprint, virtualKeyID string, ttl time.Duration) (token string, expiresAt time.Time, err error)
+	ResolveActiveAoneDeviceTemporaryCredential(ctx context.Context, token string) (*tables.AoneDeviceCredentialTable, error)
+	RevokeAoneDeviceTemporaryCredentialsForUser(ctx context.Context, aoneUserID string) error
+	RevokeAoneDeviceTemporaryCredentialsForDevice(ctx context.Context, deviceAuthorizationID int) error
+	TouchAoneDeviceTemporaryCredentialLastUsed(ctx context.Context, id int) error
+	DeleteExpiredAoneDeviceTemporaryCredentials(ctx context.Context, before time.Time) (int64, error)
 
 	// Temp token CRUD
 	CreateTempToken(ctx context.Context, token *tables.TempToken, tx ...*gorm.DB) error

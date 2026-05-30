@@ -165,8 +165,7 @@ export function PromptProvider({ children }: { children: ReactNode }) {
 	const [variables, setVariables] = useState<VariableMap>({});
 	const [customHeaders, setCustomHeaders] = useState<Record<string, string>>({});
 	const { data: authStatus } = useIsAuthEnabledQuery();
-	const useAoneApiKeyAuth =
-		authStatus?.aone_oauth_enabled === true || getAoneApiKey() !== null;
+	const useAoneApiKeyAuth = authStatus?.aone_oauth_enabled === true || getAoneApiKey() !== null;
 
 	const buildExecutionConfig = useCallback(
 		() => ({
@@ -256,8 +255,7 @@ export function PromptProvider({ children }: { children: ReactNode }) {
 			const { api_key_id, ...rest } = params || ({} as ModelParams);
 			setModelParams({ stream: true, ...rest });
 			const persistedKey = api_key_id || "__auto__";
-			const forcePersonalApiKey =
-				useAoneApiKeyAuth || persistedKey.startsWith("sk-bf-") || getAoneApiKey() !== null;
+			const forcePersonalApiKey = useAoneApiKeyAuth || persistedKey.startsWith("sk-bf-") || getAoneApiKey() !== null;
 			setApiKeyId(forcePersonalApiKey ? "__auto__" : persistedKey);
 			setProvider(prov || "");
 			setModel(mod || "");
@@ -482,59 +480,54 @@ export function PromptProvider({ children }: { children: ReactNode }) {
 			const isActive = () => activeRunRef.current === runToken;
 
 			setIsStreaming(true);
-			await executePrompt(
-				messages,
-				pendingMessage,
-				buildExecutionConfig(),
-				{
-					onStreamingStart: (allMessages, placeholder) => {
-						if (!isActive()) return;
-						setMessages([...allMessages, placeholder]);
-					},
-					onStreamChunk: (content) => {
-						if (!isActive()) return;
-						setMessages((prev) => {
-							const updated = [...prev];
-							const last = updated[updated.length - 1];
-							const clone = last.clone();
-							clone.content = content;
-							updated[updated.length - 1] = clone;
-							return updated;
-						});
-					},
-					onComplete: (content, usage) => {
-						if (!isActive()) return;
-						setMessages((prev) => {
-							const updated = [...prev];
-							updated[updated.length - 1] = Message.response(content, 0, usage);
-							return updated;
-						});
-					},
-					onToolCallComplete: (content, toolCalls, usage) => {
-						if (!isActive()) return;
-						setMessages((prev) => {
-							const updated = [...prev];
-							updated[updated.length - 1] = Message.toolCallResponse(content, toolCalls, 0, usage);
-							return updated;
-						});
-					},
-					onEmptyResponse: () => {
-						if (!isActive()) return;
-						setMessages((prev) => prev.slice(0, -1));
-					},
-					onError: (error) => {
-						if (!isActive()) return;
-						setMessages((prev) => {
-							const withoutPlaceholder = prev.slice(0, -1);
-							return [...withoutPlaceholder, Message.error(error)];
-						});
-					},
-					onFinally: () => {
-						if (!isActive()) return;
-						setIsStreaming(false);
-					},
+			await executePrompt(messages, pendingMessage, buildExecutionConfig(), {
+				onStreamingStart: (allMessages, placeholder) => {
+					if (!isActive()) return;
+					setMessages([...allMessages, placeholder]);
 				},
-			);
+				onStreamChunk: (content) => {
+					if (!isActive()) return;
+					setMessages((prev) => {
+						const updated = [...prev];
+						const last = updated[updated.length - 1];
+						const clone = last.clone();
+						clone.content = content;
+						updated[updated.length - 1] = clone;
+						return updated;
+					});
+				},
+				onComplete: (content, usage) => {
+					if (!isActive()) return;
+					setMessages((prev) => {
+						const updated = [...prev];
+						updated[updated.length - 1] = Message.response(content, 0, usage);
+						return updated;
+					});
+				},
+				onToolCallComplete: (content, toolCalls, usage) => {
+					if (!isActive()) return;
+					setMessages((prev) => {
+						const updated = [...prev];
+						updated[updated.length - 1] = Message.toolCallResponse(content, toolCalls, 0, usage);
+						return updated;
+					});
+				},
+				onEmptyResponse: () => {
+					if (!isActive()) return;
+					setMessages((prev) => prev.slice(0, -1));
+				},
+				onError: (error) => {
+					if (!isActive()) return;
+					setMessages((prev) => {
+						const withoutPlaceholder = prev.slice(0, -1);
+						return [...withoutPlaceholder, Message.error(error)];
+					});
+				},
+				onFinally: () => {
+					if (!isActive()) return;
+					setIsStreaming(false);
+				},
+			});
 		},
 		[messages, buildExecutionConfig],
 	);
@@ -561,59 +554,54 @@ export function PromptProvider({ children }: { children: ReactNode }) {
 
 			// Execute with the updated messages
 			setIsStreaming(true);
-			await executePrompt(
-				newMessages,
-				undefined,
-				buildExecutionConfig(),
-				{
-					onStreamingStart: (allMessages, placeholder) => {
-						if (!isActive()) return;
-						setMessages([...allMessages, placeholder]);
-					},
-					onStreamChunk: (content) => {
-						if (!isActive()) return;
-						setMessages((prev) => {
-							const updated = [...prev];
-							const last = updated[updated.length - 1];
-							const clone = last.clone();
-							clone.content = content;
-							updated[updated.length - 1] = clone;
-							return updated;
-						});
-					},
-					onComplete: (content, usage) => {
-						if (!isActive()) return;
-						setMessages((prev) => {
-							const updated = [...prev];
-							updated[updated.length - 1] = Message.response(content, 0, usage);
-							return updated;
-						});
-					},
-					onToolCallComplete: (content, toolCalls, usage) => {
-						if (!isActive()) return;
-						setMessages((prev) => {
-							const updated = [...prev];
-							updated[updated.length - 1] = Message.toolCallResponse(content, toolCalls, 0, usage);
-							return updated;
-						});
-					},
-					onEmptyResponse: () => {
-						if (!isActive()) return;
-						setMessages((prev) => prev.slice(0, -1));
-					},
-					onError: (error) => {
-						if (!isActive()) return;
-						setMessages((prev) => {
-							const withoutPlaceholder = prev.slice(0, -1);
-							return [...withoutPlaceholder, Message.error(error)];
-						});
-					},
-					onFinally: () => {
-						if (!isActive()) return;
-						setIsStreaming(false);
-					},
+			await executePrompt(newMessages, undefined, buildExecutionConfig(), {
+				onStreamingStart: (allMessages, placeholder) => {
+					if (!isActive()) return;
+					setMessages([...allMessages, placeholder]);
 				},
-			);
+				onStreamChunk: (content) => {
+					if (!isActive()) return;
+					setMessages((prev) => {
+						const updated = [...prev];
+						const last = updated[updated.length - 1];
+						const clone = last.clone();
+						clone.content = content;
+						updated[updated.length - 1] = clone;
+						return updated;
+					});
+				},
+				onComplete: (content, usage) => {
+					if (!isActive()) return;
+					setMessages((prev) => {
+						const updated = [...prev];
+						updated[updated.length - 1] = Message.response(content, 0, usage);
+						return updated;
+					});
+				},
+				onToolCallComplete: (content, toolCalls, usage) => {
+					if (!isActive()) return;
+					setMessages((prev) => {
+						const updated = [...prev];
+						updated[updated.length - 1] = Message.toolCallResponse(content, toolCalls, 0, usage);
+						return updated;
+					});
+				},
+				onEmptyResponse: () => {
+					if (!isActive()) return;
+					setMessages((prev) => prev.slice(0, -1));
+				},
+				onError: (error) => {
+					if (!isActive()) return;
+					setMessages((prev) => {
+						const withoutPlaceholder = prev.slice(0, -1);
+						return [...withoutPlaceholder, Message.error(error)];
+					});
+				},
+				onFinally: () => {
+					if (!isActive()) return;
+					setIsStreaming(false);
+				},
+			});
 		},
 		[messages, buildExecutionConfig],
 	);

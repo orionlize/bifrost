@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"strconv"
 	"strings"
+	"time"
 
 	"github.com/fasthttp/router"
 	"github.com/maximhq/bifrost/core/schemas"
@@ -49,6 +50,10 @@ func (h *AoneUsersHandler) listUsers(ctx *fasthttp.RequestCtx) {
 		SendError(ctx, fasthttp.StatusServiceUnavailable, "Config store is not available")
 		return
 	}
+	if !requireLocalAdmin(ctx, h.configStore) {
+		SendError(ctx, fasthttp.StatusForbidden, "Admin access required")
+		return
+	}
 
 	limit, _ := strconv.Atoi(string(ctx.QueryArgs().Peek("limit")))
 	offset, _ := strconv.Atoi(string(ctx.QueryArgs().Peek("offset")))
@@ -82,6 +87,10 @@ func (h *AoneUsersHandler) getUser(ctx *fasthttp.RequestCtx) {
 		SendError(ctx, fasthttp.StatusServiceUnavailable, "Config store is not available")
 		return
 	}
+	if !requireLocalAdmin(ctx, h.configStore) {
+		SendError(ctx, fasthttp.StatusForbidden, "Admin access required")
+		return
+	}
 
 	id, ok := ctx.UserValue("id").(string)
 	if !ok || id == "" {
@@ -105,6 +114,10 @@ func (h *AoneUsersHandler) getUser(ctx *fasthttp.RequestCtx) {
 func (h *AoneUsersHandler) updateUser(ctx *fasthttp.RequestCtx) {
 	if h.configStore == nil {
 		SendError(ctx, fasthttp.StatusServiceUnavailable, "Config store is not available")
+		return
+	}
+	if !requireLocalAdmin(ctx, h.configStore) {
+		SendError(ctx, fasthttp.StatusForbidden, "Admin access required")
 		return
 	}
 
@@ -136,7 +149,7 @@ func (h *AoneUsersHandler) updateUser(ctx *fasthttp.RequestCtx) {
 
 	if user.VirtualKeyID != nil && *user.VirtualKeyID != "" && h.vkReloader != nil {
 		if _, reloadErr := h.vkReloader.ReloadVirtualKey(ctx, *user.VirtualKeyID); reloadErr != nil {
-			logger.Warn("[aone-users] failed to reload user virtual key after disable toggle: %v", reloadErr)
+			logger.Warn("[aone-users] failed to reload user API key after disable toggle: %v", reloadErr)
 		} else {
 			MarkAoneVirtualKeyReloaded(*user.VirtualKeyID)
 		}
@@ -148,6 +161,10 @@ func (h *AoneUsersHandler) updateUser(ctx *fasthttp.RequestCtx) {
 func (h *AoneUsersHandler) rotateApiKey(ctx *fasthttp.RequestCtx) {
 	if h.configStore == nil {
 		SendError(ctx, fasthttp.StatusServiceUnavailable, "Config store is not available")
+		return
+	}
+	if !requireLocalAdmin(ctx, h.configStore) {
+		SendError(ctx, fasthttp.StatusForbidden, "Admin access required")
 		return
 	}
 
@@ -173,7 +190,7 @@ func (h *AoneUsersHandler) rotateApiKey(ctx *fasthttp.RequestCtx) {
 
 	if vk != nil && h.vkReloader != nil {
 		if _, reloadErr := h.vkReloader.ReloadVirtualKey(ctx, vk.ID); reloadErr != nil {
-			logger.Warn("[aone-users] failed to reload user virtual key after rotate: %v", reloadErr)
+			logger.Warn("[aone-users] failed to reload user API key after rotate: %v", reloadErr)
 		} else {
 			MarkAoneVirtualKeyReloaded(vk.ID)
 		}
@@ -198,23 +215,13 @@ func (h *AoneUsersHandler) getCurrentUser(ctx *fasthttp.RequestCtx) {
 		return
 	}
 
-	token := sessionTokenFromRequest(ctx)
-	if token == "" {
-		SendError(ctx, fasthttp.StatusUnauthorized, "Authentication required")
+	aoneUserID, authErr := h.resolveCurrentAoneUserID(ctx)
+	if authErr != nil {
+		SendError(ctx, authErr.status, authErr.message)
 		return
 	}
 
-	session, err := h.configStore.GetSession(ctx, token)
-	if err != nil || session == nil {
-		SendError(ctx, fasthttp.StatusUnauthorized, "Invalid session")
-		return
-	}
-	if session.AoneUserID == nil || *session.AoneUserID == "" {
-		SendError(ctx, fasthttp.StatusNotFound, "No Aone user linked to this session")
-		return
-	}
-
-	user, err := h.configStore.GetAoneUserByAoneID(ctx, *session.AoneUserID)
+	user, err := h.configStore.GetAoneUserByAoneID(ctx, aoneUserID)
 	if err != nil {
 		if err == gorm.ErrRecordNotFound {
 			SendError(ctx, fasthttp.StatusNotFound, "User not found")
@@ -234,7 +241,7 @@ func (h *AoneUsersHandler) getCurrentUser(ctx *fasthttp.RequestCtx) {
 			SendError(ctx, fasthttp.StatusForbidden, "User account is disabled")
 			return
 		}
-		SendError(ctx, fasthttp.StatusInternalServerError, fmt.Sprintf("Failed to ensure user api key: %v", err))
+		SendError(ctx, fasthttp.StatusInternalServerError, fmt.Sprintf("Failed to ensure user account: %v", err))
 		return
 	}
 	if vk != nil && h.vkReloader != nil {
@@ -248,6 +255,49 @@ func (h *AoneUsersHandler) getCurrentUser(ctx *fasthttp.RequestCtx) {
 	SendJSON(ctx, h.aoneUserDetailResponse(ctx, user, vk))
 }
 
+type aoneUserAuthError struct {
+	status  int
+	message string
+}
+
+// resolveCurrentAoneUserID accepts either a dashboard session token or a
+// device-issued temporary credential (bf-tmp-...) used by ZD Switch after
+// /api/aone/devices/token.
+func (h *AoneUsersHandler) resolveCurrentAoneUserID(ctx *fasthttp.RequestCtx) (string, *aoneUserAuthError) {
+	token := strings.TrimSpace(sessionTokenFromRequest(ctx))
+	if token == "" {
+		return "", &aoneUserAuthError{fasthttp.StatusUnauthorized, "Authentication required"}
+	}
+
+	if strings.HasPrefix(token, configstore.AoneDeviceCredentialPrefix) {
+		cred, err := h.configStore.ResolveActiveAoneDeviceTemporaryCredential(ctx, token)
+		if err != nil {
+			if errors.Is(err, configstore.ErrDeviceCredentialNotFound) || errors.Is(err, configstore.ErrDeviceCredentialExpired) {
+				return "", &aoneUserAuthError{fasthttp.StatusUnauthorized, "Invalid or expired access token"}
+			}
+			logger.Error("[aone-users] failed to resolve device credential for /me: %v", err)
+			return "", &aoneUserAuthError{fasthttp.StatusInternalServerError, "Internal Server Error"}
+		}
+		aoneUserID := strings.TrimSpace(cred.AoneUserID)
+		if aoneUserID == "" {
+			return "", &aoneUserAuthError{fasthttp.StatusUnauthorized, "Invalid or expired access token"}
+		}
+		return aoneUserID, nil
+	}
+
+	session, err := h.configStore.GetSession(ctx, token)
+	if err != nil || session == nil {
+		return "", &aoneUserAuthError{fasthttp.StatusUnauthorized, "Invalid session"}
+	}
+	if session.ExpiresAt.Before(time.Now()) {
+		return "", &aoneUserAuthError{fasthttp.StatusUnauthorized, "Session expired"}
+	}
+	if session.AoneUserID == nil || strings.TrimSpace(*session.AoneUserID) == "" {
+		return "", &aoneUserAuthError{fasthttp.StatusNotFound, "No Aone user linked to this session"}
+	}
+	return strings.TrimSpace(*session.AoneUserID), nil
+}
+
 func (h *AoneUsersHandler) aoneUserDetailResponse(ctx *fasthttp.RequestCtx, user *tables.AoneUserTable, vk *tables.TableVirtualKey) map[string]any {
 	result := aoneUserDetail(user)
 	if vk == nil && user.VirtualKeyID != nil && *user.VirtualKeyID != "" && h.configStore != nil {
@@ -256,7 +306,7 @@ func (h *AoneUsersHandler) aoneUserDetailResponse(ctx *fasthttp.RequestCtx, user
 			vk = loaded
 		}
 	}
-	attachAoneUserVirtualKeyFields(result, user, vk)
+	attachAoneUserAPIKeyFields(result, user, vk)
 	return result
 }
 
@@ -328,10 +378,7 @@ func aoneUserDetail(user *tables.AoneUserTable) map[string]any {
 	return result
 }
 
-func attachAoneUserVirtualKeyFields(result map[string]any, user *tables.AoneUserTable, vk *tables.TableVirtualKey) {
-	if user.VirtualKeyID != nil && *user.VirtualKeyID != "" {
-		result["virtual_key_id"] = *user.VirtualKeyID
-	}
+func attachAoneUserAPIKeyFields(result map[string]any, user *tables.AoneUserTable, vk *tables.TableVirtualKey) {
 	if vk == nil {
 		return
 	}

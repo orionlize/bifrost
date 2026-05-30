@@ -68,7 +68,6 @@ export interface AoneUserDetailResponse {
 	application?: AoneApplicationInfo;
 	api_key?: string;
 	api_key_active?: boolean;
-	virtual_key_id?: string;
 	is_disabled?: boolean;
 	last_login_at: string;
 	login_count: number;

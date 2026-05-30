@@ -986,6 +986,14 @@ func (m *MockConfigStore) DeleteSession(ctx context.Context, token string) error
 	return nil
 }
 
+func (m *MockConfigStore) DeleteLocalAdminSessions(ctx context.Context) error {
+	return nil
+}
+
+func (m *MockConfigStore) UpdateSessionExpiry(ctx context.Context, token string, expiresAt time.Time) error {
+	return nil
+}
+
 // Temp token
 func (m *MockConfigStore) CreateTempToken(ctx context.Context, token *tables.TempToken, tx ...*gorm.DB) error {
 	return nil

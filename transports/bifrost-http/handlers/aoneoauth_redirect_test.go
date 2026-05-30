@@ -1,6 +1,50 @@
 package handlers
 
-import "testing"
+import (
+	"net/url"
+	"strings"
+	"testing"
+
+	"github.com/valyala/fasthttp"
+)
+
+func TestBuildOAuthCallbackRedirectURI(t *testing.T) {
+	base := "http://localhost:8080/api/aone/oauth/callback"
+	postLogin := "https://app.example.com/callback"
+	got := buildOAuthCallbackRedirectURI(base, postLogin)
+	want := "http://localhost:8080/api/aone/oauth/callback?post_login_redirect=https%3A%2F%2Fapp.example.com%2Fcallback"
+	if got != want {
+		t.Fatalf("got %q, want %q", got, want)
+	}
+	outer := url.QueryEscape(got)
+	if !strings.Contains(outer, "%3Fpost_login_redirect%3D") {
+		t.Fatalf("outer redirect_uri encoding lost nested query: %q", outer)
+	}
+}
+
+func TestBuildOAuthCallbackRedirectURIEncodesNestedQueryValues(t *testing.T) {
+	base := "http://localhost:8080/api/aone/oauth/callback"
+	postLogin := "https://app.example.com/callback?foo=bar&baz=1"
+	got := buildOAuthCallbackRedirectURI(base, postLogin)
+	wantPrefix := "http://localhost:8080/api/aone/oauth/callback?post_login_redirect="
+	if !strings.HasPrefix(got, wantPrefix) {
+		t.Fatalf("got %q", got)
+	}
+	innerValue := strings.TrimPrefix(got, wantPrefix)
+	if innerValue != url.QueryEscape(postLogin) {
+		t.Fatalf("inner value %q, want %q", innerValue, url.QueryEscape(postLogin))
+	}
+}
+
+func TestExtractPostLoginRedirectFromCallback(t *testing.T) {
+	ctx := &fasthttp.RequestCtx{}
+	ctx.URI().SetQueryString("code=abc&state=xyz&post_login_redirect=https%3A%2F%2Fapp.example.com%2Fcb")
+	got := extractPostLoginRedirectFromCallback(ctx)
+	want := "https://app.example.com/cb"
+	if got != want {
+		t.Fatalf("got %q, want %q", got, want)
+	}
+}
 
 func TestParseAoneOAuthReturnTo(t *testing.T) {
 	redirectURI := "http://localhost:8080/api/aone/oauth/callback"
@@ -11,9 +55,10 @@ func TestParseAoneOAuthReturnTo(t *testing.T) {
 	}{
 		{name: "empty defaults to workspace", raw: "", want: "/workspace"},
 		{name: "relative workspace path", raw: "/workspace", want: "/workspace"},
-		{name: "dev frontend origin", raw: "http://localhost:3000/workspace", want: "http://localhost:3000/workspace"},
+		{name: "dev frontend origin", raw: "http://localhost:8080/workspace", want: "http://localhost:8080/workspace"},
+		{name: "login complete handoff", raw: "http://localhost:8080/login/complete?redirect_uri=https%3A%2F%2Fapp.example.com%2Fcb", want: "http://localhost:8080/login/complete?redirect_uri=https%3A%2F%2Fapp.example.com%2Fcb"},
 		{name: "reject external origin", raw: "https://evil.example.com/workspace", want: "/workspace"},
-		{name: "reject non workspace path", raw: "http://localhost:3000/login", want: "/workspace"},
+		{name: "reject non workspace path", raw: "http://localhost:8080/login", want: "/workspace"},
 	}
 
 	for _, tt := range tests {
@@ -26,11 +71,110 @@ func TestParseAoneOAuthReturnTo(t *testing.T) {
 	}
 }
 
+func TestValidateLoginRedirectURI(t *testing.T) {
+	tests := []struct {
+		name string
+		raw  string
+		want string
+	}{
+		{name: "external https", raw: "https://app.example.com/callback", want: "https://app.example.com/callback"},
+		{name: "workspace path", raw: "/workspace/quick-start", want: "/workspace/quick-start"},
+		{name: "reject protocol relative", raw: "//evil.example.com", want: ""},
+		{name: "reject oauth callback path", raw: "http://localhost:8080/api/aone/oauth/callback", want: ""},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got := validateLoginRedirectURI(tt.raw)
+			if got != tt.want {
+				t.Fatalf("got %q, want %q", got, tt.want)
+			}
+		})
+	}
+}
+
 func TestAoneOAuthLoginRedirectUsesFrontendOrigin(t *testing.T) {
-	got := aoneOAuthLoginRedirect("http://localhost:3000/workspace", "failed")
-	want := "http://localhost:3000/login?error=failed"
+	got := aoneOAuthLoginRedirect("http://localhost:8080/workspace", "", "", "failed")
+	want := "http://localhost:8080/login?error=failed"
 	if got != want {
 		t.Fatalf("got %q, want %q", got, want)
+	}
+}
+
+func TestAoneOAuthLoginRedirectPreservesRedirectURI(t *testing.T) {
+	got := aoneOAuthLoginRedirect("", "https://app.example.com/callback", "", "failed")
+	want := "/login?error=failed&redirect_uri=https%3A%2F%2Fapp.example.com%2Fcallback"
+	if got != want {
+		t.Fatalf("got %q, want %q", got, want)
+	}
+}
+
+func TestAoneOAuthLoginRedirectPreservesZdSwitchSource(t *testing.T) {
+	got := aoneOAuthLoginRedirect("", "", loginSourceZdSwitch, "failed")
+	want := "/login?error=failed&source=zd-switch"
+	if got != want {
+		t.Fatalf("got %q, want %q", got, want)
+	}
+}
+
+func TestExtractRedirectURIFromLoginCompleteReturnTo(t *testing.T) {
+	got := extractRedirectURIFromLoginCompleteReturnTo("http://localhost:8080/login/complete?redirect_uri=https%3A%2F%2Fapp.example.com%2Fcb")
+	want := "https://app.example.com/cb"
+	if got != want {
+		t.Fatalf("got %q, want %q", got, want)
+	}
+}
+
+func TestResolveAuthorizeReturnToPrefersClientReturnTo(t *testing.T) {
+	ctx := &fasthttp.RequestCtx{}
+	ctx.Request.Header.Set("Referer", "http://localhost:8080/login")
+	returnTo := "http://localhost:8080/login/complete?redirect_uri=https%3A%2F%2Fapp.example.com%2Fcb"
+	redirectURI := "https://app.example.com/cb"
+	got := resolveAuthorizeReturnTo(ctx, returnTo, redirectURI)
+	if got != returnTo {
+		t.Fatalf("got %q, want %q", got, returnTo)
+	}
+}
+
+func TestExtractRedirectURIFromLoginReferer(t *testing.T) {
+	ctx := &fasthttp.RequestCtx{}
+	ctx.Request.Header.Set("Referer", "http://localhost:8080/login?redirect_uri=https%3A%2F%2Fapp.example.com%2Fcallback")
+	got := extractRedirectURIFromLoginReferer(ctx)
+	want := "https://app.example.com/callback"
+	if got != want {
+		t.Fatalf("got %q, want %q", got, want)
+	}
+}
+
+func TestResolvePostLoginRedirectURIPrefersExplicitParam(t *testing.T) {
+	ctx := &fasthttp.RequestCtx{}
+	ctx.URI().SetQueryString("redirect_uri=https%3A%2F%2Fapp.example.com%2Fcb&return_to=http%3A%2F%2Flocalhost%3A8080%2Fworkspace")
+	got := resolvePostLoginRedirectURI(ctx)
+	want := "https://app.example.com/cb"
+	if got != want {
+		t.Fatalf("got %q, want %q", got, want)
+	}
+}
+
+func TestAoneOAuthStateStoreRecoversEmbeddedRedirectWithoutEntry(t *testing.T) {
+	store := NewAoneOAuthStateStore()
+	defer store.Stop()
+
+	state := encodeAoneOAuthState("deadbeef", "https://app.example.com/callback")
+	returnTo, redirectURI, oauthRedirectURI, loginSource, _, ok := store.Consume(state)
+	if !ok {
+		t.Fatal("expected embedded redirect to be recoverable")
+	}
+	if redirectURI != "https://app.example.com/callback" {
+		t.Fatalf("redirectURI = %q", redirectURI)
+	}
+	if oauthRedirectURI != "" {
+		t.Fatalf("oauthRedirectURI = %q, want empty without stored entry", oauthRedirectURI)
+	}
+	if loginSource != "" {
+		t.Fatalf("loginSource = %q, want empty without stored entry", loginSource)
+	}
+	if returnTo != "/login/complete?redirect_uri=https%3A%2F%2Fapp.example.com%2Fcallback" {
+		t.Fatalf("returnTo = %q", returnTo)
 	}
 }
 
@@ -38,15 +182,173 @@ func TestAoneOAuthStateStoreReturnTo(t *testing.T) {
 	store := NewAoneOAuthStateStore()
 	defer store.Stop()
 
-	state, err := store.Issue("http://localhost:3000/workspace")
+	oauthRedirectURI := "http://localhost:8080/api/aone/oauth/callback?post_login_redirect=https%3A%2F%2Fapp.example.com%2Fcallback"
+	state, err := store.Issue("http://localhost:8080/login/complete?redirect_uri=https%3A%2F%2Fapp.example.com%2Fcallback", "https://app.example.com/callback", oauthRedirectURI, "", "")
 	if err != nil {
 		t.Fatalf("issue state: %v", err)
 	}
-	returnTo, ok := store.Consume(state)
+	returnTo, redirectURI, storedOAuthRedirectURI, loginSource, _, ok := store.Consume(state)
 	if !ok {
 		t.Fatal("expected state to be consumable")
 	}
-	if returnTo != "http://localhost:3000/workspace" {
+	if loginSource != "" {
+		t.Fatalf("loginSource = %q", loginSource)
+	}
+	if returnTo != "http://localhost:8080/login/complete?redirect_uri=https%3A%2F%2Fapp.example.com%2Fcallback" {
 		t.Fatalf("returnTo = %q", returnTo)
+	}
+	if redirectURI != "https://app.example.com/callback" {
+		t.Fatalf("redirectURI = %q", redirectURI)
+	}
+	if storedOAuthRedirectURI != oauthRedirectURI {
+		t.Fatalf("oauthRedirectURI = %q", storedOAuthRedirectURI)
+	}
+}
+
+func TestResolveOAuthRedirectURIUsesConfiguredCallback(t *testing.T) {
+	got := buildOAuthCallbackRedirectURI("http://localhost:8080/api/aone/oauth/callback", "")
+	want := "http://localhost:8080/api/aone/oauth/callback"
+	if got != want {
+		t.Fatalf("got %q, want %q", got, want)
+	}
+}
+
+func TestBuildZdSwitchOAuthCallbackURI(t *testing.T) {
+	ctx := &fasthttp.RequestCtx{}
+	ctx.Request.Header.Set("Referer", "http://localhost:8080/login?source=zd-switch")
+	ctx.Request.SetHost("localhost:8080")
+	got := buildZdSwitchOAuthCallbackURI(ctx, "http://localhost:8080/api/aone/oauth/callback")
+	want := "http://localhost:8080/api/aone/oauth/zd-switch/callback"
+	if got != want {
+		t.Fatalf("got %q, want %q", got, want)
+	}
+}
+
+func TestBuildZdSwitchDeeplink(t *testing.T) {
+	got := buildZdSwitchDeeplink("token-123", "http://localhost:8080")
+	want := "zd-switch://open?access_token=token-123&base_url=http%3A%2F%2Flocalhost%3A8080"
+	if got != want {
+		t.Fatalf("got %q, want %q", got, want)
+	}
+}
+
+func TestResolveDashboardReturnTo(t *testing.T) {
+	tests := []struct {
+		name             string
+		returnTo         string
+		dashboardOrigin  string
+		want             string
+	}{
+		{
+			name:            "absolute return unchanged",
+			returnTo:        "http://localhost:8080/workspace",
+			dashboardOrigin: "http://localhost:3000",
+			want:            "http://localhost:8080/workspace",
+		},
+		{
+			name:            "relative path uses dashboard origin",
+			returnTo:        "/workspace",
+			dashboardOrigin: "http://localhost:3000",
+			want:            "http://localhost:3000/workspace",
+		},
+		{
+			name:            "login complete keeps query on dashboard origin",
+			returnTo:        "/login/complete?redirect_uri=https%3A%2F%2Fapp.example.com%2Fcb",
+			dashboardOrigin: "http://localhost:3000",
+			want:            "http://localhost:3000/login/complete?redirect_uri=https%3A%2F%2Fapp.example.com%2Fcb",
+		},
+		{
+			name:            "missing origin keeps relative path",
+			returnTo:        "/workspace",
+			dashboardOrigin: "",
+			want:            "/workspace",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got := resolveDashboardReturnTo(tt.returnTo, tt.dashboardOrigin)
+			if got != tt.want {
+				t.Fatalf("got %q, want %q", got, tt.want)
+			}
+		})
+	}
+}
+
+func TestDashboardOriginPrefersReferer(t *testing.T) {
+	ctx := &fasthttp.RequestCtx{}
+	ctx.Request.Header.Set("Referer", "http://localhost:3000/login")
+	ctx.Request.SetHost("localhost:8080")
+	got := dashboardOrigin(ctx)
+	want := "http://localhost:3000"
+	if got != want {
+		t.Fatalf("got %q, want %q", got, want)
+	}
+}
+
+func TestBuildZdSwitchSuccessReturnTo(t *testing.T) {
+	ctx := &fasthttp.RequestCtx{}
+	ctx.Request.Header.Set("Referer", "http://localhost:8080/login?source=zd-switch")
+	ctx.Request.SetHost("localhost:8080")
+	got := buildZdSwitchSuccessReturnTo(ctx, "token-123", "http://localhost:8080/api/aone/oauth/callback")
+	want := "http://localhost:8080/login/zd-switch/success?access_token=token-123&base_url=http%3A%2F%2Flocalhost%3A8080"
+	if got != want {
+		t.Fatalf("got %q, want %q", got, want)
+	}
+}
+
+func TestBifrostAPIOriginPrefersRequestHost(t *testing.T) {
+	ctx := &fasthttp.RequestCtx{}
+	ctx.Request.Header.Set("Referer", "http://localhost:8080/login")
+	ctx.Request.SetHost("localhost:8080")
+	got := bifrostAPIOrigin(ctx, "http://localhost:8080/api/aone/oauth/callback")
+	want := "http://localhost:8080"
+	if got != want {
+		t.Fatalf("got %q, want %q", got, want)
+	}
+}
+
+func TestBifrostAPIOriginRewritesLegacyLocalhostPort(t *testing.T) {
+	got := bifrostAPIOrigin(&fasthttp.RequestCtx{}, "http://localhost:3000/api/aone/oauth/callback")
+	want := "http://localhost:8080"
+	if got != want {
+		t.Fatalf("got %q, want %q", got, want)
+	}
+}
+
+func TestResolveAoneOAuthCallbackBaseURIRewritesLegacyLocalhostPort(t *testing.T) {
+	ctx := &fasthttp.RequestCtx{}
+	ctx.Request.SetHost("localhost:8080")
+	got := resolveAoneOAuthCallbackBaseURI(ctx, "http://localhost:3000/api/aone/oauth/callback")
+	want := "http://localhost:8080/api/aone/oauth/callback"
+	if got != want {
+		t.Fatalf("got %q, want %q", got, want)
+	}
+}
+
+func TestBuildOAuthCallbackRedirectURIUsesNormalizedBase(t *testing.T) {
+	ctx := &fasthttp.RequestCtx{}
+	ctx.Request.SetHost("localhost:8080")
+	base := resolveAoneOAuthCallbackBaseURI(ctx, "http://localhost:3000/api/aone/oauth/callback")
+	postLogin := "https://app.example.com/callback"
+	got := buildOAuthCallbackRedirectURI(base, postLogin)
+	want := "http://localhost:8080/api/aone/oauth/callback?post_login_redirect=https%3A%2F%2Fapp.example.com%2Fcallback"
+	if got != want {
+		t.Fatalf("got %q, want %q", got, want)
+	}
+}
+
+func TestResolveLoginSource(t *testing.T) {
+	ctx := &fasthttp.RequestCtx{}
+	ctx.URI().SetQueryString("source=zd-switch")
+	if got := resolveLoginSource(ctx); got != loginSourceZdSwitch {
+		t.Fatalf("got %q, want %q", got, loginSourceZdSwitch)
+	}
+}
+
+func TestValidateLoginRedirectURIRejectsZdSwitchCallback(t *testing.T) {
+	got := validateLoginRedirectURI("http://localhost:8080/api/aone/oauth/zd-switch/callback")
+	if got != "" {
+		t.Fatalf("got %q, want empty", got)
 	}
 }

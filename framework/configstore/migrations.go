@@ -825,6 +825,30 @@ func triggerMigrations(ctx context.Context, db *gorm.DB) error {
 	if err := migrationAddAoneUserIsDisabledColumn(ctx, db); err != nil {
 		return err
 	}
+	if err := migrationAddAoneUserOAuthTokensTable(ctx, db); err != nil {
+		return err
+	}
+	if err := migrationAddGlobalAPIKeysTable(ctx, db); err != nil {
+		return err
+	}
+	if err := migrationAddGlobalAPIKeysAllowedUserIDsColumn(ctx, db); err != nil {
+		return err
+	}
+	if err := migrationAddSessionLoginSourceColumn(ctx, db); err != nil {
+		return err
+	}
+	if err := migrationAddAoneDeviceAuthorizationsTable(ctx, db); err != nil {
+		return err
+	}
+	if err := migrationAddAoneDeviceAuthorizationLastAPIAccessColumn(ctx, db); err != nil {
+		return err
+	}
+	if err := migrationAddSessionDeviceAuthorizationIDColumn(ctx, db); err != nil {
+		return err
+	}
+	if err := migrationAddAoneDeviceCredentialsTable(ctx, db); err != nil {
+		return err
+	}
 	return nil
 }
 
@@ -9026,6 +9050,237 @@ func migrationAddAoneUserVirtualKeyIDColumn(ctx context.Context, db *gorm.DB) er
 	}})
 	if err := m.Migrate(); err != nil {
 		return fmt.Errorf("error running add_aone_user_virtual_key_id_column migration: %s", err.Error())
+	}
+	return nil
+}
+
+func migrationAddGlobalAPIKeysTable(ctx context.Context, db *gorm.DB) error {
+	m := migrator.New(db, migrator.DefaultOptions, []*migrator.Migration{{
+		ID: "add_global_api_keys_table",
+		Migrate: func(tx *gorm.DB) error {
+			tx = tx.WithContext(ctx)
+			if !tx.Migrator().HasTable(&tables.GlobalAPIKey{}) {
+				if err := tx.Migrator().CreateTable(&tables.GlobalAPIKey{}); err != nil {
+					return fmt.Errorf("failed to create global_api_keys table: %w", err)
+				}
+			}
+			return nil
+		},
+		Rollback: func(tx *gorm.DB) error {
+			tx = tx.WithContext(ctx)
+			if tx.Migrator().HasTable(&tables.GlobalAPIKey{}) {
+				if err := tx.Migrator().DropTable(&tables.GlobalAPIKey{}); err != nil {
+					return fmt.Errorf("failed to drop global_api_keys table: %w", err)
+				}
+			}
+			return nil
+		},
+	}})
+	if err := m.Migrate(); err != nil {
+		return fmt.Errorf("error running add_global_api_keys_table migration: %s", err.Error())
+	}
+	return nil
+}
+
+func migrationAddGlobalAPIKeysAllowedUserIDsColumn(ctx context.Context, db *gorm.DB) error {
+	m := migrator.New(db, migrator.DefaultOptions, []*migrator.Migration{{
+		ID: "add_global_api_keys_allowed_user_ids_column",
+		Migrate: func(tx *gorm.DB) error {
+			tx = tx.WithContext(ctx)
+			if !tx.Migrator().HasTable(&tables.GlobalAPIKey{}) {
+				return nil
+			}
+			if !tx.Migrator().HasColumn(&tables.GlobalAPIKey{}, "allowed_user_ids") {
+				if err := tx.Migrator().AddColumn(&tables.GlobalAPIKey{}, "AllowedUserIDs"); err != nil {
+					return fmt.Errorf("failed to add allowed_user_ids column to global_api_keys: %w", err)
+				}
+			}
+			return nil
+		},
+		Rollback: func(tx *gorm.DB) error {
+			tx = tx.WithContext(ctx)
+			if tx.Migrator().HasTable(&tables.GlobalAPIKey{}) &&
+				tx.Migrator().HasColumn(&tables.GlobalAPIKey{}, "allowed_user_ids") {
+				if err := tx.Migrator().DropColumn(&tables.GlobalAPIKey{}, "allowed_user_ids"); err != nil {
+					return fmt.Errorf("failed to drop allowed_user_ids column from global_api_keys: %w", err)
+				}
+			}
+			return nil
+		},
+	}})
+	if err := m.Migrate(); err != nil {
+		return fmt.Errorf("error running add_global_api_keys_allowed_user_ids_column migration: %s", err.Error())
+	}
+	return nil
+}
+
+func migrationAddAoneUserOAuthTokensTable(ctx context.Context, db *gorm.DB) error {
+	m := migrator.New(db, migrator.DefaultOptions, []*migrator.Migration{{
+		ID: "add_aone_user_oauth_tokens_table",
+		Migrate: func(tx *gorm.DB) error {
+			tx = tx.WithContext(ctx)
+			if !tx.Migrator().HasTable(&tables.AoneUserOAuthTokenTable{}) {
+				if err := tx.Migrator().CreateTable(&tables.AoneUserOAuthTokenTable{}); err != nil {
+					return fmt.Errorf("failed to create aone_user_oauth_tokens table: %w", err)
+				}
+			}
+			return nil
+		},
+		Rollback: func(tx *gorm.DB) error {
+			tx = tx.WithContext(ctx)
+			if tx.Migrator().HasTable(&tables.AoneUserOAuthTokenTable{}) {
+				if err := tx.Migrator().DropTable(&tables.AoneUserOAuthTokenTable{}); err != nil {
+					return fmt.Errorf("failed to drop aone_user_oauth_tokens table: %w", err)
+				}
+			}
+			return nil
+		},
+	}})
+	if err := m.Migrate(); err != nil {
+		return fmt.Errorf("error running add_aone_user_oauth_tokens_table migration: %s", err.Error())
+	}
+	return nil
+}
+
+func migrationAddSessionLoginSourceColumn(ctx context.Context, db *gorm.DB) error {
+	m := migrator.New(db, migrator.DefaultOptions, []*migrator.Migration{{
+		ID: "add_session_login_source_column",
+		Migrate: func(tx *gorm.DB) error {
+			tx = tx.WithContext(ctx)
+			if !tx.Migrator().HasColumn(&tables.SessionsTable{}, "login_source") {
+				if err := tx.Exec("ALTER TABLE sessions ADD COLUMN login_source VARCHAR(64)").Error; err != nil {
+					return fmt.Errorf("failed to add login_source column to sessions: %w", err)
+				}
+				if err := tx.Exec("CREATE INDEX IF NOT EXISTS idx_sessions_login_source ON sessions (login_source)").Error; err != nil {
+					return fmt.Errorf("failed to create index on sessions.login_source: %w", err)
+				}
+			}
+			return nil
+		},
+		Rollback: func(tx *gorm.DB) error {
+			tx = tx.WithContext(ctx)
+			if tx.Migrator().HasColumn(&tables.SessionsTable{}, "login_source") {
+				if err := tx.Exec("ALTER TABLE sessions DROP COLUMN login_source").Error; err != nil {
+					return fmt.Errorf("failed to drop login_source column from sessions: %w", err)
+				}
+			}
+			return nil
+		},
+	}})
+	if err := m.Migrate(); err != nil {
+		return fmt.Errorf("error running add_session_login_source_column migration: %s", err.Error())
+	}
+	return nil
+}
+
+func migrationAddAoneDeviceAuthorizationsTable(ctx context.Context, db *gorm.DB) error {
+	m := migrator.New(db, migrator.DefaultOptions, []*migrator.Migration{{
+		ID: "add_aone_device_authorizations_table",
+		Migrate: func(tx *gorm.DB) error {
+			tx = tx.WithContext(ctx)
+			if !tx.Migrator().HasTable(&tables.AoneDeviceAuthorizationTable{}) {
+				if err := tx.Migrator().CreateTable(&tables.AoneDeviceAuthorizationTable{}); err != nil {
+					return fmt.Errorf("failed to create aone_device_authorizations table: %w", err)
+				}
+			}
+			return nil
+		},
+		Rollback: func(tx *gorm.DB) error {
+			tx = tx.WithContext(ctx)
+			if tx.Migrator().HasTable(&tables.AoneDeviceAuthorizationTable{}) {
+				if err := tx.Migrator().DropTable(&tables.AoneDeviceAuthorizationTable{}); err != nil {
+					return fmt.Errorf("failed to drop aone_device_authorizations table: %w", err)
+				}
+			}
+			return nil
+		},
+	}})
+	if err := m.Migrate(); err != nil {
+		return fmt.Errorf("error running add_aone_device_authorizations_table migration: %s", err.Error())
+	}
+	return nil
+}
+
+func migrationAddAoneDeviceAuthorizationLastAPIAccessColumn(ctx context.Context, db *gorm.DB) error {
+	m := migrator.New(db, migrator.DefaultOptions, []*migrator.Migration{{
+		ID: "add_aone_device_authorization_last_api_access_at_column",
+		Migrate: func(tx *gorm.DB) error {
+			tx = tx.WithContext(ctx)
+			if !tx.Migrator().HasColumn(&tables.AoneDeviceAuthorizationTable{}, "last_api_access_at") {
+				if err := tx.Migrator().AddColumn(&tables.AoneDeviceAuthorizationTable{}, "LastAPIAccessAt"); err != nil {
+					return fmt.Errorf("failed to add last_api_access_at column: %w", err)
+				}
+			}
+			return nil
+		},
+		Rollback: func(tx *gorm.DB) error {
+			tx = tx.WithContext(ctx)
+			if tx.Migrator().HasColumn(&tables.AoneDeviceAuthorizationTable{}, "last_api_access_at") {
+				if err := tx.Migrator().DropColumn(&tables.AoneDeviceAuthorizationTable{}, "last_api_access_at"); err != nil {
+					return fmt.Errorf("failed to drop last_api_access_at column: %w", err)
+				}
+			}
+			return nil
+		},
+	}})
+	if err := m.Migrate(); err != nil {
+		return fmt.Errorf("error running add_aone_device_authorization_last_api_access_at_column migration: %s", err.Error())
+	}
+	return nil
+}
+
+func migrationAddAoneDeviceCredentialsTable(ctx context.Context, db *gorm.DB) error {
+	m := migrator.New(db, migrator.DefaultOptions, []*migrator.Migration{{
+		ID: "add_aone_device_credentials_table",
+		Migrate: func(tx *gorm.DB) error {
+			tx = tx.WithContext(ctx)
+			if !tx.Migrator().HasTable(&tables.AoneDeviceCredentialTable{}) {
+				if err := tx.Migrator().CreateTable(&tables.AoneDeviceCredentialTable{}); err != nil {
+					return fmt.Errorf("failed to create aone_device_credentials table: %w", err)
+				}
+			}
+			return nil
+		},
+		Rollback: func(tx *gorm.DB) error {
+			tx = tx.WithContext(ctx)
+			if tx.Migrator().HasTable(&tables.AoneDeviceCredentialTable{}) {
+				if err := tx.Migrator().DropTable(&tables.AoneDeviceCredentialTable{}); err != nil {
+					return fmt.Errorf("failed to drop aone_device_credentials table: %w", err)
+				}
+			}
+			return nil
+		},
+	}})
+	if err := m.Migrate(); err != nil {
+		return fmt.Errorf("error running add_aone_device_credentials_table migration: %s", err.Error())
+	}
+	return nil
+}
+
+func migrationAddSessionDeviceAuthorizationIDColumn(ctx context.Context, db *gorm.DB) error {
+	m := migrator.New(db, migrator.DefaultOptions, []*migrator.Migration{{
+		ID: "add_session_device_authorization_id_column",
+		Migrate: func(tx *gorm.DB) error {
+			tx = tx.WithContext(ctx)
+			if !tx.Migrator().HasColumn(&tables.SessionsTable{}, "device_authorization_id") {
+				if err := tx.Migrator().AddColumn(&tables.SessionsTable{}, "DeviceAuthorizationID"); err != nil {
+					return fmt.Errorf("failed to add device_authorization_id column: %w", err)
+				}
+			}
+			return nil
+		},
+		Rollback: func(tx *gorm.DB) error {
+			tx = tx.WithContext(ctx)
+			if tx.Migrator().HasColumn(&tables.SessionsTable{}, "device_authorization_id") {
+				if err := tx.Migrator().DropColumn(&tables.SessionsTable{}, "device_authorization_id"); err != nil {
+					return fmt.Errorf("failed to drop device_authorization_id column: %w", err)
+				}
+			}
+			return nil
+		},
+	}})
+	if err := m.Migrate(); err != nil {
+		return fmt.Errorf("error running add_session_device_authorization_id_column migration: %s", err.Error())
 	}
 	return nil
 }

@@ -328,6 +328,12 @@
         "xai": {
           "$ref": "#/$defs/provider"
         },
+        "deepseek": {
+          "$ref": "#/$defs/provider"
+        },
+        "mimo": {
+          "$ref": "#/$defs/provider"
+        },
         "runway": {
           "$ref": "#/$defs/provider"
         }

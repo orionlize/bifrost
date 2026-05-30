@@ -55,3 +55,29 @@ func TestMeResponseUnmarshalNumericHiredDate(t *testing.T) {
 		t.Fatalf("hiredDate = %q, want %q", got, "1704067200000")
 	}
 }
+
+func TestMeResponseUnmarshalNumericCreatedAt(t *testing.T) {
+	payload := `{
+		"success": true,
+		"data": {
+			"user": {
+				"id": "1",
+				"email": "user@example.com",
+				"name": "User",
+				"avatar": "",
+				"status": "ACTIVE",
+				"emailVerified": true,
+				"createdAt": 1704067200000
+			},
+			"application": { "id": "app-1", "name": "App", "logo": "" }
+		}
+	}`
+
+	var wrapped apiResponse[MeResponse]
+	if err := json.Unmarshal([]byte(payload), &wrapped); err != nil {
+		t.Fatalf("unmarshal me response: %v", err)
+	}
+	if got := string(wrapped.Data.User.CreatedAt); got != "1704067200000" {
+		t.Fatalf("createdAt = %q, want %q", got, "1704067200000")
+	}
+}

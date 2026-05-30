@@ -61,7 +61,7 @@ export default function QuickStartView() {
 	const usingPlaceholderKey = apiKey === PLACEHOLDER_API_KEY;
 	const apiKeyWarning = isAoneAuth
 		? "No personal API key found. Sign in with your Aone account before importing."
-		: "Replace your-api-key in the examples with your Virtual Key or API key.";
+		: "Replace your-api-key in the examples with your API key.";
 
 	const anthropicGuide = useMemo(
 		() => resolveProviderGuide(configuredProviders, "anthropic", "anthropic", apiKey),

@@ -18,6 +18,7 @@ export interface IsAuthEnabledResponse {
 	auth_type?: "sso" | "password" | "none";
 	aone_oauth_enabled?: boolean;
 	is_aone_user_session?: boolean;
+	is_local_admin_session?: boolean;
 }
 
 export interface LogoutResponse {

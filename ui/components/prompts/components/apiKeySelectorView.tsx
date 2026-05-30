@@ -48,7 +48,7 @@ export function ApiKeySelectorView({
 
 	return (
 		<div className="flex flex-col gap-2">
-			<Label className="text-muted-foreground text-xs font-medium uppercase">Virtual key/ API Key</Label>
+			<Label className="text-muted-foreground text-xs font-medium uppercase">API Key</Label>
 			<Combobox
 				value={value}
 				onValueChange={(v) => onValueChange(v)}
@@ -75,7 +75,7 @@ export function ApiKeySelectorView({
 						{filteredApiKeys.length > 0 && filteredVirtualKeys.length > 0 && <ComboboxSeparator />}
 						{filteredVirtualKeys.length > 0 && (
 							<ComboboxGroup>
-								<ComboboxLabel>Virtual Keys</ComboboxLabel>
+								<ComboboxLabel>Personal API Keys</ComboboxLabel>
 								{filteredVirtualKeys.map((o) => (
 									<ComboboxItem key={o.value} value={o.value}>
 										{o.label}

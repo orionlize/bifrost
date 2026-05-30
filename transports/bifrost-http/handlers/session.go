@@ -72,19 +72,30 @@ func (h *SessionHandler) isAuthEnabled(ctx *fasthttp.RequestCtx) {
 	}
 	hasValidToken := false
 	isAoneUserSession := false
+	isLocalAdminSession := false
 	if token != "" {
 		session, err := h.configStore.GetSession(ctx, token)
-		if err == nil && session != nil && session.ExpiresAt.After(time.Now()) {
-			hasValidToken = true
-			isAoneUserSession = session.AoneUserID != nil && *session.AoneUserID != ""
+		if err == nil && session != nil {
+			// A lapsed Aone session is still considered valid here if it can be
+			// refreshed server-side against the Aone refresh endpoint; this keeps
+			// the dashboard from bouncing the user to /login on a recoverable
+			// session and re-sets the (extended) cookie.
+			if session.ExpiresAt.After(time.Now()) || refreshDashboardSession(ctx, h.configStore, session, token) {
+				hasValidToken = true
+				isAoneUserSession = session.AoneUserID != nil && *session.AoneUserID != ""
+				isLocalAdminSession = !isAoneUserSession
+			}
 		}
+	} else if authConfig == nil || !authConfig.IsEnabled {
+		isLocalAdminSession = true
 	}
 	SendJSON(ctx, map[string]any{
-		"is_auth_enabled":       authConfig.IsEnabled,
-		"has_valid_token":       hasValidToken,
-		"auth_type":             dashboardAuthTypeFromConfig(authConfig),
-		"aone_oauth_enabled":    aoneOAuthEnabled(authConfig),
-		"is_aone_user_session":  isAoneUserSession,
+		"is_auth_enabled":        authConfig.IsEnabled,
+		"has_valid_token":        hasValidToken,
+		"auth_type":              dashboardAuthTypeFromConfig(authConfig),
+		"aone_oauth_enabled":     aoneOAuthEnabled(authConfig),
+		"is_aone_user_session":   isAoneUserSession,
+		"is_local_admin_session": isLocalAdminSession,
 	})
 }
 
@@ -131,13 +142,23 @@ func (h *SessionHandler) login(ctx *fasthttp.RequestCtx) {
 		return
 	}
 
-	// Creating a new session
+	// Enforce a single active admin session: a fresh admin login invalidates
+	// every prior local-admin session (the previous admin is logged out).
+	// Aone user sessions are untouched.
+	if err := h.configStore.DeleteLocalAdminSessions(ctx); err != nil {
+		logger.Warn("failed to clear existing admin sessions during login: %v", err)
+	}
+
+	// Creating a new session. The admin session does not expire on its own
+	// (effectively non-expiring); it is only invalidated when another admin
+	// logs in (handled above) or on explicit logout.
+	now := time.Now()
 	token := uuid.New().String()
 	session := &tables.SessionsTable{
 		Token:     token,
-		ExpiresAt: time.Now().Add(time.Hour * 24 * 30), // 30 days
-		CreatedAt: time.Now(),
-		UpdatedAt: time.Now(),
+		ExpiresAt: now.Add(adminSessionTTL),
+		CreatedAt: now,
+		UpdatedAt: now,
 	}
 	err = h.configStore.CreateSession(ctx, session)
 	if err != nil {
@@ -185,6 +206,12 @@ func (h *SessionHandler) logout(ctx *fasthttp.RequestCtx) {
 
 	// delete session from database if token exists
 	if token != "" {
+		if session, sessErr := h.configStore.GetSession(ctx, token); sessErr == nil && session != nil &&
+			session.AoneUserID != nil && strings.TrimSpace(*session.AoneUserID) != "" {
+			if revokeErr := h.configStore.RevokeAllAoneDeviceAuthorizationsForUser(ctx, strings.TrimSpace(*session.AoneUserID)); revokeErr != nil {
+				logger.Warn("failed to revoke device authorizations during logout: %v", revokeErr)
+			}
+		}
 		err := h.configStore.DeleteSession(ctx, token)
 		if err != nil && !errors.Is(err, configstore.ErrNotFound) {
 			logger.Error("failed to delete session during logout: %v", err)

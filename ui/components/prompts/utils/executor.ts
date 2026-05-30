@@ -13,14 +13,6 @@ export interface ExecutionConfig {
 	customHeaders?: Record<string, string>;
 }
 
-function getBaseUrl() {
-	if (process.env.NODE_ENV === "development") {
-		return "http://localhost:8080";
-	} else {
-		return "";
-	}
-}
-
 export interface ExecutionCallbacks {
 	onStreamingStart: (allMessages: Message[], placeholder: Message) => void;
 	onStreamChunk: (content: string) => void;
@@ -110,9 +102,10 @@ export async function executePrompt(
 		}
 
 		const { api_key_id: _, ...requestParams } = config.modelParams;
-		const response = await fetch(`${getBaseUrl()}/v1/chat/completions`, {
+		const response = await fetch("/v1/chat/completions", {
 			method: "POST",
 			headers,
+			credentials: "include",
 			body: JSON.stringify({
 				model: `${config.provider}/${config.model}`,
 				messages: Message.toAPIMessages(resolvedMessages),

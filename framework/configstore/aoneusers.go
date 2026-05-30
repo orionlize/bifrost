@@ -362,25 +362,41 @@ func (s *RDBConfigStore) upgradeAoneUserMCPConfig(ctx context.Context, mc *table
 	return nil
 }
 
-// ResolveAoneSessionVirtualKey maps a dashboard session token to the user's personal virtual key.
-func (s *RDBConfigStore) ResolveAoneSessionVirtualKey(ctx context.Context, sessionToken string) (string, string, error) {
-	if sessionToken == "" {
-		return "", "", nil
+// GetAoneUserIDByVirtualKeyValue resolves the Aone user that owns the personal
+// virtual key identified by the given value. It returns "" (and a nil error) when
+// the value is not an Aone-user virtual key — i.e. an unknown value, or a virtual
+// key not linked to an Aone user. Used to gate API forwarding by device
+// fingerprint when the inference credential is a personal Aone virtual key.
+func (s *RDBConfigStore) GetAoneUserIDByVirtualKeyValue(ctx context.Context, value string) (string, error) {
+	value = strings.TrimSpace(value)
+	if value == "" {
+		return "", nil
 	}
 
-	session, err := s.GetSession(ctx, sessionToken)
-	if err != nil || session == nil || session.AoneUserID == nil || *session.AoneUserID == "" {
-		return "", "", nil
-	}
-
-	vk, err := s.EnsureAoneUserVirtualKey(ctx, *session.AoneUserID)
+	vk, err := s.GetVirtualKeyByValue(ctx, value)
 	if err != nil {
-		return "", "", err
+		if errors.Is(err, ErrNotFound) {
+			return "", nil
+		}
+		return "", err
 	}
-	if vk == nil || vk.Value == "" {
-		return "", "", nil
+	if vk == nil || vk.CreatedByUserID == nil || strings.TrimSpace(*vk.CreatedByUserID) == "" {
+		return "", nil
 	}
-	return vk.Value, *session.AoneUserID, nil
+
+	// Confirm the virtual key is actually linked to an Aone user (rather than a
+	// generic dashboard-created key that happens to carry a CreatedByUserID).
+	var user tables.AoneUserTable
+	err = s.DB().WithContext(ctx).
+		Where("aone_user_id = ? AND virtual_key_id = ?", strings.TrimSpace(*vk.CreatedByUserID), vk.ID).
+		First(&user).Error
+	if err != nil {
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			return "", nil
+		}
+		return "", err
+	}
+	return user.AoneUserID, nil
 }
 
 // SetAoneUserDisabled toggles local admin disablement for an Aone user.
@@ -413,6 +429,12 @@ func (s *RDBConfigStore) SetAoneUserDisabled(ctx context.Context, aoneUserID str
 	if disabled {
 		if err := s.DeleteAoneUserSessions(ctx, aoneUserID); err != nil {
 			return nil, fmt.Errorf("delete user sessions: %w", err)
+		}
+		if err := s.DeleteAoneUserOAuthTokens(ctx, aoneUserID); err != nil {
+			return nil, fmt.Errorf("delete user oauth tokens: %w", err)
+		}
+		if err := s.RevokeAllAoneDeviceAuthorizationsForUser(ctx, aoneUserID); err != nil {
+			return nil, fmt.Errorf("revoke device authorizations: %w", err)
 		}
 	}
 
@@ -474,7 +496,7 @@ func buildAoneUserPatch(me *aoneoauth.MeResponse, now time.Time) tables.AoneUser
 	}
 
 	if me.User.CreatedAt != "" {
-		if parsed, err := time.Parse(time.RFC3339, me.User.CreatedAt); err == nil {
+		if parsed, err := time.Parse(time.RFC3339, string(me.User.CreatedAt)); err == nil {
 			user.UserCreatedAt = &parsed
 		}
 	}

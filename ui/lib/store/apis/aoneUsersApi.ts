@@ -1,9 +1,4 @@
-import {
-	AoneUserDetailResponse,
-	AoneUsersListResponse,
-	AoneUsersQueryParams,
-	UpdateAoneUserRequest,
-} from "@/lib/types/aoneUser";
+import { AoneUserDetailResponse, AoneUsersListResponse, AoneUsersQueryParams, UpdateAoneUserRequest } from "@/lib/types/aoneUser";
 import { baseApi } from "./baseApi";
 
 export const aoneUsersApi = baseApi.injectEndpoints({

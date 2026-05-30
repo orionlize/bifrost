@@ -292,6 +292,13 @@ func (s *RDBConfigStore) DB() *gorm.DB {
 	return s.db.Load()
 }
 
+// NewRDBConfigStoreWithDB wires an existing database handle (used by cross-package tests).
+func NewRDBConfigStoreWithDB(db *gorm.DB) *RDBConfigStore {
+	s := &RDBConfigStore{logger: nil}
+	s.db.Store(db)
+	return s
+}
+
 // ScopedDB returns the DB bound to ctx with any QueryScope on ctx
 // pre-applied. Use this in read paths that should respect caller-
 // driven row visibility. Use DB().WithContext(ctx) for writes and for
@@ -4490,6 +4497,32 @@ func (s *RDBConfigStore) DeleteSession(ctx context.Context, token string) error 
 // FlushSessions flushes all sessions from the database.
 func (s *RDBConfigStore) FlushSessions(ctx context.Context) error {
 	return s.DB().WithContext(ctx).Session(&gorm.Session{AllowGlobalUpdate: true}).Delete(&tables.SessionsTable{}).Error
+}
+
+// DeleteLocalAdminSessions deletes all sessions that are not bound to an Aone user
+// (password/local-admin dashboard sessions).
+func (s *RDBConfigStore) DeleteLocalAdminSessions(ctx context.Context) error {
+	return s.DB().WithContext(ctx).
+		Where("aone_user_id IS NULL OR aone_user_id = ''").
+		Delete(&tables.SessionsTable{}).Error
+}
+
+// UpdateSessionExpiry updates the ExpiresAt of an existing session. The plaintext
+// token is hashed for lookup (with a backward-compatible plaintext fallback).
+func (s *RDBConfigStore) UpdateSessionExpiry(ctx context.Context, token string, expiresAt time.Time) error {
+	tokenHash := encrypt.HashSHA256(token)
+	result := s.DB().WithContext(ctx).Model(&tables.SessionsTable{}).
+		Where("token_hash = ?", tokenHash).
+		Update("expires_at", expiresAt)
+	if result.Error != nil {
+		return result.Error
+	}
+	if result.RowsAffected == 0 {
+		return s.DB().WithContext(ctx).Model(&tables.SessionsTable{}).
+			Where("token = ?", token).
+			Update("expires_at", expiresAt).Error
+	}
+	return nil
 }
 
 // CreateTempToken inserts a new temp_tokens row. The plaintext token must be

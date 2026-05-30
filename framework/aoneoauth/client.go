@@ -30,13 +30,13 @@ type apiResponse[T any] struct {
 
 // UserProfile holds basic user information from Aone.
 type UserProfile struct {
-	ID            string `json:"id"`
-	Email         string `json:"email"`
-	Name          string `json:"name"`
-	Avatar        string `json:"avatar"`
-	Status        string `json:"status"`
-	EmailVerified bool   `json:"emailVerified"`
-	CreatedAt     string `json:"createdAt"`
+	ID            string         `json:"id"`
+	Email         string         `json:"email"`
+	Name          string         `json:"name"`
+	Avatar        string         `json:"avatar"`
+	Status        string         `json:"status"`
+	EmailVerified bool           `json:"emailVerified"`
+	CreatedAt     flexibleString `json:"createdAt"`
 }
 
 // flexibleString unmarshals JSON string or number values into a string.
@@ -83,7 +83,7 @@ type DingtalkDepartment struct {
 type DingtalkInfo struct {
 	Profile     DingtalkProfile      `json:"profile"`
 	Departments []DingtalkDepartment `json:"departments"`
-	SyncedAt    string               `json:"syncedAt"`
+	SyncedAt    flexibleString       `json:"syncedAt"`
 }
 
 // ApplicationInfo holds the OAuth application metadata.
@@ -118,12 +118,16 @@ func NewClient(baseURL string) *Client {
 
 // AuthorizeURL builds the OAuth2 authorization URL for the authorization code flow.
 func (c *Client) AuthorizeURL(clientID, redirectURI, state string) string {
-	params := url.Values{}
-	params.Set("client_id", clientID)
-	params.Set("redirect_uri", redirectURI)
-	params.Set("response_type", "code")
-	params.Set("state", state)
-	return c.baseURL + "/oauth2/authorize?" + params.Encode()
+	var buf strings.Builder
+	buf.WriteString(c.baseURL)
+	buf.WriteString("/oauth2/authorize?")
+	buf.WriteString("client_id=")
+	buf.WriteString(url.QueryEscape(clientID))
+	buf.WriteString("&redirect_uri=")
+	buf.WriteString(url.QueryEscape(redirectURI))
+	buf.WriteString("&response_type=code&state=")
+	buf.WriteString(url.QueryEscape(state))
+	return buf.String()
 }
 
 // ExchangeAuthorizationCode exchanges an authorization code for access and refresh tokens.
