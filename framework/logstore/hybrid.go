@@ -484,6 +484,11 @@ func (h *HybridLogStore) DeleteLogsBatch(ctx context.Context, cutoff time.Time, 
 	return h.inner.DeleteLogsBatch(ctx, cutoff, batchSize)
 }
 
+// DeleteLogsByFilters deletes logs matching filters in batches, including object storage entries.
+func (h *HybridLogStore) DeleteLogsByFilters(ctx context.Context, filters SearchFilters, batchSize int) (int64, int64, error) {
+	return deleteLogsMatchingFilters(ctx, h, filters, batchSize)
+}
+
 // Close shuts the store down cleanly: marks the store closed (so further
 // enqueues are dropped), closes the upload queue, waits for workers to drain
 // any in-flight uploads, then closes the object store and the inner store.
@@ -591,6 +596,24 @@ func (h *HybridLogStore) GetSessionLogs(ctx context.Context, sessionID string, p
 // summary for the given session.
 func (h *HybridLogStore) GetSessionSummary(ctx context.Context, sessionID string) (*SessionSummaryResult, error) {
 	return h.inner.GetSessionSummary(ctx, sessionID)
+}
+
+func (h *HybridLogStore) GetLatestSessionConversationCounts(ctx context.Context, sessionID string) (chatCount, responsesCount int, err error) {
+	return h.inner.GetLatestSessionConversationCounts(ctx, sessionID)
+}
+
+func (h *HybridLogStore) GetSessionLogsForInputHydration(ctx context.Context, anchor SessionAnchor) ([]*Log, error) {
+	logs, err := h.inner.GetSessionLogsForInputHydration(ctx, anchor)
+	if err != nil {
+		return nil, err
+	}
+	for _, log := range logs {
+		if log == nil {
+			continue
+		}
+		h.hydrateLog(ctx, log, "input_history", "responses_input_history", "metadata")
+	}
+	return logs, err
 }
 
 // GetStats delegates to the inner store and returns aggregate statistics for

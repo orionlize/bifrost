@@ -1,5 +1,6 @@
 import { useState, useEffect } from "react";
 import { BifrostImageGenerationOutput, ImageEditInput, ImageVariationInput } from "@/lib/types/logs";
+import { isLogBinaryPlaceholder } from "@/lib/utils/logBinaryPlaceholder";
 import { Image, ChevronLeft, ChevronRight } from "lucide-react";
 import { ImageMessage } from "@/components/chat/ImageMessage";
 import { Button } from "@/components/ui/button";
@@ -93,14 +94,18 @@ export default function ImageView({ imageInput, imageEditInput, imageVariationIn
 								<div className="text-muted-foreground mb-2 text-xs font-medium">INPUT IMAGES</div>
 								<div className="flex flex-wrap gap-2">
 									{imageEditInput.images.map((img, i) =>
-										img.image ? (
+										img.image && !isLogBinaryPlaceholder(img.image) ? (
 											<img
 												key={i}
 												src={getImageSrc(img.image)}
 												alt={`Input image ${i + 1}`}
 												className="max-h-48 max-w-48 rounded border object-contain"
 											/>
-										) : null,
+										) : (
+											<div key={i} className="text-muted-foreground rounded border px-3 py-2 font-mono text-xs">
+												[image]
+											</div>
+										),
 									)}
 								</div>
 							</div>
@@ -114,7 +119,7 @@ export default function ImageView({ imageInput, imageEditInput, imageVariationIn
 			)}
 
 			{/* Image Variation Input */}
-			{imageVariationInput && imageVariationInput.image?.image && (
+			{imageVariationInput && (imageVariationInput.image?.image || imageVariationInput.image) && (
 				<div className="w-full rounded-sm border">
 					<div className="flex items-center gap-2 border-b px-6 py-2 text-sm font-medium">
 						<Image className="h-4 w-4" />
@@ -122,11 +127,15 @@ export default function ImageView({ imageInput, imageEditInput, imageVariationIn
 					</div>
 					<div className="space-y-4 p-6">
 						<div className="text-muted-foreground mb-2 text-xs font-medium">INPUT IMAGE</div>
-						<img
-							src={getImageSrc(imageVariationInput.image.image)}
-							alt="Input image"
-							className="max-h-48 max-w-48 rounded border object-contain"
-						/>
+						{imageVariationInput.image?.image && !isLogBinaryPlaceholder(imageVariationInput.image.image) ? (
+							<img
+								src={getImageSrc(imageVariationInput.image.image)}
+								alt="Input image"
+								className="max-h-48 max-w-48 rounded border object-contain"
+							/>
+						) : (
+							<div className="text-muted-foreground font-mono text-xs">[image]</div>
+						)}
 					</div>
 				</div>
 			)}

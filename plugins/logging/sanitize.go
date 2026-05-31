@@ -65,9 +65,8 @@ func sanitizeChatOutputMessage(msg *schemas.ChatMessage) *schemas.ChatMessage {
 	return &sanitized
 }
 
-// sanitizeLogEntryContent removes system/developer input and reasoning output
-// from log entries before persistence. Reasoning payloads are often encrypted
-// and not useful for audit; system prompts are excluded from message history.
+// sanitizeLogEntryContent removes system/developer input, reasoning output,
+// and inline binary payloads from log entries before persistence.
 func sanitizeLogEntryContent(entry *logstore.Log) {
 	if entry == nil {
 		return
@@ -76,4 +75,5 @@ func sanitizeLogEntryContent(entry *logstore.Log) {
 	entry.ResponsesInputHistoryParsed = sanitizeResponsesMessages(entry.ResponsesInputHistoryParsed)
 	entry.ResponsesOutputParsed = sanitizeResponsesMessages(entry.ResponsesOutputParsed)
 	entry.OutputMessageParsed = sanitizeChatOutputMessage(entry.OutputMessageParsed)
+	sanitizeLogEntryBinaryContent(entry)
 }

@@ -38,9 +38,8 @@ async function buildAuthHeaders(config: ExecutionConfig): Promise<Record<string,
 		const aoneApiKey = await resolveAoneApiKey();
 		if (aoneApiKey) {
 			headers.Authorization = `Bearer ${aoneApiKey}`;
-			return headers;
 		}
-		throw new Error("Personal API key is unavailable. Please sign in again.");
+		return headers;
 	}
 
 	if (config.apiKeyId && config.apiKeyId !== "__auto__") {
@@ -51,11 +50,6 @@ async function buildAuthHeaders(config: ExecutionConfig): Promise<Record<string,
 			headers["x-bf-api-key-id"] = config.apiKeyId;
 		}
 		return headers;
-	}
-
-	const aoneApiKey = getAoneApiKey();
-	if (aoneApiKey) {
-		headers.Authorization = `Bearer ${aoneApiKey}`;
 	}
 
 	return headers;

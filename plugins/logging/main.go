@@ -235,6 +235,12 @@ type RecalculateCostResult struct {
 	Remaining    int64 `json:"remaining"`
 }
 
+// ClearLogsResult represents summary stats from a bulk log clear operation.
+type ClearLogsResult struct {
+	Deleted   int64 `json:"deleted"`
+	Remaining int64 `json:"remaining"`
+}
+
 // LogMessage represents a message in the logging queue
 type LogMessage struct {
 	Operation          LogOperation
@@ -288,8 +294,9 @@ type LogCallback func(ctx context.Context, logEntry *logstore.Log)
 type MCPToolLogCallback func(*logstore.MCPToolLog)
 
 type Config struct {
-	DisableContentLogging *bool     `json:"disable_content_logging"`
-	LoggingHeaders        *[]string `json:"logging_headers"` // Pointer to live config slice; changes are reflected immediately without restart
+	DisableContentLogging      *bool     `json:"disable_content_logging"`
+	IncrementalContentLogging  *bool     `json:"incremental_content_logging"`
+	LoggingHeaders             *[]string `json:"logging_headers"` // Pointer to live config slice; changes are reflected immediately without restart
 }
 
 // LoggerPlugin implements the schemas.LLMPlugin and schemas.MCPPlugin interfaces
@@ -297,6 +304,7 @@ type LoggerPlugin struct {
 	ctx                    context.Context
 	store                  logstore.LogStore
 	disableContentLogging  *bool
+	incrementalContentLogging *bool
 	loggingHeaders         *[]string // Pointer to live config slice for headers to capture in metadata
 	pricingManager         *modelcatalog.ModelCatalog
 	mcpCatalog             *mcpcatalog.MCPCatalog // MCP catalog for tool cost calculation
@@ -345,7 +353,8 @@ func Init(ctx context.Context, config *Config, logger schemas.Logger, logsStore 
 		store:                 logsStore,
 		pricingManager:        pricingManager,
 		mcpCatalog:            mcpCatalog,
-		disableContentLogging: config.DisableContentLogging,
+		disableContentLogging:     config.DisableContentLogging,
+		incrementalContentLogging: config.IncrementalContentLogging,
 		loggingHeaders:        config.LoggingHeaders,
 		done:                  make(chan struct{}),
 		logger:                logger,
@@ -1211,7 +1220,7 @@ func (p *LoggerPlugin) storeOrEnqueueEntry(ctx *schemas.BifrostContext, entry *l
 		pending.mu.Unlock()
 	} else {
 		// Fallback: no tracing (Go SDK path), enqueue directly
-		p.enqueueLogEntry(entry, callback)
+		p.enqueueLogEntry(ctx, entry, callback)
 	}
 }
 
@@ -1243,7 +1252,7 @@ func (p *LoggerPlugin) Inject(_ context.Context, trace *schemas.Trace) error {
 	for _, entry := range pending.entries {
 		entry.PluginLogs = pluginLogsJSON
 		p.logger.Debug("Inject: enqueuing log entry %s", entry.ID)
-		p.enqueueLogEntry(entry, p.makePostWriteCallback(nil))
+		p.enqueueLogEntry(nil, entry, p.makePostWriteCallback(nil))
 	}
 	return nil
 }

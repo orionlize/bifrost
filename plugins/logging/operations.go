@@ -958,7 +958,14 @@ func (p *LoggerPlugin) GetSessionLogs(ctx context.Context, sessionID string, pag
 	if pagination.Order == "" {
 		pagination.Order = "asc"
 	}
-	return p.store.GetSessionLogs(ctx, sessionID, pagination)
+	result, err := p.store.GetSessionLogs(ctx, sessionID, pagination)
+	if err != nil || result == nil {
+		return result, err
+	}
+	for i := range result.Logs {
+		p.hydrateLogInputHistory(&result.Logs[i])
+	}
+	return result, nil
 }
 
 // GetSessionSummary returns aggregate totals for a single parent_request_id session.
@@ -968,7 +975,12 @@ func (p *LoggerPlugin) GetSessionSummary(ctx context.Context, sessionID string) 
 
 // GetLog retrieves a single log entry by ID including all fields (raw_request, raw_response).
 func (p *LoggerPlugin) GetLog(ctx context.Context, id string) (*logstore.Log, error) {
-	return p.store.FindByID(ctx, id)
+	log, err := p.store.FindByID(ctx, id)
+	if err != nil {
+		return nil, err
+	}
+	p.hydrateLogInputHistory(log)
+	return log, nil
 }
 
 // GetMCPToolLog retrieves a single MCP tool log entry by ID.
@@ -1260,6 +1272,20 @@ func (p *LoggerPlugin) RecalculateCosts(ctx context.Context, filters logstore.Se
 	}
 
 	return result, nil
+}
+
+// ClearLogs deletes log entries matching the provided filters in batches.
+// Empty filters delete all logs.
+func (p *LoggerPlugin) ClearLogs(ctx context.Context, filters logstore.SearchFilters, batchSize int) (*ClearLogsResult, error) {
+	deleted, remaining, err := p.store.DeleteLogsByFilters(ctx, filters, batchSize)
+	if err != nil {
+		return nil, fmt.Errorf("failed to clear logs: %w", err)
+	}
+
+	return &ClearLogsResult{
+		Deleted:   deleted,
+		Remaining: remaining,
+	}, nil
 }
 
 func (p *LoggerPlugin) calculateCostForLog(logEntry *logstore.Log) (float64, error) {

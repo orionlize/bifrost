@@ -260,11 +260,12 @@ func (p *LoggerPlugin) cleanupStalePendingLogs() {
 // enqueueLogEntry pushes a complete log entry to the write queue.
 // If the queue is full, the entry is dropped to prevent Postgres slowness
 // from cascading into request handling goroutines.
-func (p *LoggerPlugin) enqueueLogEntry(entry *logstore.Log, callback func(entry *logstore.Log)) {
+func (p *LoggerPlugin) enqueueLogEntry(ctx *schemas.BifrostContext, entry *logstore.Log, callback func(entry *logstore.Log)) {
 	if p.closed.Load() {
 		return
 	}
 	sanitizeLogEntryContent(entry)
+	p.applyIncrementalInputStorage(ctx, entry)
 	defer func() {
 		if r := recover(); r != nil {
 			// Channel was closed between the check and send; entry is dropped

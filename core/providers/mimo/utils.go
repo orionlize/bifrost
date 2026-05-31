@@ -12,6 +12,67 @@ import (
 // minimal valid text part (same workaround used by mimo2codex / codex-bridge).
 const placeholderText = " "
 
+// isMiMoTextOnlyModel reports models that accept text only per Xiaomi docs
+// (e.g. mimo-v2.5-pro). Vision-capable SKUs are mimo-v2.5 and mimo-v2-omni.
+func isMiMoTextOnlyModel(model string) bool {
+	m := strings.ToLower(strings.TrimSpace(model))
+	return strings.Contains(m, "v2.5-pro") ||
+		strings.Contains(m, "v2-5-pro") ||
+		strings.Contains(m, "v2.5pro")
+}
+
+func isMiMoVisionCapableModel(model string) bool {
+	if isMiMoTextOnlyModel(model) {
+		return false
+	}
+	m := strings.ToLower(strings.TrimSpace(model))
+	return strings.Contains(m, "omni") ||
+		strings.Contains(m, "v2.5") ||
+		strings.Contains(m, "v2-5")
+}
+
+func chatMessageHasMultimodalInput(msg schemas.ChatMessage) bool {
+	if msg.Content == nil || msg.Content.ContentBlocks == nil {
+		return false
+	}
+	for _, block := range msg.Content.ContentBlocks {
+		switch block.Type {
+		case schemas.ChatContentBlockTypeImage, schemas.ChatContentBlockTypeInputAudio, schemas.ChatContentBlockTypeFile:
+			return true
+		}
+	}
+	return false
+}
+
+func hasMiMoMultimodalInput(request *schemas.BifrostChatRequest) bool {
+	if request == nil {
+		return false
+	}
+	for _, msg := range request.Input {
+		if chatMessageHasMultimodalInput(msg) {
+			return true
+		}
+	}
+	return false
+}
+
+func validateMiMoVisionSupport(request *schemas.BifrostChatRequest) *schemas.BifrostError {
+	if request == nil || isMiMoVisionCapableModel(request.Model) || !hasMiMoMultimodalInput(request) {
+		return nil
+	}
+	return &schemas.BifrostError{
+		IsBifrostError: true,
+		Error: &schemas.ErrorField{
+			Message: "model " + request.Model + " does not support image or file input; use mimo-v2.5 or mimo-v2-omni for vision",
+		},
+		ExtraFields: schemas.BifrostErrorExtraFields{
+			Provider:               schemas.MiMo,
+			OriginalModelRequested: request.Model,
+			RequestType:            schemas.ChatCompletionRequest,
+		},
+	}
+}
+
 // normalizeMiMoChatRequest rewrites message content into a shape MiMo accepts.
 //
 // MiMo is OpenAI-compatible for the common case, but its request validation is

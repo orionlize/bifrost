@@ -1,6 +1,7 @@
 import { Badge } from "@/components/ui/badge";
 import { CodeEditor } from "@/components/ui/codeEditor";
 import { BifrostTranscribe, TranscriptionInput } from "@/lib/types/logs";
+import { isLogBinaryPlaceholder } from "@/lib/utils/logBinaryPlaceholder";
 import { Clock, FileAudio, Mic } from "lucide-react";
 import AudioPlayer from "./audioPlayer";
 
@@ -28,8 +29,11 @@ export default function TranscriptionView({ transcriptionInput, transcriptionOut
 					</div>
 					<div className="space-y-4 p-6">
 						<div className="text-muted-foreground mb-2 text-xs font-medium">AUDIO FILE</div>
-						{/* Audio Controls */}
-						<AudioPlayer src={transcriptionInput.file} />
+						{transcriptionInput.file && !isLogBinaryPlaceholder(transcriptionInput.file) ? (
+							<AudioPlayer src={transcriptionInput.file} />
+						) : (
+							<div className="text-muted-foreground font-mono text-xs">[audio]</div>
+						)}
 					</div>
 				</div>
 			)}

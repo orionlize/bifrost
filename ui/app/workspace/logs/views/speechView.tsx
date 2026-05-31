@@ -1,4 +1,5 @@
 import { BifrostSpeech, SpeechInput } from "@/lib/types/logs";
+import { isLogBinaryPlaceholder } from "@/lib/utils/logBinaryPlaceholder";
 import { AlertCircle, Play, Volume2 } from "lucide-react";
 import React, { Component } from "react";
 import AudioPlayer from "./audioPlayer";
@@ -62,9 +63,13 @@ export default function SpeechView({ speechInput, speechOutput, isStreaming }: S
 						Speech Output
 					</div>
 					<div className="space-y-4 p-6">
-						<AudioErrorBoundary>
-							<AudioPlayer src={speechOutput?.audio || ""} />
-						</AudioErrorBoundary>
+						{speechOutput?.audio && !isLogBinaryPlaceholder(speechOutput.audio) ? (
+							<AudioErrorBoundary>
+								<AudioPlayer src={speechOutput.audio} />
+							</AudioErrorBoundary>
+						) : speechOutput ? (
+							<div className="text-muted-foreground font-mono text-xs">[audio]</div>
+						) : null}
 					</div>
 				</div>
 			)}

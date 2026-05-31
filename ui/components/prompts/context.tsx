@@ -11,13 +11,12 @@ import {
 	useUpdatePromptMutation,
 } from "@/lib/store/apis/promptsApi";
 import { useGetModelParametersQuery } from "@/lib/store/apis/providersApi";
-import { useIsAuthEnabledQuery } from "@/lib/store/apis/sessionApi";
 import { Folder, ModelParams, Prompt, PromptSession, PromptVersion } from "@/lib/types/prompts";
+import { useIsAoneUserSession } from "@/hooks/useIsAoneUserSession";
 import { RbacOperation, RbacResource, useRbac } from "@enterprise/lib";
 import { parseAsInteger, parseAsString, useQueryStates } from "nuqs";
 import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { toast } from "sonner";
-import { getAoneApiKey } from "@/lib/utils/aoneUserStorage";
 import { executePrompt } from "./utils/executor";
 
 interface PromptContextValue {
@@ -164,8 +163,8 @@ export function PromptProvider({ children }: { children: ReactNode }) {
 	const activeRunRef = useRef<symbol | null>(null);
 	const [variables, setVariables] = useState<VariableMap>({});
 	const [customHeaders, setCustomHeaders] = useState<Record<string, string>>({});
-	const { data: authStatus } = useIsAuthEnabledQuery();
-	const useAoneApiKeyAuth = authStatus?.aone_oauth_enabled === true || getAoneApiKey() !== null;
+	const isAoneUserSession = useIsAoneUserSession();
+	const useAoneApiKeyAuth = isAoneUserSession;
 
 	const buildExecutionConfig = useCallback(
 		() => ({
@@ -255,7 +254,7 @@ export function PromptProvider({ children }: { children: ReactNode }) {
 			const { api_key_id, ...rest } = params || ({} as ModelParams);
 			setModelParams({ stream: true, ...rest });
 			const persistedKey = api_key_id || "__auto__";
-			const forcePersonalApiKey = useAoneApiKeyAuth || persistedKey.startsWith("sk-bf-") || getAoneApiKey() !== null;
+			const forcePersonalApiKey = useAoneApiKeyAuth || (persistedKey.startsWith("sk-bf-") && isAoneUserSession);
 			setApiKeyId(forcePersonalApiKey ? "__auto__" : persistedKey);
 			setProvider(prov || "");
 			setModel(mod || "");
@@ -321,6 +320,7 @@ export function PromptProvider({ children }: { children: ReactNode }) {
 		isSessionsLoading,
 		sessions.length,
 		useAoneApiKeyAuth,
+		isAoneUserSession,
 	]);
 
 	// Auto-select the most recent session when sessions load and none is selected

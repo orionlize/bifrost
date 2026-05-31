@@ -17,6 +17,7 @@ import {
 	ProviderTokenHistogramResponse,
 	RankingDimension,
 	RecalculateCostResponse,
+	ClearLogsResponse,
 	TokenHistogramResponse,
 } from "@/lib/types/logs";
 import { baseApi } from "./baseApi";
@@ -364,6 +365,15 @@ export const logsApi = baseApi.injectEndpoints({
 			invalidatesTags: ["Logs"],
 		}),
 
+		clearLogs: builder.mutation<ClearLogsResponse, { filters?: LogFilters; clear_all?: boolean; batch_size?: number }>({
+			query: ({ filters, clear_all, batch_size }) => ({
+				url: "/logs/clear",
+				method: "POST",
+				body: { filters: filters ?? {}, clear_all, batch_size },
+			}),
+			invalidatesTags: ["Logs"],
+		}),
+
 		// Get a single log entry by ID (includes raw_request and raw_response)
 		getLogById: builder.query<LogEntry, string>({
 			query: (id) => `/logs/${encodeURIComponent(id)}`,
@@ -405,6 +415,7 @@ export const {
 	useLazyGetAvailableFilterDataQuery,
 	useDeleteLogsMutation,
 	useRecalculateLogCostsMutation,
+	useClearLogsMutation,
 	useLazyGetLogByIdQuery,
 	useGetLogByIdQuery,
 } = logsApi;

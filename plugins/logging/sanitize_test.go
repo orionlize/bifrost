@@ -1,9 +1,11 @@
 package logging
 
 import (
+	"strings"
 	"testing"
 
 	"github.com/maximhq/bifrost/core/schemas"
+	"github.com/maximhq/bifrost/framework/logstore"
 )
 
 func TestSanitizeChatInputHistory_DropsSystemAndDeveloper(t *testing.T) {
@@ -107,4 +109,106 @@ func TestSanitizeChatOutputMessage_StripsReasoning(t *testing.T) {
 	if got.Content == nil || got.Content.ContentStr == nil || *got.Content.ContentStr != answer {
 		t.Fatalf("assistant content = %v, want %q", got.Content, answer)
 	}
+}
+
+func TestSanitizeLogEntryBinaryContent_RedactsChatImageAndFile(t *testing.T) {
+	b64 := strings.Repeat("A", 512)
+	fileData := b64
+	fileType := "application/pdf"
+	entry := &logstore.Log{
+		InputHistoryParsed: []schemas.ChatMessage{
+			{
+				Role: schemas.ChatMessageRoleUser,
+				Content: &schemas.ChatMessageContent{
+					ContentBlocks: []schemas.ChatContentBlock{
+						{
+							Type: schemas.ChatContentBlockTypeImage,
+							ImageURLStruct: &schemas.ChatInputImage{
+								URL: "data:image/png;base64," + b64,
+							},
+						},
+						{
+							Type: schemas.ChatContentBlockTypeFile,
+							File: &schemas.ChatInputFile{
+								FileData: &fileData,
+								FileType: &fileType,
+							},
+						},
+					},
+				},
+			},
+		},
+		SpeechOutputParsed: &schemas.BifrostSpeechResponse{
+			Audio: []byte{1, 2, 3},
+		},
+		ImageGenerationOutputParsed: &schemas.BifrostImageGenerationResponse{
+			Data: []schemas.ImageData{{B64JSON: b64}},
+		},
+	}
+
+	sanitizeLogEntryContent(entry)
+
+	img := entry.InputHistoryParsed[0].Content.ContentBlocks[0].ImageURLStruct
+	if img == nil || img.URL != "[image/png]" {
+		t.Fatalf("image url = %#v, want [image/png]", img)
+	}
+	file := entry.InputHistoryParsed[0].Content.ContentBlocks[1].File
+	if file == nil || file.FileData == nil || *file.FileData != "[application/pdf]" {
+		t.Fatalf("file data = %#v, want [application/pdf]", file)
+	}
+	if len(entry.SpeechOutputParsed.Audio) != 0 {
+		t.Fatal("expected speech audio to be stripped")
+	}
+	if entry.ImageGenerationOutputParsed.Data[0].B64JSON != "[image]" {
+		t.Fatalf("b64_json = %q, want [image]", entry.ImageGenerationOutputParsed.Data[0].B64JSON)
+	}
+}
+
+func TestSanitizeLogEntryBinaryContent_KeepsExternalImageURL(t *testing.T) {
+	url := "https://example.com/image.png"
+	entry := &logstore.Log{
+		InputHistoryParsed: []schemas.ChatMessage{
+			{
+				Role: schemas.ChatMessageRoleUser,
+				Content: &schemas.ChatMessageContent{
+					ContentBlocks: []schemas.ChatContentBlock{
+						{
+							Type:           schemas.ChatContentBlockTypeImage,
+							ImageURLStruct: &schemas.ChatInputImage{URL: url},
+						},
+					},
+				},
+			},
+		},
+	}
+
+	sanitizeLogEntryContent(entry)
+
+	got := entry.InputHistoryParsed[0].Content.ContentBlocks[0].ImageURLStruct.URL
+	if got != url {
+		t.Fatalf("url = %q, want %q", got, url)
+	}
+}
+
+func TestSanitizeLogEntryBinaryContent_NilResponsesToolMessageDoesNotPanic(t *testing.T) {
+	userText := "hello"
+	entry := &logstore.Log{
+		ResponsesInputHistoryParsed: []schemas.ResponsesMessage{
+			{
+				Type: schemas.Ptr(schemas.ResponsesMessageTypeMessage),
+				Role: schemas.Ptr(schemas.ResponsesInputMessageRoleUser),
+				Content: &schemas.ResponsesMessageContent{
+					ContentStr: &userText,
+				},
+				ResponsesToolMessage: nil,
+			},
+		},
+	}
+
+	defer func() {
+		if r := recover(); r != nil {
+			t.Fatalf("sanitizeLogEntryContent panicked: %v", r)
+		}
+	}()
+	sanitizeLogEntryContent(entry)
 }

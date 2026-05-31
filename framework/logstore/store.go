@@ -33,6 +33,8 @@ type LogStore interface {
 	SearchLogs(ctx context.Context, filters SearchFilters, pagination PaginationOptions) (*SearchResult, error)
 	GetSessionLogs(ctx context.Context, sessionID string, pagination PaginationOptions) (*SessionDetailResult, error)
 	GetSessionSummary(ctx context.Context, sessionID string) (*SessionSummaryResult, error)
+	GetLatestSessionConversationCounts(ctx context.Context, sessionID string) (chatCount, responsesCount int, err error)
+	GetSessionLogsForInputHydration(ctx context.Context, anchor SessionAnchor) ([]*Log, error)
 	GetStats(ctx context.Context, filters SearchFilters) (*SearchStats, error)
 	GetHistogram(ctx context.Context, filters SearchFilters, bucketSizeSeconds int64) (*HistogramResult, error)
 	GetTokenHistogram(ctx context.Context, filters SearchFilters, bucketSizeSeconds int64) (*TokenHistogramResult, error)
@@ -64,6 +66,7 @@ type LogStore interface {
 	Close(ctx context.Context) error
 	DeleteLog(ctx context.Context, id string) error
 	DeleteLogs(ctx context.Context, ids []string) error
+	DeleteLogsByFilters(ctx context.Context, filters SearchFilters, batchSize int) (deletedCount int64, remaining int64, err error)
 	DeleteLogsBatch(ctx context.Context, cutoff time.Time, batchSize int) (deletedCount int64, err error)
 
 	// Distinct value methods for filter data

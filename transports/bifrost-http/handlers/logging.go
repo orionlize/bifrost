@@ -238,6 +238,7 @@ func (h *LoggingHandler) RegisterRoutes(r *router.Router, middlewares ...schemas
 	r.GET("/api/logs/rankings/by-dimension", lib.ChainMiddlewares(h.getDimensionRankings, middlewares...))
 	r.DELETE("/api/logs", lib.ChainMiddlewares(h.deleteLogs, middlewares...))
 	r.POST("/api/logs/recalculate-cost", lib.ChainMiddlewares(h.recalculateLogCosts, middlewares...))
+	r.POST("/api/logs/clear", lib.ChainMiddlewares(h.clearLogs, middlewares...))
 
 	// MCP Tool Log retrieval with filtering, search, and pagination
 	r.GET("/api/mcp-logs", lib.ChainMiddlewares(h.getMCPLogs, middlewares...))
@@ -1516,6 +1517,45 @@ func (h *LoggingHandler) recalculateLogCosts(ctx *fasthttp.RequestCtx) {
 	SendJSON(ctx, result)
 }
 
+// clearLogs handles POST /api/logs/clear - delete logs matching filters in batches
+func (h *LoggingHandler) clearLogs(ctx *fasthttp.RequestCtx) {
+	var payload clearLogsRequest
+	body := ctx.PostBody()
+	if len(body) == 0 {
+		SendError(ctx, fasthttp.StatusBadRequest, "Request body is required")
+		return
+	}
+	if err := sonic.Unmarshal(body, &payload); err != nil {
+		SendError(ctx, fasthttp.StatusBadRequest, "Invalid JSON")
+		return
+	}
+
+	batchSize := 500
+	if payload.BatchSize != nil {
+		batchSize = *payload.BatchSize
+	}
+	if batchSize <= 0 {
+		batchSize = 500
+	}
+	if batchSize > 1000 {
+		batchSize = 1000
+	}
+
+	filters := payload.Filters
+	if payload.ClearAll {
+		filters = logstore.SearchFilters{}
+	}
+
+	result, err := h.logManager.ClearLogs(ctx, &filters, batchSize)
+	if err != nil {
+		logger.Error("failed to clear logs: %v", err)
+		SendError(ctx, fasthttp.StatusInternalServerError, fmt.Sprintf("Failed to clear logs: %v", err))
+		return
+	}
+
+	SendJSON(ctx, result)
+}
+
 // Helper functions
 
 func findRedactedKey(redactedKeys []schemas.Key, id string, name string) *schemas.Key {
@@ -1647,6 +1687,12 @@ func parseMetadataFilters(ctx *fasthttp.RequestCtx, filters *logstore.SearchFilt
 type recalculateCostRequest struct {
 	Filters logstore.SearchFilters `json:"filters"`
 	Limit   *int                   `json:"limit,omitempty"`
+}
+
+type clearLogsRequest struct {
+	Filters   logstore.SearchFilters `json:"filters"`
+	BatchSize *int                   `json:"batch_size,omitempty"`
+	ClearAll  bool                   `json:"clear_all,omitempty"`
 }
 
 // parseMCPFiltersAndPagination parses MCP tool log filters and pagination from query parameters.

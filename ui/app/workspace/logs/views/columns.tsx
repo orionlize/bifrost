@@ -7,6 +7,7 @@ import { ProviderIconType, RenderProviderIcon } from "@/lib/constants/icons";
 import { getProviderLabel, ProviderName, RequestTypeColors, RequestTypeLabels, Status, StatusBarColors } from "@/lib/constants/logs";
 import { ChatMessageContent, LogEntry, ResponsesMessageContentBlock } from "@/lib/types/logs";
 import { cn } from "@/lib/utils";
+import { isLogBinaryPlaceholder } from "@/lib/utils/logBinaryPlaceholder";
 import { ColumnDef } from "@tanstack/react-table";
 import { format, formatDistanceToNow } from "date-fns";
 import { ArrowUpDown, MoreHorizontal, Trash2 } from "lucide-react";
@@ -64,12 +65,22 @@ function getMessageFromContent(content?: ChatMessageContent): string {
 		return content;
 	}
 	let lastTextContentBlock = "";
+	const binaryPlaceholders: string[] = [];
 	for (const block of content) {
 		if ((block.type === "text" || block.type === "input_text" || block.type === "output_text") && block.text) {
 			lastTextContentBlock = block.text;
 		}
+		if (block.type === "image_url" && block.image_url?.url && isLogBinaryPlaceholder(block.image_url.url)) {
+			binaryPlaceholders.push(block.image_url.url);
+		}
+		if (block.input_audio?.data && isLogBinaryPlaceholder(block.input_audio.data)) {
+			binaryPlaceholders.push(block.input_audio.data);
+		}
 	}
-	return lastTextContentBlock;
+	if (lastTextContentBlock) {
+		return lastTextContentBlock;
+	}
+	return binaryPlaceholders.join(" ");
 }
 
 export function getRealtimeTurnMessages(log?: LogEntry): {

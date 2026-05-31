@@ -24,13 +24,7 @@ const toChartType = (value: string): ChartType => (value === "line" ? "line" : "
 
 const parseCsvParam = (value: string): string[] => (value ? value.split(",").filter(Boolean) : []);
 
-const DASHBOARD_HIDDEN_FILTER_SECTIONS = [
-	"virtual_keys",
-	"customers",
-	"business_units",
-	"metadata",
-	"routing_engines",
-] as const satisfies readonly LogsFilterSection[];
+const DASHBOARD_HIDDEN_FILTER_SECTIONS = ["virtual_keys", "metadata", "routing_engines"] as const satisfies readonly LogsFilterSection[];
 
 export default function DashboardPage() {
 	const { data: authStatus } = useIsAuthEnabledQuery();
@@ -161,14 +155,7 @@ export default function DashboardPage() {
 			}),
 			...(selectedStatuses.length > 0 && { status: selectedStatuses }),
 		}),
-		[
-			urlState.period,
-			urlState.start_time,
-			urlState.end_time,
-			selectedMcpToolNames,
-			selectedMcpServerLabels,
-			selectedStatuses,
-		],
+		[urlState.period, urlState.start_time, urlState.end_time, selectedMcpToolNames, selectedMcpServerLabels, selectedStatuses],
 	);
 
 	// Tab view refs for export data aggregation
@@ -393,11 +380,7 @@ export default function DashboardPage() {
 	return (
 		<div id="dashboard-root" className="no-padding-parent no-border-parent bg-background flex h-[calc(100vh_-_16px)] w-full gap-3">
 			{/* Sidebar Filters */}
-			<LogsFilterSidebar
-				filters={filters}
-				onFiltersChange={setFilters}
-				hiddenSections={DASHBOARD_HIDDEN_FILTER_SECTIONS}
-			/>
+			<LogsFilterSidebar filters={filters} onFiltersChange={setFilters} hiddenSections={DASHBOARD_HIDDEN_FILTER_SECTIONS} />
 
 			{/* Main Content */}
 			<ScrollArea className="bg-card flex min-w-0 flex-1 flex-col gap-4 rounded-l-md">

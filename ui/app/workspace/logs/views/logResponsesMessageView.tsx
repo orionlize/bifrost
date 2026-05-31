@@ -1,5 +1,6 @@
 import { CodeEditor } from "@/components/ui/codeEditor";
 import { ResponsesMessage, ResponsesMessageContentBlock } from "@/lib/types/logs";
+import { isLogBinaryPlaceholder } from "@/lib/utils/logBinaryPlaceholder";
 import { cleanJson, isJson } from "@/lib/utils/validation";
 import CollapsibleBox from "./collapsibleBox";
 
@@ -59,6 +60,13 @@ function ContentBlockView({ block }: { block: ResponsesMessageContentBlock; inde
 
 	// Handle image content
 	if (block.image_url) {
+		if (isLogBinaryPlaceholder(block.image_url)) {
+			return (
+				<CollapsibleBox title={blockTitle} onCopy={() => block.image_url || ""} collapsedHeight={100}>
+					<div className="text-muted-foreground px-6 py-2 font-mono text-xs">{block.image_url}</div>
+				</CollapsibleBox>
+			);
+		}
 		const jsonContent = JSON.stringify(
 			{
 				image_url: block.image_url,
@@ -85,6 +93,17 @@ function ContentBlockView({ block }: { block: ResponsesMessageContentBlock; inde
 
 	// Handle file content
 	if (block.file_id || block.file_data || block.file_url) {
+		const fileLabel =
+			(block.file_data && isLogBinaryPlaceholder(block.file_data) && block.file_data) ||
+			(block.file_url && isLogBinaryPlaceholder(block.file_url) && block.file_url) ||
+			(block.file_data ? "[file]" : undefined);
+		if (fileLabel) {
+			return (
+				<CollapsibleBox title={blockTitle} onCopy={() => fileLabel} collapsedHeight={100}>
+					<div className="text-muted-foreground px-6 py-2 font-mono text-xs">{fileLabel}</div>
+				</CollapsibleBox>
+			);
+		}
 		const jsonContent = JSON.stringify(
 			{
 				...(block.filename && { filename: block.filename }),
@@ -113,6 +132,13 @@ function ContentBlockView({ block }: { block: ResponsesMessageContentBlock; inde
 
 	// Handle audio content
 	if (block.input_audio) {
+		if (block.input_audio.data && isLogBinaryPlaceholder(block.input_audio.data)) {
+			return (
+				<CollapsibleBox title={blockTitle} onCopy={() => block.input_audio!.data} collapsedHeight={100}>
+					<div className="text-muted-foreground px-6 py-2 font-mono text-xs">{block.input_audio.data}</div>
+				</CollapsibleBox>
+			);
+		}
 		const jsonContent = JSON.stringify(block.input_audio, null, 2);
 		return (
 			<CollapsibleBox title={blockTitle} onCopy={() => jsonContent} collapsedHeight={100}>

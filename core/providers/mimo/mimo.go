@@ -126,6 +126,9 @@ func (provider *MiMoProvider) TextCompletionStream(ctx *schemas.BifrostContext, 
 
 // ChatCompletion performs a chat completion request to the MiMo API.
 func (provider *MiMoProvider) ChatCompletion(ctx *schemas.BifrostContext, key schemas.Key, request *schemas.BifrostChatRequest) (*schemas.BifrostChatResponse, *schemas.BifrostError) {
+	if err := validateMiMoVisionSupport(request); err != nil {
+		return nil, err
+	}
 	normalizeMiMoChatRequest(request)
 	return openai.HandleOpenAIChatCompletionRequest(
 		ctx,
@@ -145,6 +148,9 @@ func (provider *MiMoProvider) ChatCompletion(ctx *schemas.BifrostContext, key sc
 
 // ChatCompletionStream performs a streaming chat completion request to the MiMo API.
 func (provider *MiMoProvider) ChatCompletionStream(ctx *schemas.BifrostContext, postHookRunner schemas.PostHookRunner, postHookSpanFinalizer func(context.Context), key schemas.Key, request *schemas.BifrostChatRequest) (chan *schemas.BifrostStreamChunk, *schemas.BifrostError) {
+	if err := validateMiMoVisionSupport(request); err != nil {
+		return nil, err
+	}
 	normalizeMiMoChatRequest(request)
 	var authHeader map[string]string
 	if key.Value.GetValue() != "" {

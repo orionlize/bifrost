@@ -127,6 +127,9 @@ type LogManager interface {
 	// RecalculateCosts recomputes missing costs for logs matching the filters
 	RecalculateCosts(ctx context.Context, filters *logstore.SearchFilters, limit int) (*RecalculateCostResult, error)
 
+	// ClearLogs deletes logs matching the filters in batches
+	ClearLogs(ctx context.Context, filters *logstore.SearchFilters, batchSize int) (*ClearLogsResult, error)
+
 	// MCP Tool Log methods
 	// GetMCPToolLog retrieves a single MCP tool log entry by ID.
 	GetMCPToolLog(ctx context.Context, id string) (*logstore.MCPToolLog, error)
@@ -377,6 +380,13 @@ func (p *PluginLogManager) RecalculateCosts(ctx context.Context, filters *logsto
 		return nil, fmt.Errorf("filters cannot be nil")
 	}
 	return p.plugin.RecalculateCosts(ctx, *filters, limit)
+}
+
+func (p *PluginLogManager) ClearLogs(ctx context.Context, filters *logstore.SearchFilters, batchSize int) (*ClearLogsResult, error) {
+	if filters == nil {
+		return nil, fmt.Errorf("filters cannot be nil")
+	}
+	return p.plugin.ClearLogs(ctx, *filters, batchSize)
 }
 
 // GetMCPToolLog retrieves a single MCP tool log entry by ID.

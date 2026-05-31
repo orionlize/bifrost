@@ -13,12 +13,10 @@ import { Ref, useCallback, useEffect, useMemo, useRef, useState } from "react";
 
 const COLLAPSE_STORAGE_KEY = "logs-filter-sidebar-collapsed";
 
-export type LogsFilterSection = "virtual_keys" | "customers" | "business_units" | "metadata" | "routing_engines";
+export type LogsFilterSection = "virtual_keys" | "metadata" | "routing_engines";
 
 const LOGS_FILTER_SECTION_KEYS: Record<LogsFilterSection, (keyof LogFilters)[]> = {
 	virtual_keys: ["virtual_key_ids"],
-	customers: ["customer_ids"],
-	business_units: ["business_unit_ids"],
 	metadata: ["metadata_filters"],
 	routing_engines: ["routing_engine_used"],
 };
@@ -35,10 +33,7 @@ interface LogsSidebarProps {
 
 export function LogsFilterSidebar({ filters, onFiltersChange, hiddenSections = [] }: LogsSidebarProps) {
 	const hiddenSectionSet = useMemo(() => new Set(hiddenSections), [hiddenSections]);
-	const hiddenFilterKeys = useMemo(
-		() => new Set(hiddenSections.flatMap((section) => LOGS_FILTER_SECTION_KEYS[section])),
-		[hiddenSections],
-	);
+	const hiddenFilterKeys = useMemo(() => new Set(hiddenSections.flatMap((section) => LOGS_FILTER_SECTION_KEYS[section])), [hiddenSections]);
 	const [collapsed, setCollapsed] = useState(false);
 
 	// Load persisted collapsed state on mount
@@ -126,31 +121,19 @@ export function LogsFilterSidebar({ filters, onFiltersChange, hiddenSections = [
 					<ModelsFilter filters={filters} onFiltersChange={onFiltersChange} defaultOpen />
 					{/* Rest closed unless they have active filters */}
 					<SelectedKeysFilter filters={filters} onFiltersChange={onFiltersChange} />
-					{!hiddenSectionSet.has("virtual_keys") && (
-						<VirtualKeysFilter filters={filters} onFiltersChange={onFiltersChange} />
-					)}
+					{!hiddenSectionSet.has("virtual_keys") && <VirtualKeysFilter filters={filters} onFiltersChange={onFiltersChange} />}
 					<ProvidersFilter filters={filters} onFiltersChange={onFiltersChange} />
 					<TypeFilter filters={filters} onFiltersChange={onFiltersChange} />
 					<AliasesFilter filters={filters} onFiltersChange={onFiltersChange} />
-					{!hiddenSectionSet.has("routing_engines") && (
-						<RoutingEnginesFilter filters={filters} onFiltersChange={onFiltersChange} />
-					)}
+					{!hiddenSectionSet.has("routing_engines") && <RoutingEnginesFilter filters={filters} onFiltersChange={onFiltersChange} />}
 					<RoutingRulesFilter filters={filters} onFiltersChange={onFiltersChange} />
 					<LocalCachingFilter filters={filters} onFiltersChange={onFiltersChange} />
 					<UserFilter filters={filters} onFiltersChange={onFiltersChange} />
 					<TeamFilter filters={filters} onFiltersChange={onFiltersChange} />
-					{!hiddenSectionSet.has("customers") && (
-						<CustomerFilter filters={filters} onFiltersChange={onFiltersChange} />
-					)}
-					{!hiddenSectionSet.has("business_units") && (
-						<BusinessUnitFilter filters={filters} onFiltersChange={onFiltersChange} />
-					)}
 					<SessionFilter filters={filters} onFiltersChange={onFiltersChange} />
 					<CostFilter filters={filters} onFiltersChange={onFiltersChange} />
 					<StopReasonFilter filters={filters} onFiltersChange={onFiltersChange} />
-					{!hiddenSectionSet.has("metadata") && (
-						<MetadataFilters filters={filters} onFiltersChange={onFiltersChange} />
-					)}
+					{!hiddenSectionSet.has("metadata") && <MetadataFilters filters={filters} onFiltersChange={onFiltersChange} />}
 				</div>
 			</ScrollArea>
 		</div>
@@ -714,7 +697,7 @@ function VirtualKeysFilter({ filters, onFiltersChange, defaultOpen }: FilterComp
 
 	return (
 		<FilterSection
-			title="Virtual Keys"
+			title="Users"
 			defaultOpen={defaultOpen || hasActive}
 			loading={isLoading}
 			onOpenChange={setOpened}
@@ -722,7 +705,7 @@ function VirtualKeysFilter({ filters, onFiltersChange, defaultOpen }: FilterComp
 		>
 			<SearchableCheckboxList
 				inputRef={searchInputRef}
-				placeholder="Search virtual keys"
+				placeholder="Search users"
 				items={dedup(availableVirtualKeys).map((name) => ({ key: name, label: name }))}
 				isSelected={isSelected}
 				onToggle={toggle}
@@ -967,124 +950,6 @@ function TeamFilter({ filters, onFiltersChange, defaultOpen }: FilterComponentPr
 				onSearch={setSearchQuery}
 				fetching={isFetching}
 				testIdPrefix="teams-filter"
-			/>
-		</FilterSection>
-	);
-}
-
-// ---------------------------------------------------------------------------
-// CustomerFilter
-// ---------------------------------------------------------------------------
-
-function CustomerFilter({ filters, onFiltersChange, defaultOpen }: FilterComponentProps) {
-	const hasActive = (filters.customer_ids || []).length > 0;
-	const [opened, setOpened] = useState(defaultOpen || hasActive);
-	const searchInputRef = useAutoFocusOnOpen(opened);
-	const [searchQuery, setSearchQuery] = useState("");
-	const {
-		data: filterData,
-		isUninitialized,
-		isLoading,
-		isFetching,
-	} = useGetAvailableFilterDataQuery({ dimensions: ["customers"], q: searchQuery || undefined }, { skip: !opened && !hasActive });
-	const availableCustomers = filterData?.customers || [];
-	const nameToIds = useMemo(() => groupByName(availableCustomers), [availableCustomers]);
-
-	if (!isUninitialized && !isLoading && availableCustomers.length === 0 && !hasActive && !opened) return null;
-
-	const toggle = (name: string) => {
-		const resolvedIds = nameToIds.get(name) || [name];
-		const current = filters.customer_ids || [];
-		const allSelected = resolvedIds.every((id) => current.includes(id));
-		const next = allSelected
-			? current.filter((v) => !resolvedIds.includes(v))
-			: [...current, ...resolvedIds.filter((id) => !current.includes(id))];
-		onFiltersChange({ ...filters, customer_ids: next });
-	};
-
-	const isSelected = (name: string) => {
-		const resolvedIds = nameToIds.get(name) || [name];
-		const current = filters.customer_ids || [];
-		return resolvedIds.every((id) => current.includes(id));
-	};
-
-	return (
-		<FilterSection
-			title="Customers"
-			defaultOpen={defaultOpen || hasActive}
-			loading={isLoading}
-			onOpenChange={setOpened}
-			testId="customers-filter-toggle"
-		>
-			<SearchableCheckboxList
-				inputRef={searchInputRef}
-				placeholder="Search or add a customer"
-				items={dedup(availableCustomers).map((name) => ({ key: name, label: name }))}
-				allowCustom
-				isSelected={isSelected}
-				onToggle={toggle}
-				onSearch={setSearchQuery}
-				fetching={isFetching}
-				testIdPrefix="customers-filter"
-			/>
-		</FilterSection>
-	);
-}
-
-// ---------------------------------------------------------------------------
-// BusinessUnitFilter
-// ---------------------------------------------------------------------------
-
-function BusinessUnitFilter({ filters, onFiltersChange, defaultOpen }: FilterComponentProps) {
-	const hasActive = (filters.business_unit_ids || []).length > 0;
-	const [opened, setOpened] = useState(defaultOpen || hasActive);
-	const searchInputRef = useAutoFocusOnOpen(opened);
-	const [searchQuery, setSearchQuery] = useState("");
-	const {
-		data: filterData,
-		isUninitialized,
-		isLoading,
-		isFetching,
-	} = useGetAvailableFilterDataQuery({ dimensions: ["business_units"], q: searchQuery || undefined }, { skip: !opened && !hasActive });
-	const availableBusinessUnits = filterData?.business_units || [];
-	const nameToIds = useMemo(() => groupByName(availableBusinessUnits), [availableBusinessUnits]);
-
-	if (!isUninitialized && !isLoading && availableBusinessUnits.length === 0 && !hasActive && !opened) return null;
-
-	const toggle = (name: string) => {
-		const resolvedIds = nameToIds.get(name) || [name];
-		const current = filters.business_unit_ids || [];
-		const allSelected = resolvedIds.every((id) => current.includes(id));
-		const next = allSelected
-			? current.filter((v) => !resolvedIds.includes(v))
-			: [...current, ...resolvedIds.filter((id) => !current.includes(id))];
-		onFiltersChange({ ...filters, business_unit_ids: next });
-	};
-
-	const isSelected = (name: string) => {
-		const resolvedIds = nameToIds.get(name) || [name];
-		const current = filters.business_unit_ids || [];
-		return resolvedIds.every((id) => current.includes(id));
-	};
-
-	return (
-		<FilterSection
-			title="Business Units"
-			defaultOpen={defaultOpen || hasActive}
-			loading={isLoading}
-			onOpenChange={setOpened}
-			testId="business-units-filter-toggle"
-		>
-			<SearchableCheckboxList
-				inputRef={searchInputRef}
-				placeholder="Search or add a business unit"
-				items={dedup(availableBusinessUnits).map((name) => ({ key: name, label: name }))}
-				allowCustom
-				isSelected={isSelected}
-				onToggle={toggle}
-				onSearch={setSearchQuery}
-				fetching={isFetching}
-				testIdPrefix="business-units-filter"
 			/>
 		</FilterSection>
 	);

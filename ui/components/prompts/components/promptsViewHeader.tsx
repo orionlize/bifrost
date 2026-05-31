@@ -7,7 +7,7 @@ import { SplitButton } from "@/components/ui/splitButton";
 import { Message, MessageRole } from "@/lib/message";
 import { getErrorMessage } from "@/lib/store";
 import { useCreateSessionMutation, useGetSessionsQuery, useGetVersionsQuery, useRenameSessionMutation } from "@/lib/store/apis/promptsApi";
-import { useIsAuthEnabledQuery } from "@/lib/store/apis/sessionApi";
+import { useIsAoneUserSession } from "@/hooks/useIsAoneUserSession";
 import { ModelParams, PromptSession } from "@/lib/types/prompts";
 import { cn } from "@/lib/utils";
 import { Check, GitCommit, PencilIcon, Save, Trash2 } from "lucide-react";
@@ -35,8 +35,8 @@ export default function PromptsViewHeader() {
 		canUpdate,
 	} = usePromptContext();
 
-	const { data: authStatus } = useIsAuthEnabledQuery();
-	const useAoneApiKeyAuth = authStatus?.aone_oauth_enabled === true;
+	const isAoneUserSession = useIsAoneUserSession();
+	const useAoneApiKeyAuth = isAoneUserSession;
 
 	const [sessionsOpen, setSessionsOpen] = useState(false);
 

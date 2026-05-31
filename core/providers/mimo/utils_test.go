@@ -22,6 +22,69 @@ func marshalContent(t *testing.T, msg schemas.ChatMessage) string {
 	return string(b)
 }
 
+func TestIsMiMoVisionCapableModel(t *testing.T) {
+	tests := []struct {
+		model string
+		want  bool
+	}{
+		{"mimo-v2.5-pro", false},
+		{"mimo-v2.5", true},
+		{"mimo-v2-omni", true},
+		{"mimo-v2.5-pro-preview", false},
+	}
+	for _, tc := range tests {
+		if got := isMiMoVisionCapableModel(tc.model); got != tc.want {
+			t.Fatalf("isMiMoVisionCapableModel(%q) = %v, want %v", tc.model, got, tc.want)
+		}
+	}
+}
+
+func TestValidateMiMoVisionSupport_RejectsProWithImage(t *testing.T) {
+	req := &schemas.BifrostChatRequest{
+		Provider: schemas.MiMo,
+		Model:    "mimo-v2.5-pro",
+		Input: []schemas.ChatMessage{
+			{
+				Role: schemas.ChatMessageRoleUser,
+				Content: &schemas.ChatMessageContent{
+					ContentBlocks: []schemas.ChatContentBlock{
+						{
+							Type:           schemas.ChatContentBlockTypeImage,
+							ImageURLStruct: &schemas.ChatInputImage{URL: "https://example.com/a.png"},
+						},
+					},
+				},
+			},
+		},
+	}
+	if err := validateMiMoVisionSupport(req); err == nil {
+		t.Fatal("expected vision validation error for mimo-v2.5-pro with image")
+	}
+}
+
+func TestValidateMiMoVisionSupport_AllowsV25WithImage(t *testing.T) {
+	req := &schemas.BifrostChatRequest{
+		Provider: schemas.MiMo,
+		Model:    "mimo-v2.5",
+		Input: []schemas.ChatMessage{
+			{
+				Role: schemas.ChatMessageRoleUser,
+				Content: &schemas.ChatMessageContent{
+					ContentBlocks: []schemas.ChatContentBlock{
+						{
+							Type:           schemas.ChatContentBlockTypeImage,
+							ImageURLStruct: &schemas.ChatInputImage{URL: "https://example.com/a.png"},
+						},
+					},
+				},
+			},
+		},
+	}
+	if err := validateMiMoVisionSupport(req); err != nil {
+		t.Fatalf("unexpected vision validation error: %v", err)
+	}
+}
+
 func TestNormalizeMiMo_ImageOnlyMessageGetsTextPart(t *testing.T) {
 	// Simulate a Codex Responses request with an image-only user message.
 	req := &schemas.BifrostResponsesRequest{

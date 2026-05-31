@@ -71,7 +71,7 @@ func TestCleanupDrainsRecoveredBatchNoDrops(t *testing.T) {
 
 	const N = 500 // well under maxBatchSize (1000); batchWriter will not auto-flush
 	for i := 0; i < N; i++ {
-		plugin.enqueueLogEntry(makeTestLog(fmt.Sprintf("recovered-%d", i)), nil)
+		plugin.enqueueLogEntry(nil, makeTestLog(fmt.Sprintf("recovered-%d", i)), nil)
 	}
 
 	// Let batchWriter dequeue everything into its local batch. 100ms is far
@@ -113,7 +113,7 @@ func TestCleanupDrainsCombinedQueueAndBatchNoDrops(t *testing.T) {
 
 	const N = 2500 // > maxBatchSize so batchWriter triggers at least two intermediate flushes
 	for i := 0; i < N; i++ {
-		plugin.enqueueLogEntry(makeTestLog(fmt.Sprintf("combined-%d", i)), nil)
+		plugin.enqueueLogEntry(nil, makeTestLog(fmt.Sprintf("combined-%d", i)), nil)
 	}
 
 	// Call Cleanup while batchWriter is likely mid-processBatch (the 25ms
@@ -146,7 +146,7 @@ func TestCleanupRejectsNewSendsAfterClosed(t *testing.T) {
 		t.Fatalf("Init() error = %v", err)
 	}
 
-	plugin.enqueueLogEntry(makeTestLog("pre-cleanup"), nil)
+	plugin.enqueueLogEntry(nil, makeTestLog("pre-cleanup"), nil)
 
 	if err := plugin.Cleanup(); err != nil {
 		t.Fatalf("Cleanup() error = %v", err)
@@ -155,7 +155,7 @@ func TestCleanupRejectsNewSendsAfterClosed(t *testing.T) {
 	// After Cleanup, the channel is closed and p.closed is true. Producers
 	// must short-circuit via the closed check (no panic, no enqueue).
 	dropsBefore := plugin.droppedRequests.Load()
-	plugin.enqueueLogEntry(makeTestLog("post-cleanup"), nil)
+	plugin.enqueueLogEntry(nil, makeTestLog("post-cleanup"), nil)
 	dropsAfter := plugin.droppedRequests.Load()
 
 	// The closed-check path returns silently without incrementing

@@ -1,5 +1,6 @@
 import { CodeEditor } from "@/components/ui/codeEditor";
 import { ChatMessage, ContentBlock } from "@/lib/types/logs";
+import { isLogBinaryPlaceholder } from "@/lib/utils/logBinaryPlaceholder";
 import { cleanJson, isJson } from "@/lib/utils/validation";
 import AudioPlayer from "./audioPlayer";
 import CollapsibleBox from "./collapsibleBox";
@@ -44,12 +45,40 @@ function ContentBlockView({ block }: { block: ContentBlock; index: number }) {
 	if (block.image_url) {
 		const src = block.image_url.url;
 		if (src) {
+			if (isLogBinaryPlaceholder(src)) {
+				return (
+					<CollapsibleBox title={blockType} onCopy={() => src} collapsedHeight={100}>
+						<div className="text-muted-foreground px-6 py-2 font-mono text-xs">{src}</div>
+					</CollapsibleBox>
+				);
+			}
 			return <img src={src} alt="Attached image" className="max-w-full rounded border" />;
 		}
 	}
 
+	// Handle file content
+	if (block.file?.file_data || block.file?.file_url) {
+		const label =
+			(block.file.file_data && isLogBinaryPlaceholder(block.file.file_data) && block.file.file_data) ||
+			(block.file.file_url && isLogBinaryPlaceholder(block.file.file_url) && block.file.file_url) ||
+			block.file.file_type ||
+			"[file]";
+		return (
+			<CollapsibleBox title={blockType} onCopy={() => label} collapsedHeight={100}>
+				<div className="text-muted-foreground px-6 py-2 font-mono text-xs">{label}</div>
+			</CollapsibleBox>
+		);
+	}
+
 	// Handle audio content
 	if (block.input_audio) {
+		if (block.input_audio.data && isLogBinaryPlaceholder(block.input_audio.data)) {
+			return (
+				<CollapsibleBox title={blockType} onCopy={() => block.input_audio!.data} collapsedHeight={100}>
+					<div className="text-muted-foreground px-6 py-2 font-mono text-xs">{block.input_audio.data}</div>
+				</CollapsibleBox>
+			);
+		}
 		const jsonContent = JSON.stringify(block.input_audio, null, 2);
 		return (
 			<CollapsibleBox title={blockType} onCopy={() => jsonContent} collapsedHeight={100}>

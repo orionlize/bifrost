@@ -18,12 +18,7 @@ import { Switch } from "@/components/ui/switch";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { useDebouncedValue } from "@/hooks/useDebounce";
 import { getErrorMessage } from "@/lib/store";
-import {
-	useGetAoneUserQuery,
-	useListAoneUsersQuery,
-	useRotateAoneUserApiKeyMutation,
-	useUpdateAoneUserMutation,
-} from "@/lib/store/apis/aoneUsersApi";
+import { useGetAoneUserQuery, useListAoneUsersQuery, useUpdateAoneUserMutation } from "@/lib/store/apis/aoneUsersApi";
 import type { AoneUserDetailResponse, AoneUserListItem } from "@/lib/types/aoneUser";
 import { formatDistanceToNow } from "date-fns";
 import {
@@ -31,10 +26,6 @@ import {
 	Building2,
 	ChevronLeft,
 	ChevronRight,
-	Eye,
-	EyeOff,
-	KeyRound,
-	RefreshCw,
 	Search,
 	ShieldCheck,
 	UserRound,
@@ -80,13 +71,6 @@ function resolveAvatar(user?: Pick<AoneUserListItem, "display_avatar" | "avatar"
 		return "";
 	}
 	return user.display_avatar || user.avatar;
-}
-
-function maskApiKey(key: string, revealed: boolean) {
-	if (revealed) {
-		return key;
-	}
-	return key.substring(0, 8) + "•".repeat(Math.max(0, key.length - 8));
 }
 
 export default function AoneUsersView() {
@@ -353,9 +337,6 @@ function AoneUserDetailSheet({ userId, onClose }: { userId: string; onClose: () 
 	const { data, isLoading, isError, error } = useGetAoneUserQuery(userId, {
 		skip: !userId,
 	});
-	const [rotateApiKey, { isLoading: isRotatingApiKey }] = useRotateAoneUserApiKeyMutation();
-	const [apiKeyRevealed, setApiKeyRevealed] = useState(false);
-
 	const displayName = useMemo(() => {
 		if (!data) {
 			return "";
@@ -369,19 +350,6 @@ function AoneUserDetailSheet({ userId, onClose }: { userId: string; onClose: () 
 		.map((dept) => dept.name)
 		.filter(Boolean)
 		.join(" / ");
-
-	const handleRotateApiKey = async () => {
-		if (!data) {
-			return;
-		}
-		try {
-			await rotateApiKey(data.user.id).unwrap();
-			setApiKeyRevealed(true);
-			toast.success("API key refreshed");
-		} catch (mutationError) {
-			toast.error(getErrorMessage(mutationError));
-		}
-	};
 
 	return (
 		<Sheet open={Boolean(userId)} onOpenChange={(open) => !open && onClose()}>
@@ -406,51 +374,6 @@ function AoneUserDetailSheet({ userId, onClose }: { userId: string; onClose: () 
 					{data && (
 						<div className="mt-4 space-y-4">
 							<UserProfileHero data={data} displayName={displayName} avatar={avatar} departmentPath={departmentPath} />
-
-							<DetailSection title="API access" icon={<KeyRound className="size-4" />}>
-								{data.api_key ? (
-									<div className="space-y-3">
-										<div className="flex flex-wrap items-center gap-2">
-											<Badge variant={data.api_key_active ? "default" : "secondary"}>{data.api_key_active ? "Active" : "Inactive"}</Badge>
-											{data.is_disabled ? <Badge variant="destructive">User disabled</Badge> : null}
-										</div>
-										<div className="flex items-center gap-2">
-											<code
-												className="bg-muted flex-1 rounded-md px-3 py-2 font-mono text-xs break-all"
-												data-testid="aone-user-api-key-value"
-											>
-												{maskApiKey(data.api_key, apiKeyRevealed)}
-											</code>
-											<Button
-												type="button"
-												variant="outline"
-												size="icon"
-												className="shrink-0"
-												data-testid="aone-user-api-key-toggle"
-												onClick={() => setApiKeyRevealed((prev) => !prev)}
-												aria-label={apiKeyRevealed ? "Hide API key" : "Show API key"}
-											>
-												{apiKeyRevealed ? <EyeOff className="size-4" /> : <Eye className="size-4" />}
-											</Button>
-											<Button
-												type="button"
-												variant="outline"
-												size="icon"
-												className="shrink-0"
-												data-testid="aone-user-rotate-api-key-btn"
-												disabled={isRotatingApiKey || data.is_disabled}
-												onClick={() => void handleRotateApiKey()}
-												aria-label="Refresh API key"
-												title="Refresh API key"
-											>
-												<RefreshCw className={`size-4 ${isRotatingApiKey ? "animate-spin" : ""}`} />
-											</Button>
-										</div>
-									</div>
-								) : (
-									<p className="text-muted-foreground text-sm">No API key has been provisioned for this user yet.</p>
-								)}
-							</DetailSection>
 
 							<DetailSection title="Account" icon={<ShieldCheck className="size-4" />}>
 								<DetailRow label="User ID" value={data.user.id} mono />

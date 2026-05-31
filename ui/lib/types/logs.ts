@@ -144,6 +144,7 @@ export type MessageContentType =
 	| "text"
 	| "image_url"
 	| "input_audio"
+	| "file"
 	| "input_text"
 	| "input_file"
 	| "output_text"
@@ -160,6 +161,13 @@ export interface ContentBlock {
 	input_audio?: {
 		data: string;
 		format?: string;
+	};
+	file?: {
+		file_data?: string;
+		file_url?: string;
+		file_id?: string;
+		filename?: string;
+		file_type?: string;
 	};
 }
 
@@ -765,6 +773,11 @@ export interface RecalculateCostResponse {
 	total_matched: number;
 	updated: number;
 	skipped: number;
+	remaining: number;
+}
+
+export interface ClearLogsResponse {
+	deleted: number;
 	remaining: number;
 }
 

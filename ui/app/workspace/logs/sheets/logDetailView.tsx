@@ -30,6 +30,7 @@ import { ProviderIconType, RenderProviderIcon, RoutingEngineUsedIcons } from "@/
 import { RequestTypeColors, RequestTypeLabels, RoutingEngineUsedColors, RoutingEngineUsedLabels, Status } from "@/lib/constants/logs";
 import { ContentBlock, LogEntry, ResponsesMessage } from "@/lib/types/logs";
 import { cn } from "@/lib/utils";
+import { isLogBinaryPlaceholder } from "@/lib/utils/logBinaryPlaceholder";
 import { downloadAsJson } from "@/lib/utils/browser-download";
 import { isJson } from "@/lib/utils/validation";
 import { Link } from "@tanstack/react-router";
@@ -997,7 +998,7 @@ export function LogDetailView({
 								/>
 							)}
 							{log.fallback_index > 0 && <LogEntryDetailsView className="w-full" label="Fallback Index" value={log.fallback_index} />}
-							{log.virtual_key && <LogEntryDetailsView className="w-full" label="Virtual Key" value={log.virtual_key.name} />}
+							{log.virtual_key && <LogEntryDetailsView className="w-full" label="User" value={log.virtual_key.name} />}
 							{log.routing_engines_used && log.routing_engines_used.length > 0 && (
 								<LogEntryDetailsView
 									className="w-full"
@@ -1699,6 +1700,13 @@ export function LogDetailView({
 														.map((b, i) => {
 															const src = b.image_url?.url;
 															if (!src) return null;
+															if (isLogBinaryPlaceholder(src)) {
+																return (
+																	<div key={`${i}-${src}`} className="text-muted-foreground mt-2 font-mono text-xs">
+																		{src}
+																	</div>
+																);
+															}
 															return <img key={`${i}-${src}`} src={src} alt="Attached image" className="mt-2 max-w-full rounded border" />;
 														})}
 												{hasToolCalls && text ? (
@@ -1909,14 +1917,20 @@ export function LogDetailView({
 											{Array.isArray(msg.content) &&
 												msg.content
 													.filter((b) => b?.type === "input_image" && b.image_url)
-													.map((b, i) => (
-														<img
-															key={`${i}-${b.image_url}`}
-															src={b.image_url}
-															alt="Attached image"
-															className="mt-2 max-w-full rounded border"
-														/>
-													))}
+													.map((b, i) =>
+														isLogBinaryPlaceholder(b.image_url!) ? (
+															<div key={`${i}-${b.image_url}`} className="text-muted-foreground mt-2 font-mono text-xs">
+																{b.image_url}
+															</div>
+														) : (
+															<img
+																key={`${i}-${b.image_url}`}
+																src={b.image_url}
+																alt="Attached image"
+																className="mt-2 max-w-full rounded border"
+															/>
+														),
+													)}
 										</MessageRow>
 									);
 								})}

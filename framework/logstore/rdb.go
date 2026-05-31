@@ -3063,6 +3063,62 @@ func (s *RDBLogStore) FindByID(ctx context.Context, id string) (*Log, error) {
 	return &log, nil
 }
 
+// GetLatestSessionConversationCounts returns cumulative input counts from the most recent
+// log row in a session. Returns zero counts when the session has no prior logs.
+func (s *RDBLogStore) GetLatestSessionConversationCounts(ctx context.Context, sessionID string) (chatCount, responsesCount int, err error) {
+	sessionID = strings.TrimSpace(sessionID)
+	if sessionID == "" {
+		return 0, 0, nil
+	}
+
+	var row Log
+	query := s.ScopedDB(ctx).Model(&Log{}).
+		Select("metadata").
+		Where("parent_request_id = ?", sessionID).
+		Order("timestamp DESC, id DESC").
+		Limit(1)
+
+	if err := query.First(&row).Error; err != nil {
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			return 0, 0, nil
+		}
+		return 0, 0, err
+	}
+	if row.Metadata != nil && *row.Metadata != "" {
+		var metadata map[string]interface{}
+		if unmarshalErr := sonic.Unmarshal([]byte(*row.Metadata), &metadata); unmarshalErr == nil {
+			chatCount, responsesCount := LatestConversationCountsFromMetadata(metadata)
+			return chatCount, responsesCount, nil
+		}
+	}
+	return 0, 0, nil
+}
+
+// GetSessionLogsForInputHydration returns prior session logs up to and including the anchor log.
+func (s *RDBLogStore) GetSessionLogsForInputHydration(ctx context.Context, anchor SessionAnchor) ([]*Log, error) {
+	sessionID := strings.TrimSpace(anchor.SessionID)
+	if sessionID == "" {
+		return nil, nil
+	}
+
+	var logs []Log
+	err := s.ScopedDB(ctx).Model(&Log{}).
+		Where("parent_request_id = ?", sessionID).
+		Where("(timestamp < ? OR (timestamp = ? AND id <= ?))", anchor.Timestamp, anchor.Timestamp, anchor.LogID).
+		Order("timestamp ASC, id ASC").
+		Find(&logs).Error
+	if err != nil {
+		return nil, err
+	}
+
+	out := make([]*Log, 0, len(logs))
+	for i := range logs {
+		log := logs[i]
+		out = append(out, &log)
+	}
+	return out, nil
+}
+
 // IsLogEntryPresent checks if a log entry is present in the database.
 // Here we dont load entire log entry in memory - just check if it exists.
 func (s *RDBLogStore) IsLogEntryPresent(ctx context.Context, id string) (bool, error) {
@@ -3479,6 +3535,25 @@ func (s *RDBLogStore) DeleteLogs(ctx context.Context, ids []string) error {
 		return err
 	}
 	return nil
+}
+
+// ListLogIDsByFilters returns log IDs matching the filters, up to limit.
+func (s *RDBLogStore) ListLogIDsByFilters(ctx context.Context, filters SearchFilters, limit int) ([]string, error) {
+	if limit <= 0 {
+		limit = defaultClearLogsBatchSize
+	}
+	baseQuery := s.ScopedDB(ctx).Model(&Log{})
+	baseQuery = s.applyFilters(baseQuery, filters)
+	var ids []string
+	if err := baseQuery.Select("id").Limit(limit).Pluck("id", &ids).Error; err != nil {
+		return nil, err
+	}
+	return ids, nil
+}
+
+// DeleteLogsByFilters deletes logs matching filters in batches.
+func (s *RDBLogStore) DeleteLogsByFilters(ctx context.Context, filters SearchFilters, batchSize int) (int64, int64, error) {
+	return deleteLogsMatchingFilters(ctx, s, filters, batchSize)
 }
 
 // ============================================================================
