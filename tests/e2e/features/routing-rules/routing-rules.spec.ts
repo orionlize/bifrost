@@ -247,7 +247,7 @@ test.describe('Routing Rules', () => {
       if (scopeVisible) {
         // Scope selection is available
         await scopeSelect.click()
-        const vkOption = routingRulesPage.page.getByRole('option', { name: /Virtual Key/i })
+        const vkOption = routingRulesPage.page.getByRole('option', { name: /^User$/i })
         const vkVisible = await vkOption.isVisible().catch(() => false)
 
         if (vkVisible) {

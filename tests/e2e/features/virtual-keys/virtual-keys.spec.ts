@@ -535,7 +535,7 @@ test.describe('Virtual Key Management', () => {
         first.virtual_key.id,
         second.virtual_key.id,
       ].sort())
-      expect(bulkResp.errors?.['missing-vk-id']).toBe('virtual key not found')
+      expect(bulkResp.errors?.['missing-vk-id']).toBe('user not found')
 
       const rotatedByID = new Map(bulkResp.virtual_keys.map((vk) => [vk.id, vk.value]))
       expect(rotatedByID.get(first.virtual_key.id)).not.toBe(first.virtual_key.value)
@@ -562,7 +562,7 @@ test.describe('Virtual Keys Table', () => {
   })
 
   test('should display virtual keys table', async ({ virtualKeysPage }) => {
-    await virtualKeysPage.page.getByRole('heading', { name: /Virtual Keys/i }).or(virtualKeysPage.emptyState).first().waitFor({ state: 'visible', timeout: 10000 })
+    await virtualKeysPage.page.getByRole('heading', { name: /^Users$/i }).or(virtualKeysPage.emptyState).first().waitFor({ state: 'visible', timeout: 10000 })
     const hadTable = await virtualKeysPage.table.isVisible().catch(() => false)
     if (!hadTable) {
       await expect(virtualKeysPage.emptyState).toBeVisible({ timeout: 10000 })
@@ -578,7 +578,7 @@ test.describe('Virtual Keys Table', () => {
   })
 
   test('should show empty state when no virtual keys', async ({ virtualKeysPage }) => {
-    await virtualKeysPage.page.getByRole('heading', { name: /Virtual Keys/i }).or(virtualKeysPage.emptyState).first().waitFor({ state: 'visible', timeout: 10000 })
+    await virtualKeysPage.page.getByRole('heading', { name: /^Users$/i }).or(virtualKeysPage.emptyState).first().waitFor({ state: 'visible', timeout: 10000 })
     const tableVisible = await virtualKeysPage.table.isVisible().catch(() => false)
     if (tableVisible) {
       test.skip(true, 'Pre-existing virtual keys found; empty-state assertion requires isolated data.')

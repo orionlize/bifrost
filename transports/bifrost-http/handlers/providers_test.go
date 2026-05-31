@@ -248,6 +248,39 @@ func TestListModels_ReturnsExactAccessibleByKeysAndSkipsDisabledKeys(t *testing.
 	}
 }
 
+func TestListModels_ExcludesCrossVendorModelsFromDirectProvider(t *testing.T) {
+	SetLogger(&mockLogger{})
+
+	h := providerHandlerForTest(
+		schemas.OpenAI,
+		[]schemas.Key{{ID: "key-a"}},
+		[]string{"gpt-4o", "gemini-2.0-flash", "google/gemini-2.0-flash", "claude-3-5-sonnet"},
+		[]string{"gpt-4o", "gemini-2.0-flash", "google/gemini-2.0-flash", "claude-3-5-sonnet"},
+	)
+
+	ctx := &fasthttp.RequestCtx{}
+	ctx.Request.Header.SetMethod("GET")
+	ctx.Request.SetRequestURI("/api/models?provider=openai")
+
+	h.listModels(ctx)
+
+	if ctx.Response.StatusCode() != fasthttp.StatusOK {
+		t.Fatalf("expected 200, got %d: %s", ctx.Response.StatusCode(), string(ctx.Response.Body()))
+	}
+
+	var resp ListModelsResponse
+	if err := json.Unmarshal(ctx.Response.Body(), &resp); err != nil {
+		t.Fatalf("failed to unmarshal response: %v", err)
+	}
+
+	if resp.Total != 1 || len(resp.Models) != 1 {
+		t.Fatalf("expected only openai-native models, got total=%d models=%#v", resp.Total, resp.Models)
+	}
+	if resp.Models[0].Name != "gpt-4o" {
+		t.Fatalf("expected gpt-4o, got %#v", resp.Models[0])
+	}
+}
+
 func TestListModels_AppliesQueryAndLimitAfterFiltering(t *testing.T) {
 	SetLogger(&mockLogger{})
 

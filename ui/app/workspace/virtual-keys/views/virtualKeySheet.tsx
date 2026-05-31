@@ -105,7 +105,7 @@ const mcpConfigSchema = z.object({
 // Main form schema
 const formSchema = z
 	.object({
-		name: z.string().min(1, "Virtual key name is required"),
+		name: z.string().min(1, "User name is required"),
 		description: z.string().optional(),
 		providerConfigs: z.array(providerConfigSchema).optional(),
 		mcpConfigs: z.array(mcpConfigSchema).optional(),
@@ -538,7 +538,7 @@ export default function VirtualKeySheet({ virtualKey, teams, customers, defaultT
 			return null;
 		}
 
-		const vkWarning = findBudgetUsageWarning(data.budgets, virtualKey.budgets, "Virtual key");
+		const vkWarning = findBudgetUsageWarning(data.budgets, virtualKey.budgets, "User");
 		if (vkWarning) {
 			return vkWarning;
 		}
@@ -612,7 +612,7 @@ export default function VirtualKeySheet({ virtualKey, teams, customers, defaultT
 		}
 		try {
 			await rotateVirtualKey(virtualKey.id).unwrap();
-			toast.success("Virtual key rotated successfully");
+			toast.success("User rotated successfully");
 			setShowRotateWarning(false);
 			onSave();
 		} catch (error) {
@@ -635,7 +635,7 @@ export default function VirtualKeySheet({ virtualKey, teams, customers, defaultT
 						description: data.description,
 					},
 				}).unwrap();
-				toast.success("Virtual key updated");
+				toast.success("User updated");
 				onSave();
 				return;
 			}
@@ -689,7 +689,7 @@ export default function VirtualKeySheet({ virtualKey, teams, customers, defaultT
 					vkId: virtualKey.id,
 					data: updateData,
 				}).unwrap();
-				toast.success("Virtual key updated successfully");
+				toast.success("User updated successfully");
 			} else {
 				// Create new virtual key
 				const createData: CreateVirtualKeyRequest = {
@@ -725,7 +725,7 @@ export default function VirtualKeySheet({ virtualKey, teams, customers, defaultT
 				}
 
 				await createVirtualKey(createData).unwrap();
-				toast.success("Virtual key created successfully");
+				toast.success("User created successfully");
 			}
 
 			onSave();
@@ -764,11 +764,11 @@ export default function VirtualKeySheet({ virtualKey, teams, customers, defaultT
 				onEscapeKeyDown={() => handleClose()}
 			>
 				<SheetHeader className="flex flex-col items-start px-8 py-4" headerClassName="mb-0 sticky -top-4 bg-card z-10">
-					<SheetTitle className="flex items-center gap-2">{isEditing ? virtualKey?.name : "Create Virtual Key"}</SheetTitle>
+					<SheetTitle className="flex items-center gap-2">{isEditing ? virtualKey?.name : "Create User"}</SheetTitle>
 					<SheetDescription>
 						{isEditing
-							? "Update the virtual key configuration and permissions."
-							: "Create a new virtual key with specific permissions, budgets, and rate limits."}
+							? "Update the user configuration and permissions."
+							: "Create a new user with specific permissions, budgets, and rate limits."}
 					</SheetDescription>
 				</SheetHeader>
 
@@ -779,8 +779,8 @@ export default function VirtualKeySheet({ virtualKey, teams, customers, defaultT
 								<Alert variant="info">
 									<Lock className="h-4 w-4" />
 									<AlertDescription>
-										This virtual key is managed by an access profile. Only the name and description can be modified — providers, budgets,
-										rate limits, and MCP access are controlled by the profile.
+										This user is managed by an access profile. Only the name and description can be modified — providers, budgets, rate
+										limits, and MCP access are controlled by the profile.
 									</AlertDescription>
 								</Alert>
 							)}
@@ -789,7 +789,7 @@ export default function VirtualKeySheet({ virtualKey, teams, customers, defaultT
 								<Alert variant="info">
 									<Users className="h-4 w-4" />
 									<AlertDescription>
-										Creating this virtual key under team <span className="font-medium">{attachedTeam?.name ?? attachedTeamId}</span>. Team
+										Creating this user under team <span className="font-medium">{attachedTeam?.name ?? attachedTeamId}</span>. Team
 										assignment is pre-set — all other fields are editable.
 									</AlertDescription>
 								</Alert>
@@ -866,8 +866,8 @@ export default function VirtualKeySheet({ virtualKey, teams, customers, defaultT
 												</TooltipTrigger>
 												<TooltipContent>
 													<p>
-														Configure which providers this virtual key can use and their specific settings. Leave empty to block all
-														providers. Add providers to allow them.
+														Configure which providers this user can use and their specific settings. Leave empty to block all providers. Add
+														providers to allow them.
 													</p>
 												</TooltipContent>
 											</Tooltip>
@@ -1351,8 +1351,8 @@ export default function VirtualKeySheet({ virtualKey, teams, customers, defaultT
 													</TooltipTrigger>
 													<TooltipContent>
 														<p>
-															Configure which MCP clients this virtual key can use and their allowed tools. Leaving this section empty
-															blocks all MCP tools. After adding an MCP client, you must select specific tools or choose{" "}
+															Configure which MCP clients this user can use and their allowed tools. Leaving this section empty blocks all
+															MCP tools. After adding an MCP client, you must select specific tools or choose{" "}
 															<span className="font-medium">Allow All Tools</span> to grant tool access.
 														</p>
 													</TooltipContent>
@@ -1684,9 +1684,9 @@ export default function VirtualKeySheet({ virtualKey, teams, customers, defaultT
 											<AlertDialogTitle>Reset budget and rate-limit usage?</AlertDialogTitle>
 											<AlertDialogDescription>
 												Enabling calendar alignment will reset budget usage to <span className="font-semibold">$0.00</span> and
-												token/request rate-limit counters to <span className="font-semibold">0</span> for this virtual key, then snap each
-												reset date to the start of its current period (e.g. start of day, week, month, or year). The usage reset cannot be
-												undone, but calendar alignment can be turned off later. This will take effect when you save.
+												token/request rate-limit counters to <span className="font-semibold">0</span> for this user, then snap each reset
+												date to the start of its current period (e.g. start of day, week, month, or year). The usage reset cannot be undone,
+												but calendar alignment can be turned off later. This will take effect when you save.
 											</AlertDialogDescription>
 										</AlertDialogHeader>
 										<AlertDialogFooter>
@@ -1850,7 +1850,7 @@ export default function VirtualKeySheet({ virtualKey, teams, customers, defaultT
 						<AlertDialog open={showRotateWarning} onOpenChange={setShowRotateWarning}>
 							<AlertDialogContent>
 								<AlertDialogHeader>
-									<AlertDialogTitle>Rotate virtual key?</AlertDialogTitle>
+									<AlertDialogTitle>Rotate user?</AlertDialogTitle>
 									<AlertDialogDescription>
 										This will replace the secret value for &quot;
 										{virtualKey?.name}&quot;. The key ID, budgets, rate limits, provider permissions, MCP access, and assignments stay the

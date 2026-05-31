@@ -215,7 +215,7 @@ export default function LoggingView() {
 							Do Not Show Deleted VirtualKeys In Filters
 						</label>
 						<p className="text-muted-foreground text-sm">
-							When enabled, deleted virtual keys are excluded from Virtual Keys filter options in Logs, Dashboard, and MCP Logs.
+							When enabled, deleted users are excluded from Users filter options in Logs, Dashboard, and MCP Logs.
 						</p>
 					</div>
 					<Switch

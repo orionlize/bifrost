@@ -835,6 +835,12 @@ func (h *ProviderHandler) listManagementModelsForProvider(
 		models = h.modelsManager.GetUnfilteredModelsForProvider(provider)
 	}
 
+	// Drop cross-vendor ids that can appear in a provider pool but do not belong in
+	// provider-scoped management pickers (e.g. gemini-* listed under openai).
+	models = slices.DeleteFunc(models, func(m string) bool {
+		return !modelcatalog.ShouldListModelUnderProvider(provider, m)
+	})
+
 	// Apply VK-level model whitelist filtering.
 	// AllowedModels=["*"] passes all; empty AllowedModels denies all (deny-by-default).
 	if query.HasVKFilter {

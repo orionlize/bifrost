@@ -100,7 +100,7 @@ export default function VirtualKeyDetailSheet({
 				<SheetHeader className="flex flex-row items-center justify-between p-0">
 					<div className="flex flex-col items-start">
 						<SheetTitle>{virtualKey.name}</SheetTitle>
-						<SheetDescription>{virtualKey.description || "Virtual key details and usage information"}</SheetDescription>
+						<SheetDescription>{virtualKey.description || "User details and usage information"}</SheetDescription>
 					</div>
 					<SheetNavigationButtons
 						hasPrev={hasPrev}
@@ -108,7 +108,7 @@ export default function VirtualKeyDetailSheet({
 						onNavigate={(dir) => onNavigate?.(dir)}
 						prevKeys={prevKeys}
 						nextKeys={nextKeys}
-						entityLabel="virtual key"
+						entityLabel="user"
 					/>
 				</SheetHeader>
 

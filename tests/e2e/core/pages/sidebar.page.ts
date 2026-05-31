@@ -17,7 +17,7 @@ export class SidebarPage extends BasePage {
   constructor(page: Page) {
     super(page)
     this.providersLink = page.getByRole('link', { name: /providers/i })
-    this.virtualKeysLink = page.getByRole('link', { name: /virtual keys/i })
+    this.virtualKeysLink = page.locator('a[href="/workspace/governance/virtual-keys"]')
     this.logsLink = page.getByRole('link', { name: /logs/i })
     this.mcpClientsLink = page.getByRole('link', { name: /mcp/i })
     this.userGroupsLink = page.getByRole('link', { name: /user groups/i })

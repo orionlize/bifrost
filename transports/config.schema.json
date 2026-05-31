@@ -656,6 +656,120 @@
             "$ref": "#/$defs/routing_rule"
           }
         },
+        "user_groups": {
+          "type": "array",
+          "description": "User groups (tags) that attach a tiered model-degradation policy to a set of virtual keys. As per-user token consumption climbs across the configured short and weekly windows, progressively more aggressive tiers rewrite high-cost models to cheaper ones to reduce overall AI spend.",
+          "items": {
+            "type": "object",
+            "properties": {
+              "id": {
+                "type": "string",
+                "description": "User group ID"
+              },
+              "name": {
+                "type": "string",
+                "description": "Unique user group name (e.g. 'high-consumption', 'low-priority')"
+              },
+              "description": {
+                "type": "string",
+                "description": "Human-readable description of the group"
+              },
+              "color": {
+                "type": "string",
+                "description": "UI label color"
+              },
+              "enabled": {
+                "type": "boolean",
+                "description": "Whether the group's degradation policy is active",
+                "default": true
+              },
+              "short_window_token_limit": {
+                "type": "integer",
+                "description": "Token budget for the short rolling window that drives tier escalation"
+              },
+              "short_window_reset_duration": {
+                "type": "string",
+                "description": "Short window reset duration (e.g. '5h')"
+              },
+              "weekly_window_token_limit": {
+                "type": "integer",
+                "description": "Token budget for the weekly rolling window that drives tier escalation"
+              },
+              "weekly_window_reset_duration": {
+                "type": "string",
+                "description": "Weekly window reset duration (e.g. '1w')"
+              },
+              "calendar_aligned": {
+                "type": "boolean",
+                "description": "When true, window resets snap to clean UTC calendar boundaries",
+                "default": false
+              },
+              "tiers": {
+                "type": "array",
+                "description": "Ordered degradation tiers. The active tier is the highest-threshold tier whose threshold_pct is met by the user's current window usage percentage.",
+                "items": {
+                  "type": "object",
+                  "properties": {
+                    "order": {
+                      "type": "integer",
+                      "description": "Tier rank within the group (1 = least aggressive)"
+                    },
+                    "threshold_pct": {
+                      "type": "number",
+                      "description": "Window usage percentage (0-100) at which this tier activates"
+                    },
+                    "is_terminal": {
+                      "type": "boolean",
+                      "description": "Marks the most aggressive tier; terminal tiers may attach cross-model fallbacks",
+                      "default": false
+                    },
+                    "fallbacks": {
+                      "type": "array",
+                      "description": "Cross-model fallback chain ('provider/model') applied for terminal tiers",
+                      "items": { "type": "string" }
+                    },
+                    "mappings": {
+                      "type": "array",
+                      "description": "Source-model -> downgraded-model substitutions for this tier",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "source_provider": {
+                            "type": "string",
+                            "description": "Optional source provider to scope the match (omit for any provider)"
+                          },
+                          "source_model": {
+                            "type": "string",
+                            "description": "Source model to downgrade ('*' matches any model)"
+                          },
+                          "target_provider": {
+                            "type": "string",
+                            "description": "Optional target provider (omit to keep the incoming provider)"
+                          },
+                          "target_model": {
+                            "type": "string",
+                            "description": "Downgraded model the source is rewritten to"
+                          }
+                        },
+                        "required": ["source_model", "target_model"],
+                        "additionalProperties": false
+                      }
+                    }
+                  },
+                  "required": ["order", "threshold_pct"],
+                  "additionalProperties": false
+                }
+              },
+              "virtual_key_ids": {
+                "type": "array",
+                "description": "Virtual key IDs that belong to this group",
+                "items": { "type": "string" }
+              }
+            },
+            "required": ["id", "name"],
+            "additionalProperties": false
+          }
+        },
         "pricing_overrides": {
           "type": "array",
           "description": "Scoped pricing overrides applied at runtime by the model catalog",

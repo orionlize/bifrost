@@ -66,7 +66,7 @@ const featuredDocs = [
 	{
 		title: "Governance Plugin",
 		description: "Complete access control, budgets, and rate limiting guide",
-		content: "Master Virtual Keys, hierarchical budgets, rate limiting, and usage tracking for secure AI infrastructure.",
+		content: "Master Users, hierarchical budgets, rate limiting, and usage tracking for secure AI infrastructure.",
 		href: "https://github.com/maximhq/bifrost/blob/main/docs/governance.md",
 		icon: Shield,
 		buttonText: "View Governance Guide",

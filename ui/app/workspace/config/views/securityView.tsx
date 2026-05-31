@@ -391,12 +391,12 @@ export default function SecurityView() {
 				<div className="flex items-center justify-between space-x-2 rounded-lg border p-4">
 					<div className="space-y-0.5">
 						<label htmlFor="enforce-auth-on-inference" className="text-sm font-medium">
-							{IS_ENTERPRISE ? "Enable Auth on Inference" : "Enforce Virtual Keys on Inference"}
+							{IS_ENTERPRISE ? "Enable Auth on Inference" : "Enforce Users on Inference"}
 						</label>
 						<p className="text-muted-foreground text-sm">
 							{IS_ENTERPRISE
-								? "Require authentication (virtual key, API key, or user token) for all inference endpoints."
-								: "Require a virtual key for all inference requests."}{" "}
+								? "Require authentication (user credentials, API key, or user token) for all inference endpoints."
+								: "Require a user for all inference requests."}{" "}
 							See{" "}
 							<a
 								href="https://docs.getbifrost.ai/features/governance/virtual-keys"

@@ -138,7 +138,7 @@ export default function SessionsTable({ sessions }: SessionsTableProps) {
 							<TableHead>
 								<HeaderWithTooltip
 									label="Bound to"
-									tooltip="The identity this credential is keyed to: an end user (via SSO), a virtual key (shared by anyone using that VK), or a client-issued session ID (asserted via the x-bf-mcp-session-id header)."
+									tooltip="The identity this credential is keyed to: an end user (via SSO), a user credential (shared by anyone using that user's key), or a client-issued session ID (asserted via the x-bf-mcp-session-id header)."
 								/>
 							</TableHead>
 							<TableHead>

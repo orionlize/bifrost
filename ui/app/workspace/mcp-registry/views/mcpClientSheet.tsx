@@ -559,7 +559,7 @@ export default function MCPClientSheet({
 										render={({ field }) => (
 											<FormItem className="flex items-center justify-between rounded-lg border p-4">
 												<div className="flex items-center gap-2">
-													<FormLabel>Allow on All Virtual Keys</FormLabel>
+													<FormLabel>Allow on All Users</FormLabel>
 													<TooltipProvider>
 														<Tooltip>
 															<TooltipTrigger asChild>
@@ -567,9 +567,9 @@ export default function MCPClientSheet({
 															</TooltipTrigger>
 															<TooltipContent className="max-w-xs">
 																<p>
-																	When enabled, this MCP server is accessible to all virtual keys without requiring explicit per-key
-																	assignment. All tools are allowed by default. If a virtual key has an explicit MCP config for this server,
-																	that config takes precedence and overrides this behaviour.
+																	When enabled, this MCP server is accessible to all users without requiring explicit per-user assignment.
+																	All tools are allowed by default. If a user has an explicit MCP config for this server, that config takes
+																	precedence and overrides this behaviour.
 																</p>
 															</TooltipContent>
 														</Tooltip>
@@ -1127,14 +1127,14 @@ export default function MCPClientSheet({
 											<div className="flex flex-col gap-2">
 												<div className="flex items-center justify-between">
 													<div className="flex items-center gap-2">
-														<div className="text-md font-semibold">Virtual Key Access</div>
+														<div className="text-md font-semibold">User Access</div>
 														<TooltipProvider>
 															<Tooltip>
 																<TooltipTrigger asChild>
 																	<Info className="text-muted-foreground h-4 w-4 cursor-help" />
 																</TooltipTrigger>
 																<TooltipContent className="max-w-xs">
-																	<p>Control which virtual keys can use this MCP server and which specific tools they can call.</p>
+																	<p>Control which users can use this MCP server and which specific tools they can call.</p>
 																</TooltipContent>
 															</Tooltip>
 														</TooltipProvider>
@@ -1155,7 +1155,7 @@ export default function MCPClientSheet({
 																data-testid="mcpclient-virtualkey-add-trigger"
 															>
 																<Plus className="h-4 w-4" />
-																Add Virtual Key
+																Add User
 															</Button>
 														</PopoverTrigger>
 														<PopoverContent side="top" align="end" className="w-56 p-0" noPortal>
@@ -1191,7 +1191,7 @@ export default function MCPClientSheet({
 																		</button>
 																	))
 																) : (
-																	<div className="text-muted-foreground px-2 py-1.5 text-sm">No virtual keys found</div>
+																	<div className="text-muted-foreground px-2 py-1.5 text-sm">No users found</div>
 																)}
 															</div>
 														</PopoverContent>
@@ -1200,8 +1200,8 @@ export default function MCPClientSheet({
 												{form.watch("allow_on_all_virtual_keys") && (
 													<p className="text-muted-foreground flex items-center gap-1 text-xs">
 														<Info className="h-3 w-3 shrink-0" />
-														Configuring access for a virtual key here overrides the{" "}
-														<span className="font-medium">Allow on All Virtual Keys</span>&nbsp;setting for that key.
+														Configuring access for a user here overrides the <span className="font-medium">Allow on All Users</span>
+														&nbsp;setting for that user.
 													</p>
 												)}
 											</div>
@@ -1211,7 +1211,7 @@ export default function MCPClientSheet({
 													<Table>
 														<TableHeader>
 															<TableRow>
-																<TableHead>Virtual Key</TableHead>
+																<TableHead>User</TableHead>
 																<TableHead>Allowed Tools</TableHead>
 																<TableHead className="w-12"></TableHead>
 															</TableRow>
@@ -1269,11 +1269,11 @@ export default function MCPClientSheet({
 												</div>
 											) : form.watch("allow_on_all_virtual_keys") ? (
 												<div className="text-muted-foreground rounded-sm border p-6 text-center">
-													<p className="text-sm">All virtual keys can access this MCP server unless a key has an explicit override.</p>
+													<p className="text-sm">All users can access this MCP server unless a user has an explicit override.</p>
 												</div>
 											) : (
 												<div className="text-muted-foreground rounded-sm border p-6 text-center">
-													<p className="text-sm">No virtual keys have access to this MCP server</p>
+													<p className="text-sm">No users have access to this MCP server</p>
 												</div>
 											)}
 										</div>

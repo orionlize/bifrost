@@ -925,7 +925,7 @@ func TestRotateVirtualKeys_PartialSuccess(t *testing.T) {
 	if len(resp.VirtualKeys) != 2 {
 		t.Fatalf("expected two rotated keys in response, got %d", len(resp.VirtualKeys))
 	}
-	if resp.Errors["missing"] != "virtual key not found" {
+	if resp.Errors["missing"] != "user not found" {
 		t.Fatalf("expected missing error, got %#v", resp.Errors)
 	}
 }
@@ -939,8 +939,8 @@ func TestRotateVirtualKeys_RejectsInvalidRequests(t *testing.T) {
 		want string
 	}{
 		{name: "invalid JSON", body: `{`, want: "Invalid JSON"},
-		{name: "empty IDs", body: `{"ids":[]}`, want: "At least one virtual key ID is required"},
-		{name: "blank ID", body: `{"ids":["vk-1"," "]}`, want: "Virtual key ID cannot be empty"},
+		{name: "empty IDs", body: `{"ids":[]}`, want: "At least one user ID is required"},
+		{name: "blank ID", body: `{"ids":["vk-1"," "]}`, want: "User ID cannot be empty"},
 	}
 
 	for _, tt := range tests {
@@ -1029,13 +1029,13 @@ func TestRotateVirtualKeys_AllFailuresReturnsServerError(t *testing.T) {
 	if err := json.Unmarshal(ctx.Response.Body(), &resp); err != nil {
 		t.Fatalf("failed to parse response: %v", err)
 	}
-	if resp.Message != "Failed to rotate virtual keys" {
+	if resp.Message != "Failed to rotate users" {
 		t.Fatalf("expected failure message, got %q", resp.Message)
 	}
 	if len(resp.VirtualKeys) != 0 {
 		t.Fatalf("expected no rotated keys, got %#v", resp.VirtualKeys)
 	}
-	if resp.Errors["missing-1"] != "virtual key not found" || resp.Errors["missing-2"] != "virtual key not found" {
+	if resp.Errors["missing-1"] != "user not found" || resp.Errors["missing-2"] != "user not found" {
 		t.Fatalf("expected not found errors, got %#v", resp.Errors)
 	}
 }

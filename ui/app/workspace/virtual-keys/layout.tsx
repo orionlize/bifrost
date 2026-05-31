@@ -6,7 +6,7 @@ import VirtualKeysRedirectPage from "./page";
 function RouteComponent() {
 	const hasVirtualKeysAccess = useRbac(RbacResource.VirtualKeys, RbacOperation.View);
 	if (!hasVirtualKeysAccess) {
-		return <NoPermissionView entity="virtual keys" />;
+		return <NoPermissionView entity="users" />;
 	}
 	return <VirtualKeysRedirectPage />;
 }

@@ -652,7 +652,7 @@ export default function PricingOverrideSheet({ open, onOpenChange, editingOverri
 				resolvedScopeKind === "virtual_key_provider_key") &&
 			!resolvedVirtualKeyID
 		) {
-			setError("virtualKeyID", { message: "Virtual key is required" });
+			setError("virtualKeyID", { message: "User is required" });
 			hasErrors = true;
 		}
 
@@ -796,7 +796,7 @@ export default function PricingOverrideSheet({ open, onOpenChange, editingOverri
 														</FormControl>
 														<SelectContent>
 															<SelectItem value="global">Global</SelectItem>
-															<SelectItem value="virtual_key">Virtual key</SelectItem>
+															<SelectItem value="virtual_key">User</SelectItem>
 														</SelectContent>
 													</Select>
 												</FormItem>
@@ -810,7 +810,7 @@ export default function PricingOverrideSheet({ open, onOpenChange, editingOverri
 												render={({ field }) => (
 													<FormItem>
 														<FormLabel>
-															Virtual key <span className="text-red-500">*</span>
+															User <span className="text-red-500">*</span>
 														</FormLabel>
 														<FormControl>
 															<ComboboxSelect
@@ -823,16 +823,14 @@ export default function PricingOverrideSheet({ open, onOpenChange, editingOverri
 																	setValue("providerKeyID", "");
 																	clearErrors("virtualKeyID");
 																}}
-																placeholder={isVirtualKeysLoading ? "Loading..." : "Select virtual key"}
+																placeholder={isVirtualKeysLoading ? "Loading..." : "Select user"}
 																disabled={isVirtualKeysLoading || !!virtualKeysError}
 																noPortal
 																className="h-9"
 															/>
 														</FormControl>
 														{virtualKeysError ? (
-															<p className="text-destructive mt-1 text-xs">
-																Failed to load virtual keys: {getErrorMessage(virtualKeysError)}
-															</p>
+															<p className="text-destructive mt-1 text-xs">Failed to load users: {getErrorMessage(virtualKeysError)}</p>
 														) : (
 															<FormMessage />
 														)}

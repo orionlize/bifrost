@@ -1,5 +1,13 @@
 import { cn } from "@/components/ui/utils";
-import { useLazyGetBaseModelsQuery, useLazyGetModelsQuery } from "@/lib/store/apis/providersApi";
+import { filterModelsForProviderListing } from "@/lib/utils/providerModelListing";
+import { KnownProvidersNames } from "@/lib/constants/logs";
+import {
+	useGetModelsQuery,
+	useLazyGetBaseModelsQuery,
+	useLazyGetModelsQuery,
+	type GetModelsRequest,
+	type ModelResponse,
+} from "@/lib/store/apis/providersApi";
 import { X } from "lucide-react";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { components, MultiValueProps, OptionProps, SingleValueProps } from "react-select";
@@ -20,6 +28,8 @@ interface ModelMultiselectPropsBase {
 	loadModelsOnEmptyProvider?: boolean | "base_models";
 	/** Prepends an "Allow All Models" option (value: "*") to the dropdown */
 	allowAllOption?: boolean;
+	/** When true with allowAllOption, the dropdown stays enabled without a provider and only offers the wildcard option. */
+	allowAllOptionWithoutProvider?: boolean;
 	/** id for the search input (accessibility) */
 	inputId?: string;
 	/** id of element that labels this control (accessibility) */
@@ -60,6 +70,36 @@ interface ModelOption {
 
 const ALL_MODELS_OPTION: ModelOption = { label: "All Models", value: "*" };
 
+function filterModelsByProvider(models: ModelResponse[] | undefined, provider?: string): ModelResponse[] {
+	return filterModelsForProviderListing(models, provider);
+}
+
+function toModelOptions(models: ModelResponse[]): ModelOption[] {
+	return models.map((model) => ({
+		label: model.name,
+		value: model.name,
+		provider: model.provider,
+	}));
+}
+
+function buildModelsQueryArgs(
+	provider: string | undefined,
+	keys: string[] | undefined,
+	vks: string[] | undefined,
+	unfiltered: boolean,
+	limit: number,
+	query?: string,
+): GetModelsRequest {
+	return {
+		query: query || undefined,
+		provider: provider || undefined,
+		keys: keys && keys.length > 0 ? keys : undefined,
+		vks: vks && vks.length > 0 ? vks : undefined,
+		limit,
+		unfiltered,
+	};
+}
+
 export function ModelMultiselect(props: ModelMultiselectProps) {
 	const {
 		provider,
@@ -73,18 +113,40 @@ export function ModelMultiselect(props: ModelMultiselectProps) {
 		className,
 		loadModelsOnEmptyProvider = false,
 		allowAllOption = false,
+		allowAllOptionWithoutProvider = false,
 		clearable = false,
 	} = props;
 	const isSingleSelect = props.isSingleSelect === true;
 
-	const [getModels, { data: modelsData, isLoading }] = useLazyGetModelsQuery();
+	const providerScoped = !!provider;
+	const shouldUseBaseModels = loadModelsOnEmptyProvider === "base_models" && !provider;
+	const shouldLoadOnEmpty = !!loadModelsOnEmptyProvider;
+	const wildcardOnlyWithoutProvider = allowAllOptionWithoutProvider && allowAllOption && !provider;
+
+	const initialModelsArgs = useMemo(() => buildModelsQueryArgs(provider, keys, vks, unfiltered, 20), [provider, keys, vks, unfiltered]);
+	const unscopedModelsArgs = useMemo(() => buildModelsQueryArgs(undefined, keys, vks, unfiltered, 20), [keys, vks, unfiltered]);
+
+	// Provider-scoped catalog: subscribed query keyed by provider — avoids lazy-query cache bleed across dropdowns.
+	const {
+		data: providerModelsData,
+		isFetching: isProviderModelsFetching,
+		refetch: refetchProviderModels,
+	} = useGetModelsQuery(initialModelsArgs, { skip: !providerScoped });
+
+	const { data: unscopedModelsData, isFetching: isUnscopedModelsFetching } = useGetModelsQuery(unscopedModelsArgs, {
+		skip: providerScoped || shouldUseBaseModels || !shouldLoadOnEmpty || wildcardOnlyWithoutProvider,
+	});
+
+	const [searchModels] = useLazyGetModelsQuery();
 	const [getBaseModels, { data: baseModelsData, isLoading: isLoadingBaseModels }] = useLazyGetBaseModelsQuery();
 	const [inputValue, setInputValue] = useState("");
 	const inputValueRef = useRef("");
 
-	// Determine if we should use base models (no provider selected + "base_models" mode)
-	const shouldUseBaseModels = loadModelsOnEmptyProvider === "base_models" && !provider;
-	const shouldLoadOnEmpty = !!loadModelsOnEmptyProvider;
+	const scopedModels = useMemo(() => {
+		if (providerScoped) return filterModelsByProvider(providerModelsData?.models, provider);
+		if (shouldLoadOnEmpty && !shouldUseBaseModels) return unscopedModelsData?.models ?? [];
+		return [];
+	}, [providerScoped, providerModelsData?.models, provider, shouldLoadOnEmpty, shouldUseBaseModels, unscopedModelsData?.models]);
 
 	// Convert value to options (handle both single and multi select)
 	const stringValue = value as string;
@@ -95,35 +157,23 @@ export function ModelMultiselect(props: ModelMultiselectProps) {
 			: []
 		: arrayValue.map((model) => (model === "*" ? ALL_MODELS_OPTION : { label: model, value: model }));
 
-	// Fetch initial models on mount or when provider/keys/vks change
 	useEffect(() => {
-		if (provider) {
-			getModels({
-				provider,
-				keys: keys && keys.length > 0 ? keys : undefined,
-				vks: vks && vks.length > 0 ? vks : undefined,
-				limit: 5,
-				unfiltered,
-			});
-		} else if (shouldUseBaseModels) {
+		if (shouldUseBaseModels) {
 			getBaseModels({ limit: 20 });
-		} else if (shouldLoadOnEmpty) {
-			getModels({
-				keys: keys && keys.length > 0 ? keys : undefined,
-				vks: vks && vks.length > 0 ? vks : undefined,
-				limit: 20,
-				unfiltered,
-			});
 		}
-	}, [provider, keys, vks, getModels, getBaseModels, shouldLoadOnEmpty, shouldUseBaseModels]);
+	}, [shouldUseBaseModels, getBaseModels]);
 
 	// Load options function for AsyncMultiSelect
 	const loadOptions = useCallback(
 		(query: string, callback: (options: ModelOption[]) => void) => {
-			// Prepend "Allow All Models" when allowAllOption is enabled and query matches (or is empty)
 			const prefix: ModelOption[] = allowAllOption && (!query || "all models".includes(query.toLowerCase())) ? [ALL_MODELS_OPTION] : [];
 
 			if (!provider && !shouldLoadOnEmpty) {
+				callback(prefix);
+				return;
+			}
+
+			if (wildcardOnlyWithoutProvider) {
 				callback(prefix);
 				return;
 			}
@@ -144,33 +194,45 @@ export function ModelMultiselect(props: ModelMultiselectProps) {
 					.catch(() => {
 						callback(prefix);
 					});
-			} else {
-				getModels({
-					query: query || undefined,
-					provider: provider || undefined,
-					keys: keys && keys.length > 0 ? keys : undefined,
-					vks: vks && vks.length > 0 ? vks : undefined,
-					limit: query ? 50 : shouldLoadOnEmpty && !provider ? 20 : 5,
-					unfiltered,
-				})
+				return;
+			}
+
+			if (providerScoped) {
+				searchModels(buildModelsQueryArgs(provider, keys, vks, unfiltered, query ? 50 : 20, query))
 					.unwrap()
 					.then((response) => {
-						const options = response.models.map((model) => ({
-							label: model.name,
-							value: model.name,
-							provider: model.provider,
-						}));
-						callback([...prefix, ...options]);
+						callback([...prefix, ...toModelOptions(filterModelsByProvider(response.models, provider))]);
 					})
 					.catch(() => {
 						callback(prefix);
 					});
+				return;
 			}
+
+			searchModels(buildModelsQueryArgs(undefined, keys, vks, unfiltered, query ? 50 : 20, query))
+				.unwrap()
+				.then((response) => {
+					callback([...prefix, ...toModelOptions(response.models)]);
+				})
+				.catch(() => {
+					callback(prefix);
+				});
 		},
-		[getModels, getBaseModels, provider, keys, vks, shouldLoadOnEmpty, shouldUseBaseModels, allowAllOption],
+		[
+			allowAllOption,
+			getBaseModels,
+			keys,
+			provider,
+			providerScoped,
+			searchModels,
+			shouldLoadOnEmpty,
+			shouldUseBaseModels,
+			unfiltered,
+			vks,
+			wildcardOnlyWithoutProvider,
+		],
 	);
 
-	// Handle selection change
 	const handleChange = useCallback(
 		(options: Option<ModelOption>[]) => {
 			if (isSingleSelect) {
@@ -181,40 +243,39 @@ export function ModelMultiselect(props: ModelMultiselectProps) {
 				(onChange as (models: string[]) => void)(modelNames);
 			}
 
-			// Refresh the list with current query to update available options
 			const currentQuery = inputValueRef.current;
-			if (provider) {
-				getModels({
-					query: currentQuery || undefined,
-					provider,
-					keys: keys && keys.length > 0 ? keys : undefined,
-					vks: vks && vks.length > 0 ? vks : undefined,
-					limit: currentQuery ? 20 : 5,
-					unfiltered,
-				});
+			if (providerScoped) {
+				void refetchProviderModels();
+				if (currentQuery) {
+					void searchModels(buildModelsQueryArgs(provider, keys, vks, unfiltered, 20, currentQuery));
+				}
 			} else if (shouldUseBaseModels) {
 				getBaseModels({
 					query: currentQuery || undefined,
 					limit: currentQuery ? 20 : 20,
 				});
 			} else if (shouldLoadOnEmpty) {
-				getModels({
-					query: currentQuery || undefined,
-					keys: keys && keys.length > 0 ? keys : undefined,
-					vks: vks && vks.length > 0 ? vks : undefined,
-					limit: currentQuery ? 20 : 5,
-					unfiltered,
-				});
+				searchModels(buildModelsQueryArgs(undefined, keys, vks, unfiltered, 20, currentQuery || undefined));
 			}
 		},
-		[onChange, provider, keys, vks, getModels, getBaseModels, isSingleSelect, shouldLoadOnEmpty, shouldUseBaseModels],
+		[
+			onChange,
+			provider,
+			providerScoped,
+			keys,
+			vks,
+			searchModels,
+			refetchProviderModels,
+			isSingleSelect,
+			shouldLoadOnEmpty,
+			shouldUseBaseModels,
+			getBaseModels,
+			unfiltered,
+		],
 	);
 
-	// Handle input change - track in both state and ref
-	// Per react-select docs: ignore input clear on blur, menu close, and set-value (selection)
 	const handleInputChange = useCallback(
 		(newValue: string, actionMeta: { action: string }) => {
-			// Don't clear input on blur or menu close (preserves search while browsing)
 			if (!isSingleSelect && (actionMeta.action === "input-blur" || actionMeta.action === "menu-close")) {
 				return;
 			}
@@ -224,7 +285,6 @@ export function ModelMultiselect(props: ModelMultiselectProps) {
 		[isSingleSelect],
 	);
 
-	// Convert API data to options for default display
 	const defaultOptions: ModelOption[] = useMemo(() => {
 		const prefix = allowAllOption ? [ALL_MODELS_OPTION] : [];
 		if (shouldUseBaseModels) {
@@ -236,17 +296,23 @@ export function ModelMultiselect(props: ModelMultiselectProps) {
 				})) || []),
 			];
 		}
-		return [
-			...prefix,
-			...(modelsData?.models?.map((model) => ({
-				label: model.name,
-				value: model.name,
-				provider: model.provider,
-			})) || []),
-		];
-	}, [modelsData, baseModelsData, shouldUseBaseModels, allowAllOption]);
+		if (providerScoped) {
+			return [...prefix, ...toModelOptions(scopedModels)];
+		}
+		if (shouldLoadOnEmpty && !shouldUseBaseModels) {
+			return [...prefix, ...toModelOptions(scopedModels)];
+		}
+		return prefix;
+	}, [scopedModels, baseModelsData?.models, shouldUseBaseModels, shouldLoadOnEmpty, allowAllOption, providerScoped]);
 
-	const shouldBeDisabled = disabled || (!provider && !shouldLoadOnEmpty);
+	const shouldBeDisabled = disabled || (!provider && !shouldLoadOnEmpty && !wildcardOnlyWithoutProvider);
+	const isLoading = providerScoped
+		? isProviderModelsFetching
+		: shouldUseBaseModels
+			? isLoadingBaseModels
+			: shouldLoadOnEmpty
+				? isUnscopedModelsFetching
+				: false;
 
 	return (
 		<AsyncMultiSelect<ModelOption>
@@ -259,11 +325,12 @@ export function ModelMultiselect(props: ModelMultiselectProps) {
 			onChange={handleChange}
 			reload={loadOptions}
 			debounce={300}
-			isCreatable={true}
-			dynamicOptionCreation={true}
+			isCreatable={!providerScoped}
+			dynamicOptionCreation={!providerScoped}
 			createOptionText={"Press enter to add new model"}
+			selectKey={[provider ?? "", keys?.join(",") ?? "", vks?.join(",") ?? "", String(unfiltered), String(shouldUseBaseModels)].join("|")}
 			defaultOptions={defaultOptions.length > 0 ? defaultOptions : ([] as Option<ModelOption>[])}
-			isLoading={shouldUseBaseModels ? isLoadingBaseModels : isLoading}
+			isLoading={isLoading}
 			placeholder={placeholder}
 			disabled={shouldBeDisabled}
 			className={cn("!min-h-9 w-full", className)}
@@ -278,7 +345,13 @@ export function ModelMultiselect(props: ModelMultiselectProps) {
 			inputValue={inputValue}
 			onInputChange={handleInputChange}
 			noResultsFoundPlaceholder="No models found"
-			emptyResultPlaceholder={provider || shouldLoadOnEmpty ? "Start typing to search models..." : "Please select a provider first"}
+			emptyResultPlaceholder={
+				provider || shouldLoadOnEmpty || wildcardOnlyWithoutProvider
+					? wildcardOnlyWithoutProvider
+						? "Select any model or choose a provider first"
+						: "Start typing to search models..."
+					: "Please select a provider first"
+			}
 			views={{
 				dropdownIndicator: isSingleSelect ? undefined : () => <></>,
 				singleValue: isSingleSelect
@@ -292,7 +365,7 @@ export function ModelMultiselect(props: ModelMultiselectProps) {
 							return (
 								<div
 									{...multiValueProps.innerProps}
-									className="bg-accent dark:!bg-card flex cursor-pointer items-center gap-1 rounded-sm px-1 py-0.5 text-sm"
+									className="bg-accent text-accent-foreground flex cursor-pointer items-center gap-1 rounded-sm px-1 py-0.5 text-sm"
 								>
 									{multiValueProps.data.label}{" "}
 									<X
@@ -312,9 +385,7 @@ export function ModelMultiselect(props: ModelMultiselectProps) {
 							{...optionProps}
 							className={cn(
 								"flex w-full cursor-pointer items-center gap-2 rounded-sm px-2 py-2 text-sm",
-								optionProps.isFocused && "bg-accent dark:!bg-card",
-								"hover:bg-accent",
-								optionProps.isSelected && "bg-accent dark:!bg-card",
+								(optionProps.isFocused || optionProps.isSelected) && "bg-accent text-accent-foreground",
 							)}
 						>
 							<span className="grow truncate text-sm">{optionProps.data.label}</span>

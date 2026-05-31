@@ -107,7 +107,7 @@ function parseScopeKind(value: string | null): ScopeFilter {
 function scopeLabel(override: PricingOverride, _virtualKeyMap: Map<string, string>): string {
 	const scopeKind = resolveScopeKind(override);
 	if (override.virtual_key_id && scopeKind.startsWith("virtual_key")) {
-		return "Virtual Key";
+		return "User";
 	}
 	return "Global";
 }
@@ -300,7 +300,7 @@ export default function ScopedPricingOverridesView() {
 				<div>
 					<h2 className="text-lg font-semibold tracking-tight">Pricing Overrides</h2>
 					<p className="text-muted-foreground text-sm">
-						Set custom rates for any model across global or virtual key scopes, optionally narrowed to a specific provider or key
+						Set custom rates for any model across global or user scopes, optionally narrowed to a specific provider or key
 					</p>
 				</div>
 				<Button data-testid="pricing-override-create-btn" onClick={openCreateDrawer} className="gap-2">

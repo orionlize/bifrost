@@ -635,7 +635,7 @@ export class RoutingRulesPage extends BasePage {
         'global': 'Global',
         'team': 'Team',
         'customer': 'Customer',
-        'virtual_key': 'Virtual Key'
+        'virtual_key': 'User'
       }
 
       await this.page.getByRole('option', { name: labels[scope] }).click({ force: true })

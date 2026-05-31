@@ -23,6 +23,11 @@ type UsageUpdate struct {
 	Cost       float64               `json:"cost"` // Cost in dollars
 	RequestID  string                `json:"request_id"`
 	UserID     string                `json:"user_id,omitempty"` // User ID for enterprise user-level governance
+	// RawVirtualKey is the resolved virtual key value REGARDLESS of user-auth
+	// double-count suppression (which blanks VirtualKey when UserID is set). It is
+	// used solely to attribute per-user-group token usage, which must be recorded
+	// even for temp-credential / user-authenticated requests.
+	RawVirtualKey string `json:"raw_virtual_key,omitempty"`
 
 	// Streaming optimization fields
 	IsStreaming  bool `json:"is_streaming"`   // Whether this is a streaming response
@@ -36,6 +41,7 @@ type UsageTracker struct {
 	resolver    *BudgetResolver
 	configStore configstore.ConfigStore
 	logger      schemas.Logger
+	userGroups  *UserGroupManager // optional: tiered group degradation usage counters
 
 	// Background workers
 	trackerCtx    context.Context
@@ -66,6 +72,12 @@ func NewUsageTracker(ctx context.Context, store GovernanceStore, resolver *Budge
 	return tracker
 }
 
+// SetUserGroupManager wires the optional user-group degradation manager so the
+// tracker can accumulate per-user window token usage and reset expired windows.
+func (t *UsageTracker) SetUserGroupManager(mgr *UserGroupManager) {
+	t.userGroups = mgr
+}
+
 // UpdateUsage queues a usage update for async processing (main business entry point)
 func (t *UsageTracker) UpdateUsage(ctx context.Context, update *UsageUpdate) {
 	// Only process successful requests for usage tracking
@@ -78,6 +90,17 @@ func (t *UsageTracker) UpdateUsage(ctx context.Context, update *UsageUpdate) {
 	shouldUpdateTokens := !update.IsStreaming || (update.IsStreaming && update.HasUsageData)
 	shouldUpdateRequests := !update.IsStreaming || (update.IsStreaming && update.IsFinalChunk)
 	shouldUpdateBudget := !update.IsStreaming || (update.IsStreaming && update.HasUsageData)
+
+	// Accumulate per-user window token usage for tiered group degradation.
+	// This is done up-front using RawVirtualKey (not VirtualKey) so it still fires
+	// for temp-credential / user-authenticated requests, where VirtualKey is blanked
+	// to avoid double-counting VK budgets. The counter is keyed by the VK ID so it
+	// stays consistent with the transport pre-hook's degradation lookup.
+	if t.userGroups != nil && shouldUpdateTokens && update.TokensUsed > 0 && update.RawVirtualKey != "" {
+		if vk, ok := t.store.GetVirtualKey(ctx, update.RawVirtualKey); ok && vk != nil {
+			t.userGroups.RecordUsage(vk.ID, vk.ID, update.TokensUsed)
+		}
+	}
 
 	// 1. Update rate limit usage for both provider-level and model-level
 	// This applies even when virtual keys are disabled or not present
@@ -185,6 +208,11 @@ func (t *UsageTracker) resetExpiredCounters(ctx context.Context) {
 	}
 	if err := t.store.DumpBudgets(ctx, nil); err != nil {
 		t.logger.Error("failed to dump budgets to database: %v", err)
+	}
+
+	// ==== PART 4: Reset expired user-group windows + persist usage ====
+	if t.userGroups != nil {
+		t.userGroups.Tick(ctx)
 	}
 }
 

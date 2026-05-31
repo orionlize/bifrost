@@ -96,6 +96,8 @@ type ServerCallbacks interface {
 	RemoveProvider(ctx context.Context, provider schemas.ModelProvider) error
 	ReloadRoutingRule(ctx context.Context, id string) error
 	RemoveRoutingRule(ctx context.Context, id string) error
+	ReloadUserGroups(ctx context.Context) error
+	GetUserGroupUsage(ctx context.Context, groupID string) ([]governance.UserGroupMemberUsage, error)
 	// MCP related callbacks
 	AddMCPClient(ctx context.Context, clientConfig *schemas.MCPClientConfig) error
 	RemoveMCPClient(ctx context.Context, id string) error
@@ -743,6 +745,26 @@ func (s *BifrostHTTPServer) RemoveRoutingRule(ctx context.Context, id string) er
 		return fmt.Errorf("failed to delete routing rule from store: %w", err)
 	}
 	return nil
+}
+
+// ReloadUserGroups rebuilds the governance plugin's in-memory user-group
+// degradation cache after user-group CRUD operations.
+func (s *BifrostHTTPServer) ReloadUserGroups(ctx context.Context) error {
+	governancePlugin, err := s.getGovernancePlugin()
+	if err != nil {
+		return fmt.Errorf("governance plugin not found: %w", err)
+	}
+	return governancePlugin.ReloadUserGroups(ctx)
+}
+
+// GetUserGroupUsage returns the live per-member window usage and active tier for a
+// user group from the governance plugin's in-memory counters.
+func (s *BifrostHTTPServer) GetUserGroupUsage(ctx context.Context, groupID string) ([]governance.UserGroupMemberUsage, error) {
+	governancePlugin, err := s.getGovernancePlugin()
+	if err != nil {
+		return nil, fmt.Errorf("governance plugin not found: %w", err)
+	}
+	return governancePlugin.GetUserGroupUsage(ctx, groupID), nil
 }
 
 // ReloadClientConfigFromConfigStore reloads the client config from config store

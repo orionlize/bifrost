@@ -53,6 +53,8 @@ type GovernanceManager interface {
 	RemoveRoutingRule(ctx context.Context, id string) error
 	UpsertPricingOverride(ctx context.Context, override *configstoreTables.TablePricingOverride) error
 	DeletePricingOverride(ctx context.Context, id string) error
+	ReloadUserGroups(ctx context.Context) error
+	GetUserGroupUsage(ctx context.Context, groupID string) ([]governance.UserGroupMemberUsage, error)
 }
 
 // GovernanceHandler manages HTTP requests for governance operations
@@ -429,6 +431,15 @@ func (h *GovernanceHandler) RegisterRoutes(r *router.Router, middlewares ...sche
 	r.PUT("/api/governance/providers/{provider_name}", lib.ChainMiddlewares(h.updateProviderGovernance, middlewares...))
 	r.DELETE("/api/governance/providers/{provider_name}", lib.ChainMiddlewares(h.deleteProviderGovernance, middlewares...))
 
+	// User Group (tag) CRUD + tiered degradation operations
+	r.GET("/api/governance/user-groups", lib.ChainMiddlewares(h.getUserGroups, middlewares...))
+	r.POST("/api/governance/user-groups", lib.ChainMiddlewares(h.createUserGroup, middlewares...))
+	r.GET("/api/governance/user-groups/{group_id}", lib.ChainMiddlewares(h.getUserGroup, middlewares...))
+	r.PUT("/api/governance/user-groups/{group_id}", lib.ChainMiddlewares(h.updateUserGroup, middlewares...))
+	r.DELETE("/api/governance/user-groups/{group_id}", lib.ChainMiddlewares(h.deleteUserGroup, middlewares...))
+	r.PUT("/api/governance/user-groups/{group_id}/members", lib.ChainMiddlewares(h.setUserGroupMembers, middlewares...))
+	r.GET("/api/governance/user-groups/{group_id}/usage", lib.ChainMiddlewares(h.getUserGroupUsage, middlewares...))
+
 	// Pricing override operations
 	r.GET("/api/governance/pricing-overrides", lib.ChainMiddlewares(h.getPricingOverrides, middlewares...))
 	r.POST("/api/governance/pricing-overrides", lib.ChainMiddlewares(h.createPricingOverride, middlewares...))
@@ -524,7 +535,7 @@ func (h *GovernanceHandler) getVirtualKeys(ctx *fasthttp.RequestCtx) {
 		virtualKeys, totalCount, err := h.configStore.GetVirtualKeysPaginated(ctx, params)
 		if err != nil {
 			logger.Error("failed to retrieve virtual keys: %v", err)
-			SendError(ctx, 500, "Failed to retrieve virtual keys")
+			SendError(ctx, 500, "Failed to retrieve users")
 			return
 		}
 		SendJSON(ctx, map[string]interface{}{
@@ -541,7 +552,7 @@ func (h *GovernanceHandler) getVirtualKeys(ctx *fasthttp.RequestCtx) {
 	virtualKeys, err := h.configStore.GetVirtualKeys(ctx)
 	if err != nil {
 		logger.Error("failed to retrieve virtual keys: %v", err)
-		SendError(ctx, 500, "Failed to retrieve virtual keys")
+		SendError(ctx, 500, "Failed to retrieve users")
 		return
 	}
 	SendJSON(ctx, map[string]interface{}{
@@ -562,7 +573,7 @@ func (h *GovernanceHandler) createVirtualKey(ctx *fasthttp.RequestCtx) {
 	}
 	// Validate required fields
 	if req.Name == "" {
-		SendError(ctx, 400, "Virtual key name is required")
+		SendError(ctx, 400, "User name is required")
 		return
 	}
 	// Validate mutually exclusive TeamID and CustomerID
@@ -794,7 +805,7 @@ func (h *GovernanceHandler) createVirtualKey(ctx *fasthttp.RequestCtx) {
 	}
 
 	SendJSON(ctx, map[string]any{
-		"message":     "Virtual key created successfully",
+		"message":     "User created successfully",
 		"virtual_key": preloadedVk,
 	})
 }
@@ -818,16 +829,16 @@ func (h *GovernanceHandler) getVirtualKey(ctx *fasthttp.RequestCtx) {
 				return
 			}
 		}
-		SendError(ctx, 404, "Virtual key not found")
+		SendError(ctx, 404, "User not found")
 		return
 	}
 	vk, err := h.configStore.GetVirtualKey(ctx, vkID)
 	if err != nil {
 		if errors.Is(err, configstore.ErrNotFound) {
-			SendError(ctx, 404, "Virtual key not found")
+			SendError(ctx, 404, "User not found")
 			return
 		}
-		SendError(ctx, 500, "Failed to retrieve virtual key")
+		SendError(ctx, 500, "Failed to retrieve user")
 		return
 	}
 
@@ -852,10 +863,10 @@ func (h *GovernanceHandler) updateVirtualKey(ctx *fasthttp.RequestCtx) {
 	vk, err := h.configStore.GetVirtualKey(ctx, vkID)
 	if err != nil {
 		if errors.Is(err, configstore.ErrNotFound) {
-			SendError(ctx, 404, "Virtual key not found")
+			SendError(ctx, 404, "User not found")
 			return
 		}
-		SendError(ctx, 500, "Failed to retrieve virtual key")
+		SendError(ctx, 500, "Failed to retrieve user")
 		return
 	}
 	providerSet := map[schemas.ModelProvider]struct{}{}
@@ -1460,10 +1471,10 @@ func (h *GovernanceHandler) updateVirtualKey(ctx *fasthttp.RequestCtx) {
 		if errors.As(err, &badReqErr) ||
 			strings.Contains(err.Error(), "already exists") ||
 			strings.Contains(err.Error(), "duplicate key") {
-			SendError(ctx, 400, fmt.Sprintf("Failed to update virtual key: %v", err))
+			SendError(ctx, 400, fmt.Sprintf("Failed to update user: %v", err))
 			return
 		}
-		SendError(ctx, 500, fmt.Sprintf("Failed to update virtual key: %v", err))
+		SendError(ctx, 500, fmt.Sprintf("Failed to update user: %v", err))
 		return
 	}
 	// Load relationships for response
@@ -1475,7 +1486,7 @@ func (h *GovernanceHandler) updateVirtualKey(ctx *fasthttp.RequestCtx) {
 	if _, err := h.governanceManager.ReloadVirtualKey(ctx, vk.ID); err != nil {
 		// Should never happen but just in case
 		logger.Error("failed to reload virtual key after update: %v", err)
-		SendError(ctx, 500, "Virtual key updated in database but failed to reload in-memory state")
+		SendError(ctx, 500, "User updated in database but failed to reload in-memory state")
 		return
 	}
 
@@ -1494,7 +1505,7 @@ func (h *GovernanceHandler) updateVirtualKey(ctx *fasthttp.RequestCtx) {
 	}
 
 	SendJSON(ctx, map[string]interface{}{
-		"message":     "Virtual key updated successfully",
+		"message":     "User updated successfully",
 		"virtual_key": preloadedVk,
 	})
 }
@@ -1525,15 +1536,15 @@ func (h *GovernanceHandler) rotateVirtualKey(ctx *fasthttp.RequestCtx) {
 	preloadedVk, err := h.rotateVirtualKeyByID(ctx, vkID)
 	if err != nil {
 		if errors.Is(err, configstore.ErrNotFound) {
-			SendError(ctx, 404, "Virtual key not found")
+			SendError(ctx, 404, "User not found")
 			return
 		}
 		logger.Error("failed to rotate virtual key: %v", err)
-		SendError(ctx, 500, fmt.Sprintf("Failed to rotate virtual key: %v", err))
+		SendError(ctx, 500, fmt.Sprintf("Failed to rotate user: %v", err))
 		return
 	}
 	SendJSON(ctx, map[string]interface{}{
-		"message":     "Virtual key rotated successfully",
+		"message":     "User rotated successfully",
 		"virtual_key": preloadedVk,
 	})
 }
@@ -1546,7 +1557,7 @@ func (h *GovernanceHandler) rotateVirtualKeys(ctx *fasthttp.RequestCtx) {
 		return
 	}
 	if len(req.IDs) == 0 {
-		SendError(ctx, 400, "At least one virtual key ID is required")
+		SendError(ctx, 400, "At least one user ID is required")
 		return
 	}
 
@@ -1555,7 +1566,7 @@ func (h *GovernanceHandler) rotateVirtualKeys(ctx *fasthttp.RequestCtx) {
 	for _, id := range req.IDs {
 		id = strings.TrimSpace(id)
 		if id == "" {
-			SendError(ctx, 400, "Virtual key ID cannot be empty")
+			SendError(ctx, 400, "User ID cannot be empty")
 			return
 		}
 		if _, exists := seen[id]; exists {
@@ -1571,7 +1582,7 @@ func (h *GovernanceHandler) rotateVirtualKeys(ctx *fasthttp.RequestCtx) {
 		vk, err := h.rotateVirtualKeyByID(ctx, id)
 		if err != nil {
 			if errors.Is(err, configstore.ErrNotFound) {
-				failures[id] = "virtual key not found"
+				failures[id] = "user not found"
 			} else {
 				failures[id] = err.Error()
 			}
@@ -1582,14 +1593,14 @@ func (h *GovernanceHandler) rotateVirtualKeys(ctx *fasthttp.RequestCtx) {
 	}
 
 	response := map[string]interface{}{
-		"message":      "Virtual keys rotated successfully",
+		"message":      "Users rotated successfully",
 		"virtual_keys": rotated,
 	}
 	if len(failures) > 0 {
 		response["errors"] = failures
 	}
 	if len(rotated) == 0 {
-		response["message"] = "Failed to rotate virtual keys"
+		response["message"] = "Failed to rotate users"
 		SendJSONWithStatus(ctx, response, 500)
 		return
 	}
@@ -1603,20 +1614,20 @@ func (h *GovernanceHandler) deleteVirtualKey(ctx *fasthttp.RequestCtx) {
 	vk, err := h.configStore.GetVirtualKey(ctx, vkID)
 	if err != nil {
 		if errors.Is(err, configstore.ErrNotFound) {
-			SendError(ctx, 404, "Virtual key not found")
+			SendError(ctx, 404, "User not found")
 			return
 		}
-		SendError(ctx, 500, "Failed to retrieve virtual key")
+		SendError(ctx, 500, "Failed to retrieve user")
 		return
 	}
 	// Deleting key from database
 	if err := h.configStore.DeleteVirtualKey(ctx, vkID); err != nil {
 		if errors.Is(err, configstore.ErrNotFound) {
-			SendError(ctx, 404, "Virtual key not found")
+			SendError(ctx, 404, "User not found")
 			return
 		}
 		logger.Error("failed to delete virtual key: %v", err)
-		SendError(ctx, 500, "Failed to delete virtual key")
+		SendError(ctx, 500, "Failed to delete user")
 		return
 	}
 	// Removing key from in-memory store
@@ -1626,7 +1637,7 @@ func (h *GovernanceHandler) deleteVirtualKey(ctx *fasthttp.RequestCtx) {
 		logger.Error("failed to remove virtual key: %v", err)
 	}
 	SendJSON(ctx, map[string]interface{}{
-		"message": "Virtual key deleted successfully",
+		"message": "User deleted successfully",
 	})
 }
 
@@ -4210,17 +4221,17 @@ func (h *GovernanceHandler) getVirtualKeyQuota(ctx *fasthttp.RequestCtx) {
 		vkValue = *v
 	}
 	if vkValue == "" {
-		SendError(ctx, 401, "Missing virtual key. Provide it via x-bf-vk header, Authorization Bearer, x-api-key, or x-goog-api-key header.")
+		SendError(ctx, 401, "Missing user. Provide it via x-bf-vk header, Authorization Bearer, x-api-key, or x-goog-api-key header.")
 		return
 	}
 
 	vk, err := h.configStore.GetVirtualKeyQuotaByValue(ctx, vkValue)
 	if err != nil {
 		if errors.Is(err, configstore.ErrNotFound) {
-			SendError(ctx, 401, "Virtual key not found")
+			SendError(ctx, 401, "User not found")
 			return
 		}
-		SendError(ctx, 500, "Failed to retrieve virtual key")
+		SendError(ctx, 500, "Failed to retrieve user")
 		return
 	}
 

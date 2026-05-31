@@ -65,7 +65,7 @@ interface EntityAssociationSelectProps {
 
 // Default placeholder text for each entity type
 const defaultPlaceholders: Record<EntityType, string> = {
-	virtualKey: "Add virtual key names...",
+	virtualKey: "Add user names...",
 	team: "Add team names...",
 	customer: "Add customer names...",
 	user: "Add user names...",
@@ -75,7 +75,7 @@ const defaultPlaceholders: Record<EntityType, string> = {
 
 // Default no options messages for each entity type
 const defaultNoOptionsMessages: Record<EntityType, string> = {
-	virtualKey: "No virtual keys found",
+	virtualKey: "No users found",
 	team: "No teams found",
 	customer: "No customers found",
 	user: "No users found",
@@ -85,7 +85,7 @@ const defaultNoOptionsMessages: Record<EntityType, string> = {
 
 // Label text for each entity type
 export const entityTypeLabels: Record<EntityType, string> = {
-	virtualKey: "Virtual Keys",
+	virtualKey: "Users",
 	team: "Teams",
 	customer: "Customers",
 	user: "Users",

@@ -248,7 +248,7 @@ export function MCPLogDetailSheet({
 									)
 								}
 							/>
-							{displayLog.virtual_key && <LogEntryDetailsView className="w-full" label="Virtual Key" value={displayLog.virtual_key.name} />}
+							{displayLog.virtual_key && <LogEntryDetailsView className="w-full" label="User" value={displayLog.virtual_key.name} />}
 							{displayLog.llm_request_id && (
 								<LogEntryDetailsView
 									className="col-span-3 w-full"

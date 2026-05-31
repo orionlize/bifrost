@@ -555,12 +555,12 @@ func (h *MCPServerHandler) getMCPServerForRequest(ctx *fasthttp.RequestCtx) (*se
 	}
 
 	if vk == "" {
-		return nil, fmt.Errorf("virtual key required to access mcp server; set one of x-bf-vk, Authorization: Bearer <vk>, or x-api-key in your MCP client config")
+		return nil, fmt.Errorf("user required to access mcp server; set one of x-bf-vk, Authorization: Bearer <vk>, or x-api-key in your MCP client config")
 	}
 
 	vkServer, ok := h.vkMCPServers[vk]
 	if !ok {
-		return nil, fmt.Errorf("virtual key not found")
+		return nil, fmt.Errorf("user not found")
 	}
 	return vkServer, nil
 }

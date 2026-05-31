@@ -217,7 +217,7 @@ export default function MCPView() {
 						</label>
 						<p className="text-muted-foreground text-sm">
 							When enabled, MCP tools are not automatically included in every request. Tools are only injected when explicitly specified via
-							request headers (<code className="text-xs">x-bf-mcp-include-tools</code>) and still must be allowed by the virtual key MCP
+							request headers (<code className="text-xs">x-bf-mcp-include-tools</code>) and still must be allowed by the user MCP
 							configuration.
 						</p>
 					</div>

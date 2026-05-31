@@ -149,7 +149,7 @@ export default function OnboardingWidget() {
 					},
 					{
 						id: "virtual-keys",
-						title: "Set up virtual keys / access profiles",
+						title: "Set up users / access profiles",
 						route: "/workspace/virtual-keys",
 						section: "Everything Else",
 						complete: (vksResponse?.total_count ?? 0) > 0,

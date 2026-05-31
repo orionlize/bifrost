@@ -38,6 +38,7 @@ import {
 } from "./multiselectUtils";
 import { Separator } from "./separator";
 import { cn, radixDialogOnBlurWorkaround } from "./utils";
+import "./multiselect.css";
 
 // Create wrapper functions for react-select components to fix TypeScript issues
 const OptionWrapper = <T extends unknown = unknown>(props: OptionProps<T, boolean, GroupBase<T>>): React.ReactNode => {
@@ -147,6 +148,8 @@ interface AsyncMultiSelectProps<T> {
 	dynamicOptionCreation?: boolean;
 	/** default options to be displayed */
 	defaultOptions?: Option<T>[] | OptionGroup<T>[];
+	/** Remount react-select when scope changes (e.g. provider) to clear stale async option cache. */
+	selectKey?: string;
 	onChange?: (items: Option<T>[]) => any;
 	/** callback function to be called when a new option is created */
 	onCreateOption?: (value: string) => void;
@@ -346,6 +349,8 @@ export function AsyncMultiSelect<T>(props: AsyncMultiSelectProps<T>) {
 	return (
 		<div ref={containerRef} data-testid={props["data-testid"]}>
 			<AsyncCreatableSelect
+				key={props.selectKey}
+				unstyled
 				isDisabled={props.disabled}
 				autoFocus={props.autoFocus}
 				onKeyDown={handleKeyDown}
@@ -437,23 +442,26 @@ export function AsyncMultiSelect<T>(props: AsyncMultiSelectProps<T>) {
 					container: () => cn("min-h-8 border-none", props.className),
 					control: () =>
 						cn(
-							"border-border! multiselect-control dark:!bg-accent flex flex-wrap items-start justify-between rounded-md border bg-white",
+							"border-border multiselect-control bg-background dark:bg-input/30 flex flex-wrap items-start justify-between rounded-md border",
 							props.triggerClassName,
 						),
-					placeholder: () => "text-sm text-content-disabled truncate p-0 text-ellipsis",
+					placeholder: () => "text-muted-foreground truncate p-0 text-sm text-ellipsis",
 					group: () => cn(props.groupClassName),
-					input: () => "text-sm m-0 border-none p-0 !text-secondary-foreground",
-					menu: () => cn("dark:!bg-accent p-0", props.menuClassName),
-					menuList: () => cn("p-2", props.menuListClassName),
+					input: () => "text-foreground m-0 border-none p-0 text-sm",
+					menu: () => cn("bg-popover text-popover-foreground border-border rounded-md border shadow-md", props.menuClassName),
+					menuList: () => cn("p-1", props.menuListClassName),
 					valueContainer: () => cn("flex h-full w-full", props.valueContainerClassName),
-					option: ({ isFocused }) =>
-						cn("multiselect-option flex w-full justify-between rounded-sm p-2 text-sm", isFocused && "bg-background-highlight-primary/60"),
-					singleValue: () => "text-sm text-content-primary",
-					multiValue: () => "bg-accent dark:!bg-card flex cursor-pointer items-center gap-1 rounded-sm px-1 py-0.5 text-sm",
-					multiValueLabel: () => "text-content-tertiary",
-					multiValueRemove: () => "text-content-tertiary h-inherit flex items-center opacity-60 hover:cursor-pointer hover:opacity-100",
-					loadingMessage: () => "text-sm",
-					noOptionsMessage: () => cn("text-content-disabled flex items-center justify-center text-sm", props.noOptionsMessageClassName),
+					option: ({ isFocused, isSelected }) =>
+						cn(
+							"multiselect-option text-foreground flex w-full cursor-pointer rounded-sm p-2 text-sm",
+							(isFocused || isSelected) && "bg-accent text-accent-foreground",
+						),
+					singleValue: () => "text-foreground text-sm",
+					multiValue: () => "bg-accent text-accent-foreground flex cursor-pointer items-center gap-1 rounded-sm px-1 py-0.5 text-sm",
+					multiValueLabel: () => "text-foreground",
+					multiValueRemove: () => "text-muted-foreground h-inherit flex items-center opacity-60 hover:cursor-pointer hover:opacity-100",
+					loadingMessage: () => "text-muted-foreground text-sm",
+					noOptionsMessage: () => cn("text-muted-foreground flex items-center justify-center text-sm", props.noOptionsMessageClassName),
 					indicatorsContainer: () => "h-8",
 				}}
 				minMenuHeight={160}
@@ -557,7 +565,7 @@ function CustomOption<T>(props: OptionProps<Option<T>> & { selectProps: CustomOp
 				{props.options.length > 1 && <Separator />}
 				<OptionWrapper {...props} className="flex w-full items-center justify-start gap-1">
 					{props.selectProps.hidePlusIcon !== true && <PlusIcon size={14} />}
-					<div className="text-content-primary">{props.selectProps.createOptionText}</div>
+					<div className="text-foreground">{props.selectProps.createOptionText}</div>
 				</OptionWrapper>
 			</div>
 		);
@@ -568,7 +576,7 @@ function CustomOption<T>(props: OptionProps<Option<T>> & { selectProps: CustomOp
 			{props.children}
 			<div className="flex items-center justify-between">
 				{props.selectProps.hideSelectedOptions !== true && props.isSelected && (
-					<CheckIcon size={14} className={cn("text-content-primary", props.selectProps.checkIconStyling)} />
+					<CheckIcon size={14} className={cn("text-accent-foreground", props.selectProps.checkIconStyling)} />
 				)}
 			</div>
 		</OptionWrapper>
@@ -593,7 +601,7 @@ function CustomDropdownIndicator<T>(
 	if (props.selectProps.hideDropdownIndicator) {
 		return null;
 	}
-	return <ChevronDown className="text-content-primary m-2 mt-2.5 h-4 w-4 shrink-0 self-start opacity-50" />;
+	return <ChevronDown className="text-muted-foreground m-2 mt-2.5 h-4 w-4 shrink-0 self-start opacity-50" />;
 }
 
 function CustomMultiValueRemove<T>(props: MultiValueRemoveProps<Option<T>> & { selectProps: CustomComponentsProps }) {

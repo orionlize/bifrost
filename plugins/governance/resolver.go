@@ -241,7 +241,7 @@ func (r *BudgetResolver) EvaluateVirtualKeyRequest(ctx *schemas.BifrostContext, 
 	if !exists {
 		return &EvaluationResult{
 			Decision: DecisionVirtualKeyNotFound,
-			Reason:   "Virtual key not found",
+			Reason:   "User not found",
 		}
 	}
 	// Set virtual key id and name in context
@@ -268,7 +268,7 @@ func (r *BudgetResolver) EvaluateVirtualKeyRequest(ctx *schemas.BifrostContext, 
 	if !vk.IsActiveValue() {
 		return &EvaluationResult{
 			Decision: DecisionVirtualKeyBlocked,
-			Reason:   "Virtual key is inactive",
+			Reason:   "User is inactive",
 		}
 	}
 	// 2. Check provider filtering

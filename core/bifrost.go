@@ -4738,6 +4738,9 @@ func (bifrost *Bifrost) tryRequest(ctx *schemas.BifrostContext, req *schemas.Bif
 		bifrostErr.PopulateExtraFields(req.RequestType, provider, model, model)
 		return nil, bifrostErr
 	}
+	// Remember the provider the queue was selected for, so we can re-select it if a
+	// PreLLMHook (e.g. governance tiered degradation) routes to a different provider.
+	queuedProvider := provider
 
 	// Add MCP tools to request if MCP is configured and requested
 	if bifrost.MCPManager != nil {
@@ -4803,6 +4806,22 @@ func (bifrost *Bifrost) tryRequest(ctx *schemas.BifrostContext, req *schemas.Bif
 	}
 
 	provider, model, _ = preReq.GetRequestFields()
+
+	// A PreLLMHook may have routed this request to a different provider (e.g.
+	// governance tiered degradation substituting a cheaper model on another
+	// provider). The queue was bound to the original provider before the hooks ran,
+	// so re-select it here to dispatch to the new provider's workers. Without this,
+	// the request would run on the original provider with the substituted model and
+	// fail with "unknown provider for model ...".
+	if provider != queuedProvider {
+		newPq, qErr := bifrost.getProviderQueue(provider)
+		if qErr != nil {
+			bifrostErr := newBifrostError(qErr)
+			bifrostErr.PopulateExtraFields(req.RequestType, provider, model, model)
+			return nil, bifrostErr
+		}
+		pq = newPq
+	}
 
 	msg := bifrost.getChannelMessage(*preReq)
 	msg.Context = ctx
@@ -4973,6 +4992,9 @@ func (bifrost *Bifrost) tryStreamRequest(ctx *schemas.BifrostContext, req *schem
 		bifrostErr.PopulateExtraFields(req.RequestType, provider, model, model)
 		return nil, bifrostErr
 	}
+	// Remember the provider the queue was selected for, so we can re-select it if a
+	// PreLLMHook (e.g. governance tiered degradation) routes to a different provider.
+	queuedProvider := provider
 
 	// Add MCP tools to request if MCP is configured and requested
 	if req.RequestType != schemas.SpeechStreamRequest && req.RequestType != schemas.TranscriptionStreamRequest && bifrost.MCPManager != nil {
@@ -5142,6 +5164,22 @@ func (bifrost *Bifrost) tryStreamRequest(ctx *schemas.BifrostContext, req *schem
 	}
 
 	provider, model, _ = preReq.GetRequestFields()
+
+	// A PreLLMHook may have routed this request to a different provider (e.g.
+	// governance tiered degradation substituting a cheaper model on another
+	// provider). The queue was bound to the original provider before the hooks ran,
+	// so re-select it here to dispatch to the new provider's workers. Without this,
+	// the request would run on the original provider with the substituted model and
+	// fail with "unknown provider for model ...".
+	if provider != queuedProvider {
+		newPq, qErr := bifrost.getProviderQueue(provider)
+		if qErr != nil {
+			bifrostErr := newBifrostError(qErr)
+			bifrostErr.PopulateExtraFields(req.RequestType, provider, model, model)
+			return nil, bifrostErr
+		}
+		pq = newPq
+	}
 
 	msg := bifrost.getChannelMessage(*preReq)
 	msg.Context = ctx

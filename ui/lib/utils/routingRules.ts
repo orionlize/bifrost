@@ -92,7 +92,7 @@ export function getScopeLabel(scope: string): string {
 		global: "Global",
 		team: "Team",
 		customer: "Customer",
-		virtual_key: "Virtual Key",
+		virtual_key: "User",
 	};
 	return labels[scope] || scope;
 }

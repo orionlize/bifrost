@@ -600,7 +600,7 @@ export class VirtualKeysPage extends BasePage {
 
     // Check if it's the empty state row
     const firstRowText = await rows.first().textContent();
-    if (firstRowText?.includes("No virtual keys found")) {
+    if (firstRowText?.includes("No matching users found")) {
       return 0;
     }
 

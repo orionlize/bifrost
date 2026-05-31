@@ -100,8 +100,8 @@ function TeamActionsMenu({
 					<AlertDialogHeader>
 						<AlertDialogTitle>Delete Team</AlertDialogTitle>
 						<AlertDialogDescription>
-							Are you sure you want to delete &quot;{team.name}&quot;? This will also unassign any virtual keys from this team. This action
-							cannot be undone.
+							Are you sure you want to delete &quot;{team.name}&quot;? This will also unassign any users from this team. This action cannot
+							be undone.
 						</AlertDialogDescription>
 					</AlertDialogHeader>
 					<AlertDialogFooter>
@@ -252,7 +252,7 @@ export default function TeamsTable({
 									<TableHead>Customer</TableHead>
 									<TableHead>Budget</TableHead>
 									<TableHead>Rate Limit</TableHead>
-									<TableHead>Virtual Keys</TableHead>
+									<TableHead>Users</TableHead>
 									<TableHead className={`bg-muted sticky right-0 z-10 w-[56px] text-right ${PIN_SHADOW_RIGHT}`}></TableHead>
 								</TableRow>
 							</TableHeader>

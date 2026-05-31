@@ -94,7 +94,7 @@ export default function GovernanceVirtualKeysPage() {
 		if (vkError && teamsError && customersError) {
 			toast.error("Failed to load governance data.");
 		} else {
-			if (vkError) toast.error(`Failed to load virtual keys: ${getErrorMessage(vkError)}`);
+			if (vkError) toast.error(`Failed to load users: ${getErrorMessage(vkError)}`);
 			if (teamsError) toast.error(`Failed to load teams: ${getErrorMessage(teamsError)}`);
 			if (customersError) toast.error(`Failed to load customers: ${getErrorMessage(customersError)}`);
 		}

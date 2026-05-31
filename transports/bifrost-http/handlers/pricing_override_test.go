@@ -59,6 +59,12 @@ func (pricingOverrideTestGovernanceManager) ReloadRoutingRule(context.Context, s
 func (pricingOverrideTestGovernanceManager) RemoveRoutingRule(context.Context, string) error {
 	return nil
 }
+func (pricingOverrideTestGovernanceManager) ReloadUserGroups(context.Context) error {
+	return nil
+}
+func (pricingOverrideTestGovernanceManager) GetUserGroupUsage(context.Context, string) ([]governance.UserGroupMemberUsage, error) {
+	return nil, nil
+}
 func (pricingOverrideTestGovernanceManager) UpsertPricingOverride(context.Context, *configstoreTables.TablePricingOverride) error {
 	return nil
 }

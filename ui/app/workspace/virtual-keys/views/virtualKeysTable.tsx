@@ -138,9 +138,9 @@ function VKActiveSwitch({
 		<Switch
 			checked={vk.is_active}
 			disabled={!hasUpdateAccess || isManagedByProfile}
-			aria-label={`${vk.is_active ? "Disable" : "Enable"} virtual key ${vk.name}`}
+			aria-label={`${vk.is_active ? "Disable" : "Enable"} user ${vk.name}`}
 			data-testid={`vk-active-switch-${vk.name}`}
-			title={isManagedByProfile ? "This virtual key is managed by an access profile." : undefined}
+			title={isManagedByProfile ? "This user is managed by an access profile." : undefined}
 			onAsyncCheckedChange={(checked) => onToggle(vk, checked)}
 		/>
 	);
@@ -169,13 +169,7 @@ function VKActionsMenu({
 		<>
 			<DropdownMenu open={isOpen} onOpenChange={setIsOpen}>
 				<DropdownMenuTrigger asChild>
-					<Button
-						variant="ghost"
-						size="icon"
-						className="h-8 w-8"
-						aria-label="Virtual key actions"
-						data-testid={`vk-actions-btn-${vk.name}`}
-					>
+					<Button variant="ghost" size="icon" className="h-8 w-8" aria-label="User actions" data-testid={`vk-actions-btn-${vk.name}`}>
 						<MoreHorizontal className="h-4 w-4" />
 					</Button>
 				</DropdownMenuTrigger>
@@ -198,7 +192,7 @@ function VKActionsMenu({
 						className="cursor-pointer"
 						disabled={!hasDeleteAccess || isManagedByProfile}
 						data-testid={`vk-delete-btn-${vk.name}`}
-						title={isManagedByProfile ? "This virtual key is managed by an access profile and can't be deleted here." : undefined}
+						title={isManagedByProfile ? "This user is managed by an access profile and can't be deleted here." : undefined}
 						onSelect={(e) => {
 							e.preventDefault();
 							setDeleteOpen(true);
@@ -213,7 +207,7 @@ function VKActionsMenu({
 			<AlertDialog open={deleteOpen} onOpenChange={setDeleteOpen}>
 				<AlertDialogContent>
 					<AlertDialogHeader>
-						<AlertDialogTitle>Delete Virtual Key</AlertDialogTitle>
+						<AlertDialogTitle>Delete User</AlertDialogTitle>
 						<AlertDialogDescription>
 							Are you sure you want to delete &quot;
 							{vk.name.length > 20 ? `${vk.name.slice(0, 20)}...` : vk.name}
@@ -353,7 +347,7 @@ export default function VirtualKeysTable({
 	const handleDelete = async (vkId: string) => {
 		try {
 			await deleteVirtualKey(vkId).unwrap();
-			toast.success("Virtual key deleted successfully");
+			toast.success("User deleted successfully");
 		} catch (error) {
 			toast.error(getErrorMessage(error));
 		}
@@ -365,7 +359,7 @@ export default function VirtualKeysTable({
 				vkId: vk.id,
 				data: { is_active: checked },
 			}).unwrap();
-			toast.success(`Virtual key ${checked ? "enabled" : "disabled"}`);
+			toast.success(`User ${checked ? "enabled" : "disabled"}`);
 		} catch (error) {
 			toast.error(getErrorMessage(error));
 			throw error;
@@ -397,9 +391,9 @@ export default function VirtualKeysTable({
 
 			const failureCount = result.errors ? Object.keys(result.errors).length : 0;
 			if (failureCount > 0) {
-				toast.warning(`Rotated ${result.virtual_keys.length} virtual keys. ${failureCount} failed.`);
+				toast.warning(`Rotated ${result.virtual_keys.length} users. ${failureCount} failed.`);
 			} else {
-				toast.success(`Rotated ${result.virtual_keys.length} virtual keys`);
+				toast.success(`Rotated ${result.virtual_keys.length} users`);
 			}
 		} catch (error) {
 			toast.error(getErrorMessage(error));
@@ -520,7 +514,7 @@ export default function VirtualKeysTable({
 	const handleExportCSV = async () => {
 		if (exportScope === "current_page") {
 			downloadCSV(virtualKeysToCSV(virtualKeys));
-			toast.success(`Exported ${virtualKeys.length} virtual keys`);
+			toast.success(`Exported ${virtualKeys.length} users`);
 			setShowExportDialog(false);
 			return;
 		}
@@ -542,7 +536,7 @@ export default function VirtualKeysTable({
 			}).unwrap();
 
 			downloadCSV(virtualKeysToCSV(result.virtual_keys));
-			toast.success(`Exported ${result.virtual_keys.length} virtual keys`);
+			toast.success(`Exported ${result.virtual_keys.length} users`);
 			setShowExportDialog(false);
 		} catch (error) {
 			toast.error(`Export failed: ${getErrorMessage(error)}`);
@@ -610,7 +604,7 @@ export default function VirtualKeysTable({
 			<Dialog open={showExportDialog} onOpenChange={setShowExportDialog}>
 				<DialogContent className="sm:max-w-[425px]">
 					<DialogHeader className="pb-0">
-						<DialogTitle>Export Virtual Keys</DialogTitle>
+						<DialogTitle>Export Users</DialogTitle>
 						<DialogDescription>Download as CSV with current filters and sorting applied.</DialogDescription>
 					</DialogHeader>
 					<div className="space-y-4">
@@ -701,11 +695,10 @@ export default function VirtualKeysTable({
 			<AlertDialog open={showBulkRotateDialog} onOpenChange={setShowBulkRotateDialog}>
 				<AlertDialogContent>
 					<AlertDialogHeader>
-						<AlertDialogTitle>Rotate selected virtual keys?</AlertDialogTitle>
+						<AlertDialogTitle>Rotate selected users?</AlertDialogTitle>
 						<AlertDialogDescription>
-							This will replace the secret value for {selectedCount} selected virtual {selectedCount === 1 ? "key" : "keys"}. IDs, budgets,
-							rate limits, provider permissions, MCP access, and assignments stay the same. Previous key values will stop working
-							immediately.
+							This will replace the secret value for {selectedCount} selected {selectedCount === 1 ? "user" : "users"}. IDs, budgets, rate
+							limits, provider permissions, MCP access, and assignments stay the same. Previous key values will stop working immediately.
 						</AlertDialogDescription>
 					</AlertDialogHeader>
 					<AlertDialogFooter>
@@ -724,8 +717,8 @@ export default function VirtualKeysTable({
 			<div className="flex min-h-0 w-full grow flex-col overflow-hidden">
 				<div className="mb-4 flex shrink-0 items-center justify-between">
 					<div>
-						<h2 className="text-lg font-semibold">Virtual Keys</h2>
-						<p className="text-muted-foreground text-sm">Manage virtual keys, their permissions, budgets, and rate limits.</p>
+						<h2 className="text-lg font-semibold">Users</h2>
+						<p className="text-muted-foreground text-sm">Manage users, their permissions, budgets, and rate limits.</p>
 					</div>
 					<div className="flex items-center gap-2">
 						{selectedCount > 0 && (
@@ -745,7 +738,7 @@ export default function VirtualKeysTable({
 						</Button>
 						<Button onClick={handleAddVirtualKey} disabled={!hasCreateAccess} data-testid="create-vk-btn">
 							<Plus className="h-4 w-4" />
-							Add Virtual Key
+							Add User
 						</Button>
 					</div>
 				</div>
@@ -755,7 +748,7 @@ export default function VirtualKeysTable({
 					<div className="relative max-w-sm flex-1">
 						<Search className="text-muted-foreground absolute top-1/2 left-3 h-4 w-4 -translate-y-1/2" />
 						<Input
-							aria-label="Search virtual keys by name"
+							aria-label="Search users by name"
 							placeholder="Search by name..."
 							value={search}
 							onChange={(e) => onSearchChange(e.target.value)}
@@ -790,7 +783,7 @@ export default function VirtualKeysTable({
 									<Checkbox
 										checked={allVisibleSelected || (someVisibleSelected ? "indeterminate" : false)}
 										onCheckedChange={(checked) => toggleSelectAllVisible(checked === true)}
-										aria-label="Select all virtual keys on this page"
+										aria-label="Select all users on this page"
 										data-testid="vk-select-all-checkbox"
 									/>
 								</TableHead>
@@ -813,7 +806,7 @@ export default function VirtualKeysTable({
 							{virtualKeys.length === 0 ? (
 								<TableRow>
 									<TableCell colSpan={8} className="h-24 text-center">
-										<span className="text-muted-foreground text-sm">No matching virtual keys found.</span>
+										<span className="text-muted-foreground text-sm">No matching users found.</span>
 									</TableCell>
 								</TableRow>
 							) : (
@@ -831,7 +824,7 @@ export default function VirtualKeysTable({
 												<Checkbox
 													checked={selectedIds.has(vk.id)}
 													onCheckedChange={(checked) => toggleSelectVirtualKey(vk.id, checked === true)}
-													aria-label={`Select virtual key ${vk.name}`}
+													aria-label={`Select user ${vk.name}`}
 													data-testid={`vk-select-checkbox-${vk.name}`}
 												/>
 											</TableCell>

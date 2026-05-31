@@ -58,6 +58,8 @@ type BaseGovernancePlugin interface {
 	PostMCPHook(ctx *schemas.BifrostContext, resp *schemas.BifrostMCPResponse, bifrostErr *schemas.BifrostError) (*schemas.BifrostMCPResponse, *schemas.BifrostError, error)
 	Cleanup() error
 	GetGovernanceStore() GovernanceStore
+	ReloadUserGroups(ctx context.Context) error
+	GetUserGroupUsage(ctx context.Context, groupID string) []UserGroupMemberUsage
 }
 
 // GovernancePlugin implements the main governance plugin with hierarchical budget system
@@ -68,10 +70,11 @@ type GovernancePlugin struct {
 	cleanupOnce sync.Once      // Ensure cleanup happens only once
 
 	// Core components with clear separation of concerns
-	store    GovernanceStore // Pure data access layer
-	resolver *BudgetResolver // Pure decision engine for hierarchical governance
-	tracker  *UsageTracker   // Business logic owner (updates, resets, persistence)
-	engine   *RoutingEngine  // Routing engine for dynamic routing
+	store      GovernanceStore   // Pure data access layer
+	resolver   *BudgetResolver   // Pure decision engine for hierarchical governance
+	tracker    *UsageTracker     // Business logic owner (updates, resets, persistence)
+	engine     *RoutingEngine    // Routing engine for dynamic routing
+	userGroups *UserGroupManager // Tiered, group-based model degradation
 
 	// Dependencies
 	configStore  configstore.ConfigStore
@@ -211,6 +214,13 @@ func Init(
 		return nil, fmt.Errorf("failed to initialize routing engine: %w", err)
 	}
 
+	// 6. User-group degradation manager (tiered model downgrade by group)
+	userGroups := NewUserGroupManager(configStore, logger)
+	if err := userGroups.Load(ctx); err != nil {
+		logger.Warn("failed to load user groups for degradation: %v", err)
+	}
+	tracker.SetUserGroupManager(userGroups)
+
 	ctx, cancelFunc := context.WithCancel(ctx)
 	plugin := &GovernancePlugin{
 		ctx:                   ctx,
@@ -219,6 +229,7 @@ func Init(
 		resolver:              resolver,
 		tracker:               tracker,
 		engine:                engine,
+		userGroups:            userGroups,
 		configStore:           configStore,
 		modelCatalog:          modelCatalog,
 		mcpCatalog:            mcpCatalog,
@@ -288,6 +299,11 @@ func InitFromStore(
 	if err != nil {
 		return nil, fmt.Errorf("failed to initialize routing engine: %w", err)
 	}
+	userGroups := NewUserGroupManager(configStore, logger)
+	if err := userGroups.Load(ctx); err != nil {
+		logger.Warn("failed to load user groups for degradation: %v", err)
+	}
+	tracker.SetUserGroupManager(userGroups)
 	// Perform startup reset check for any expired limits from downtime
 	// Use distributed lock to prevent race condition when multiple instances boot simultaneously
 	if configStore != nil {
@@ -313,6 +329,7 @@ func InitFromStore(
 		resolver:              resolver,
 		tracker:               tracker,
 		engine:                engine,
+		userGroups:            userGroups,
 		configStore:           configStore,
 		modelCatalog:          modelCatalog,
 		mcpCatalog:            mcpCatalog,
@@ -1080,6 +1097,104 @@ func (p *GovernancePlugin) applyRoutingRules(ctx *schemas.BifrostContext, req *s
 	return body, decision, nil
 }
 
+// applyTieredDegradationToRequest evaluates user-group degradation tiers for the
+// calling identity and, when an active tier substitutes the requested model,
+// rewrites the model/provider (and cross-model fallbacks for terminal tiers) on the
+// BifrostRequest in place.
+//
+// This runs in PreLLMHook rather than the HTTP transport pre-hook because the
+// transport pre-hook executes BEFORE the auth middleware resolves server-side
+// credentials (e.g. Aone device temporary credentials, OAuth), so the virtual key
+// is not yet known there. By PreLLMHook time the VK is always resolved in context.
+//
+// Parameters:
+//   - ctx: Bifrost context (carries the resolved virtual key value)
+//   - req: the parsed Bifrost request (mutated in place)
+//   - virtualKeyValue: the resolved virtual key value from context
+func (p *GovernancePlugin) applyTieredDegradationToRequest(ctx *schemas.BifrostContext, req *schemas.BifrostRequest, virtualKeyValue string) {
+	if p.userGroups == nil || virtualKeyValue == "" || !p.userGroups.HasGroups() {
+		return
+	}
+	vk, ok := p.store.GetVirtualKey(ctx, virtualKeyValue)
+	if !ok || vk == nil {
+		return
+	}
+
+	provider, model, _ := req.GetRequestFields()
+	if model == "" {
+		return
+	}
+
+	// Identity is keyed by VK ID — consistent with the usage tracker's RecordUsage.
+	result := p.userGroups.ResolveDegradation(vk.ID, vk.ID, string(provider), model)
+	if result == nil {
+		return
+	}
+
+	if result.Changed {
+		// The target model may itself carry a "provider/model" prefix (a common way
+		// to configure a substitution). Split it so the provider is honored.
+		targetProvider, targetModel := schemas.ParseModelString(result.Model, "")
+
+		// Resolve the provider for the substituted model. Provider selection for
+		// no-prefix models happens in the integration layer (request converters,
+		// via CheckAndSetDefaultProvider) BEFORE this hook, based on the ORIGINAL
+		// model — so the substituted model would otherwise keep a provider that does
+		// not serve it ("unknown provider for model ..."). Resolution priority:
+		//   1) mapping's explicit target_provider
+		//   2) a "provider/" prefix embedded in the target model
+		//   3) the model catalog (the user-configured provider for the model)
+		newProvider := result.Provider
+		if newProvider == "" && targetProvider != "" {
+			newProvider = string(targetProvider)
+		}
+		if newProvider == "" && p.modelCatalog != nil {
+			if providers := p.modelCatalog.GetProvidersForModel(targetModel); len(providers) > 0 {
+				newProvider = string(providers[0])
+				// Keep the current provider if it also serves the new model.
+				for _, pr := range providers {
+					if strings.EqualFold(string(pr), string(provider)) {
+						newProvider = string(pr)
+						break
+					}
+				}
+			}
+		}
+
+		if targetModel != "" {
+			req.SetModel(targetModel)
+		}
+		if newProvider != "" {
+			req.SetProvider(schemas.ModelProvider(newProvider))
+			// Also override the integration's available-providers list as a belt-and-
+			// suspenders measure for any provider re-resolution that reads it.
+			ctx.SetValue(schemas.BifrostContextKeyAvailableProviders, []schemas.ModelProvider{schemas.ModelProvider(newProvider)})
+		}
+
+		ctx.AppendRoutingEngineLog(schemas.RoutingEngineGovernance, schemas.LogLevelInfo,
+			fmt.Sprintf("Tiered degradation (group=%s, tier=%d): %s/%s -> %s/%s", result.GroupName, result.TierOrder, provider, model, newProvider, targetModel))
+	}
+
+	// Terminal tiers attach cross-model fallbacks for substitution by core inference.
+	if len(result.Fallbacks) > 0 {
+		fallbacks := make([]schemas.Fallback, 0, len(result.Fallbacks))
+		for _, fb := range result.Fallbacks {
+			fbProvider, fbModel := schemas.ParseModelString(fb, "")
+			if strings.TrimSpace(string(fbProvider)) == "" {
+				continue
+			}
+			fm := strings.TrimSpace(fbModel)
+			if fm == "" {
+				fm = model
+			}
+			fallbacks = append(fallbacks, schemas.Fallback{Provider: fbProvider, Model: fm})
+		}
+		if len(fallbacks) > 0 {
+			req.SetFallbacks(fallbacks)
+		}
+	}
+}
+
 // addMCPIncludeTools adds the x-bf-mcp-include-tools header to the request headers
 // Parameters:
 //   - headers: The request headers
@@ -1195,14 +1310,14 @@ func (p *GovernancePlugin) EvaluateGovernanceRequest(ctx *schemas.BifrostContext
 				Type:       bifrost.Ptr("virtual_key_not_found"),
 				StatusCode: bifrost.Ptr(401),
 				Error: &schemas.ErrorField{
-					Message: "virtual key not found. The provided virtual key does not exist or has been revoked.",
+					Message: "user not found. The provided user does not exist or has been revoked.",
 				},
 			}
 		}
 	}
 	p.cfgMutex.RLock()
 	if !isVirtualKeyValid && evaluationRequest.UserID == "" && p.isVkMandatory != nil && *p.isVkMandatory {
-		message := "virtual key is required. Provide a virtual key via the x-bf-vk header."
+		message := "user is required. Provide a user via the x-bf-vk header."
 		if p.isEnterprise {
 			message = "authentication is required. Provide a virtual key (x-bf-vk), API key, or user token."
 		}
@@ -1452,7 +1567,15 @@ func (p *GovernancePlugin) PreLLMHook(ctx *schemas.BifrostContext, req *schemas.
 	virtualKeyValue := bifrost.GetStringFromContext(ctx, schemas.BifrostContextKeyVirtualKey)
 	// Extract user ID for enterprise user-level governance
 	userID := bifrost.GetStringFromContext(ctx, schemas.BifrostContextKeyUserID)
-	// Getting provider and mode from the request
+
+	// Apply tiered group-based degradation here (not in the transport pre-hook):
+	// PreLLMHook runs AFTER auth has resolved the virtual key (including server-side
+	// credentials like Aone device temp credentials / OAuth), so the VK is reliably
+	// available in context. This rewrites the model/provider (and fallbacks) on the
+	// request before governance evaluation so the downgraded model is what gets used.
+	p.applyTieredDegradationToRequest(ctx, req, virtualKeyValue)
+
+	// Getting provider and mode from the request (post-degradation)
 	provider, model, _ := req.GetRequestFields()
 	// Create request context for evaluation
 	evaluationRequest := &EvaluationRequest{
@@ -1532,7 +1655,7 @@ func (p *GovernancePlugin) PostLLMHook(ctx *schemas.BifrostContext, result *sche
 		go func() {
 			defer p.wg.Done()
 			// Use the requested model for usage tracking
-			p.postHookWorker(result, provider, requestedModel, requestType, effectiveVK, requestID, userID, isFinalChunk, pricingScopes)
+			p.postHookWorker(result, provider, requestedModel, requestType, effectiveVK, virtualKey, requestID, userID, isFinalChunk, pricingScopes)
 		}()
 	}
 
@@ -1598,7 +1721,7 @@ func (p *GovernancePlugin) PreMCPHook(ctx *schemas.BifrostContext, req *schemas.
 				Type:       bifrost.Ptr(string(DecisionVirtualKeyNotFound)),
 				StatusCode: bifrost.Ptr(403),
 				Error: &schemas.ErrorField{
-					Message: "Virtual key not found",
+					Message: "User not found",
 				},
 			}}, nil
 		}
@@ -1786,7 +1909,7 @@ func (p *GovernancePlugin) Cleanup() error {
 //   - isBatch: Whether the request is a batch request
 //   - isFinalChunk: Whether the request is the final chunk
 //   - pricingScopes: Prebuilt pricing lookup scopes using governance VK ID (nil if not applicable)
-func (p *GovernancePlugin) postHookWorker(result *schemas.BifrostResponse, provider schemas.ModelProvider, model string, requestType schemas.RequestType, virtualKey, requestID, userID string, isFinalChunk bool, pricingScopes *modelcatalog.PricingLookupScopes) {
+func (p *GovernancePlugin) postHookWorker(result *schemas.BifrostResponse, provider schemas.ModelProvider, model string, requestType schemas.RequestType, virtualKey, rawVirtualKey, requestID, userID string, isFinalChunk bool, pricingScopes *modelcatalog.PricingLookupScopes) {
 	// Determine if request was successful
 	success := (result != nil)
 
@@ -1823,17 +1946,18 @@ func (p *GovernancePlugin) postHookWorker(result *schemas.BifrostResponse, provi
 		}
 		// Create usage update for tracker (business logic)
 		usageUpdate := &UsageUpdate{
-			VirtualKey:   virtualKey,
-			Provider:     provider,
-			Model:        model,
-			Success:      success,
-			TokensUsed:   int64(tokensUsed),
-			Cost:         cost,
-			RequestID:    requestID,
-			UserID:       userID,
-			IsStreaming:  isStreaming,
-			IsFinalChunk: isFinalChunk,
-			HasUsageData: tokensUsed > 0,
+			VirtualKey:    virtualKey,
+			RawVirtualKey: rawVirtualKey,
+			Provider:      provider,
+			Model:         model,
+			Success:       success,
+			TokensUsed:    int64(tokensUsed),
+			Cost:          cost,
+			RequestID:     requestID,
+			UserID:        userID,
+			IsStreaming:   isStreaming,
+			IsFinalChunk:  isFinalChunk,
+			HasUsageData:  tokensUsed > 0,
 		}
 
 		// Queue usage update asynchronously using tracker
@@ -1845,6 +1969,24 @@ func (p *GovernancePlugin) postHookWorker(result *schemas.BifrostResponse, provi
 // GetGovernanceStore returns the governance store
 func (p *GovernancePlugin) GetGovernanceStore() GovernanceStore {
 	return p.store
+}
+
+// ReloadUserGroups rebuilds the in-memory user-group degradation cache from the
+// database. Called by the HTTP transport after user-group CRUD operations.
+func (p *GovernancePlugin) ReloadUserGroups(ctx context.Context) error {
+	if p.userGroups == nil {
+		return nil
+	}
+	return p.userGroups.Load(ctx)
+}
+
+// GetUserGroupUsage returns the live per-member window usage and active degradation
+// tier for a user group. Used by the HTTP transport to render per-user status.
+func (p *GovernancePlugin) GetUserGroupUsage(ctx context.Context, groupID string) []UserGroupMemberUsage {
+	if p.userGroups == nil {
+		return nil
+	}
+	return p.userGroups.GroupMemberUsage(groupID)
 }
 
 // GenerateVirtualKey is a helper function

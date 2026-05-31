@@ -232,7 +232,7 @@ export default function CustomersTable({
 									<TableHead>Teams</TableHead>
 									<TableHead>Budget</TableHead>
 									<TableHead>Rate Limit</TableHead>
-									<TableHead>Virtual Keys</TableHead>
+									<TableHead>Users</TableHead>
 									<TableHead className={`bg-muted ${ACTIONS_COLUMN_CLASS}`}></TableHead>
 								</TableRow>
 							</TableHeader>
@@ -510,7 +510,7 @@ export default function CustomersTable({
 							<AlertDialogTitle>Delete Customer</AlertDialogTitle>
 							<AlertDialogDescription>
 								Are you sure you want to delete &quot;{confirmDeleteCustomer?.name}&quot;? This will also delete all associated teams and
-								unassign any virtual keys. This action cannot be undone.
+								unassign any users. This action cannot be undone.
 							</AlertDialogDescription>
 						</AlertDialogHeader>
 						<AlertDialogFooter>

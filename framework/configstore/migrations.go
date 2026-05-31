@@ -849,6 +849,70 @@ func triggerMigrations(ctx context.Context, db *gorm.DB) error {
 	if err := migrationAddAoneDeviceCredentialsTable(ctx, db); err != nil {
 		return err
 	}
+	if err := migrationAddUserGroupTables(ctx, db); err != nil {
+		return err
+	}
+	return nil
+}
+
+// migrationAddUserGroupTables creates the tables backing tiered, group-based
+// model degradation: user groups (tags), their degradation tiers, per-tier
+// model substitution mappings, group membership, and per-user window usage.
+func migrationAddUserGroupTables(ctx context.Context, db *gorm.DB) error {
+	m := migrator.New(db, migrator.DefaultOptions, []*migrator.Migration{{
+		ID: "add_user_group_tables",
+		Migrate: func(tx *gorm.DB) error {
+			tx = tx.WithContext(ctx)
+			migrator := tx.Migrator()
+			if !migrator.HasTable(&tables.TableUserGroup{}) {
+				if err := migrator.CreateTable(&tables.TableUserGroup{}); err != nil {
+					return err
+				}
+			}
+			if !migrator.HasTable(&tables.TableUserGroupTier{}) {
+				if err := migrator.CreateTable(&tables.TableUserGroupTier{}); err != nil {
+					return err
+				}
+			}
+			if !migrator.HasTable(&tables.TableUserGroupTierMapping{}) {
+				if err := migrator.CreateTable(&tables.TableUserGroupTierMapping{}); err != nil {
+					return err
+				}
+			}
+			if !migrator.HasTable(&tables.TableUserGroupMember{}) {
+				if err := migrator.CreateTable(&tables.TableUserGroupMember{}); err != nil {
+					return err
+				}
+			}
+			if !migrator.HasTable(&tables.TableUserGroupUsage{}) {
+				if err := migrator.CreateTable(&tables.TableUserGroupUsage{}); err != nil {
+					return err
+				}
+			}
+			return nil
+		},
+		Rollback: func(tx *gorm.DB) error {
+			tx = tx.WithContext(ctx)
+			migrator := tx.Migrator()
+			for _, model := range []interface{}{
+				&tables.TableUserGroupUsage{},
+				&tables.TableUserGroupMember{},
+				&tables.TableUserGroupTierMapping{},
+				&tables.TableUserGroupTier{},
+				&tables.TableUserGroup{},
+			} {
+				if migrator.HasTable(model) {
+					if err := migrator.DropTable(model); err != nil {
+						return err
+					}
+				}
+			}
+			return nil
+		},
+	}})
+	if err := m.Migrate(); err != nil {
+		return fmt.Errorf("error while running user_group_tables migration: %s", err.Error())
+	}
 	return nil
 }
 

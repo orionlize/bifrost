@@ -670,6 +670,7 @@ export const MultiSelect = React.forwardRef<MultiSelectRef, MultiSelectProps>(
 					<PopoverTrigger asChild>
 						<Button
 							ref={buttonRef}
+							variant="outline"
 							{...props}
 							onClick={handleTogglePopover}
 							disabled={disabled}
@@ -679,7 +680,7 @@ export const MultiSelect = React.forwardRef<MultiSelectRef, MultiSelectProps>(
 							aria-describedby={`${triggerDescriptionId} ${selectedCountId}`}
 							aria-label={`Multi-select: ${selectedValues.length} of ${getAllOptions().length} options selected. ${placeholder}`}
 							className={cn(
-								"flex h-auto min-h-9 items-center justify-between rounded-md border p-1 shadow-none [&_svg]:pointer-events-auto",
+								"border-input bg-background hover:bg-background dark:hover:bg-input/50 flex h-auto min-h-9 items-center justify-between rounded-md border p-1 font-normal shadow-none [&_svg]:pointer-events-auto",
 								autoSize ? "w-auto" : "w-full",
 								responsiveSettings.compactMode && "min-h-8 text-sm",
 								screenSize === "mobile" && "min-h-12 text-base",
@@ -735,7 +736,7 @@ export const MultiSelect = React.forwardRef<MultiSelectRef, MultiSelectProps>(
 															screenSize === "mobile" && "max-w-[120px] truncate",
 															singleLine && "flex-shrink-0 whitespace-nowrap",
 															"[&>svg]:pointer-events-auto",
-															"bg-primary-foreground text-foreground",
+															"bg-accent text-accent-foreground",
 														)}
 														style={badgeStyle}
 													>
@@ -884,14 +885,14 @@ export const MultiSelect = React.forwardRef<MultiSelectRef, MultiSelectProps>(
 										>
 											<div
 												className={cn(
-													"border-primary mr-2 flex h-4 w-4 items-center justify-center rounded-sm border",
+													"border-input mr-2 flex h-4 w-4 items-center justify-center rounded-sm border",
 													selectedValues.length === getAllOptions().filter((opt) => !opt.disabled).length
-														? "bg-primary dark:bg-card"
+														? "bg-accent text-accent-foreground"
 														: "opacity-50 [&_svg]:invisible",
 												)}
 												aria-hidden="true"
 											>
-												<CheckIcon className="text-secondary bg-primary h-4 w-4 rounded-md" />
+												<CheckIcon className="h-4 w-4" />
 											</div>
 											<span>
 												(Select All
@@ -920,12 +921,12 @@ export const MultiSelect = React.forwardRef<MultiSelectRef, MultiSelectProps>(
 													>
 														<div
 															className={cn(
-																"border-primary mr-2 flex h-4 w-4 items-center justify-center rounded-sm border",
-																isSelected ? "bg-primary text-primary-foreground" : "opacity-50 [&_svg]:invisible",
+																"border-input mr-2 flex h-4 w-4 items-center justify-center rounded-sm border",
+																isSelected ? "bg-accent text-accent-foreground" : "opacity-50 [&_svg]:invisible",
 															)}
 															aria-hidden="true"
 														>
-															<CheckIcon className="text-secondary h-4 w-4" />
+															<CheckIcon className="h-4 w-4" />
 														</div>
 														{option.icon && <option.icon className="text-muted-foreground mr-2 h-4 w-4" aria-hidden="true" />}
 														<span>{option.label}</span>
@@ -953,12 +954,12 @@ export const MultiSelect = React.forwardRef<MultiSelectRef, MultiSelectProps>(
 												>
 													<div
 														className={cn(
-															"border-primary mr-2 flex h-4 w-4 items-center justify-center rounded-sm border",
-															isSelected ? "bg-primary text-primary-foreground" : "opacity-50 [&_svg]:invisible",
+															"border-input mr-2 flex h-4 w-4 items-center justify-center rounded-sm border",
+															isSelected ? "bg-accent text-accent-foreground" : "opacity-50 [&_svg]:invisible",
 														)}
 														aria-hidden="true"
 													>
-														<CheckIcon className="text-secondary h-4 w-4" />
+														<CheckIcon className="h-4 w-4" />
 													</div>
 													{option.icon && <option.icon className="text-muted-foreground mr-2 h-4 w-4" aria-hidden="true" />}
 													<div className="pr-2">

@@ -33,6 +33,7 @@ import {
 	ShieldCheck,
 	Shuffle,
 	SlidersHorizontal,
+	Tags,
 	Telescope,
 	ToolCase,
 	TrendingUp,
@@ -734,11 +735,18 @@ export default function AppSidebar() {
 				hasAccess: hasAnyGovernanceAccess,
 				subItems: [
 					{
-						title: "Virtual Keys",
+						title: "Users",
 						url: "/workspace/governance/virtual-keys",
 						icon: KeyRound,
-						description: "Manage virtual keys & access",
+						description: "Manage users & access",
 						hasAccess: hasVirtualKeysAccess && !hideManualVirtualKeys,
+					},
+					{
+						title: "User Groups",
+						url: "/workspace/governance/user-groups",
+						icon: Tags,
+						description: "Tiered cost-degradation groups",
+						hasAccess: hasVirtualKeysAccess,
 					},
 					{
 						title: "Users",

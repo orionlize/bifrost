@@ -444,10 +444,10 @@ function VirtualKeysFilter({ filters, onFiltersChange, defaultOpen }: FilterComp
 	};
 
 	return (
-		<FilterSection title="Virtual Keys" defaultOpen={defaultOpen || hasActive} loading={isLoading} onOpenChange={setOpened}>
+		<FilterSection title="Users" defaultOpen={defaultOpen || hasActive} loading={isLoading} onOpenChange={setOpened}>
 			<SearchableCheckboxList
 				inputRef={searchInputRef}
-				placeholder="Search virtual keys"
+				placeholder="Search users"
 				items={availableVirtualKeys.map((key) => ({ key: key.name, label: key.name }))}
 				isSelected={isSelected}
 				onToggle={toggle}
