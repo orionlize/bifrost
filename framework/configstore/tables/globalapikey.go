@@ -9,9 +9,8 @@ type GlobalAPIKey struct {
 	Name        string    `gorm:"type:varchar(255);not null" json:"name"`
 	TokenHash   string    `gorm:"type:varchar(64);uniqueIndex:idx_global_api_key_hash;not null" json:"-"`
 	TokenPrefix     string    `gorm:"type:varchar(32);not null" json:"token_prefix"`
-	IsActive        bool      `gorm:"not null;default:true;index" json:"is_active"`
-	AllowedUserIDs  []string  `gorm:"column:allowed_user_ids;type:text;serializer:json" json:"allowed_user_ids,omitempty"`
-	CreatedAt       time.Time `gorm:"index;not null" json:"created_at"`
+	IsActive    bool      `gorm:"not null;default:true;index" json:"is_active"`
+	CreatedAt   time.Time `gorm:"index;not null" json:"created_at"`
 	UpdatedAt   time.Time `gorm:"index;not null" json:"updated_at"`
 }
 

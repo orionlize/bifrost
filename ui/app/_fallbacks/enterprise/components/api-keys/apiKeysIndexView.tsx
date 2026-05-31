@@ -14,19 +14,16 @@ import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { MultiSelect } from "@/components/ui/multiSelect";
 import { NoPermissionView } from "@/components/noPermissionView";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { useCopyToClipboard } from "@/hooks/useCopyToClipboard";
 import { useIsLocalAdminSession } from "@/hooks/useIsLocalAdminSession";
 import { getErrorMessage, useGetCoreConfigQuery } from "@/lib/store";
-import { useListAoneUsersQuery } from "@/lib/store/apis/aoneUsersApi";
 import {
 	useCreateGlobalApiKeyMutation,
 	useDeleteGlobalApiKeyMutation,
 	useListGlobalApiKeysQuery,
 	useUpdateGlobalApiKeyMutation,
-	type GlobalApiKey,
 } from "@/lib/store/apis/globalApiKeysApi";
 import { useIsAuthEnabledQuery } from "@/lib/store/apis/sessionApi";
 import { Link } from "@tanstack/react-router";
@@ -34,56 +31,25 @@ import { Copy, InfoIcon, KeyRound, Loader2, Plus, Power, Trash2 } from "lucide-r
 import { useMemo, useState } from "react";
 import { toast } from "sonner";
 
-function formatAllowedUsers(apiKey: GlobalApiKey, userNameById: Map<string, string>) {
-	const ids = apiKey.allowed_user_ids ?? [];
-	if (ids.length === 0) {
-		return "All users";
-	}
-	const labels = ids.map((id) => userNameById.get(id) ?? id);
-	if (labels.length <= 2) {
-		return labels.join(", ");
-	}
-	return `${labels.slice(0, 2).join(", ")} +${labels.length - 2}`;
-}
-
 export default function APIKeysView() {
 	const { data: bifrostConfig, isLoading: configLoading } = useGetCoreConfigQuery({ fromDB: true });
 	const { data: authStatus, isLoading: authLoading } = useIsAuthEnabledQuery();
 	const isLocalAdmin = useIsLocalAdminSession();
 	const { data, isLoading, isFetching } = useListGlobalApiKeysQuery(undefined, { skip: !isLocalAdmin });
-	const { data: aoneUsersData, isLoading: isLoadingUsers } = useListAoneUsersQuery({ limit: 500 }, { skip: !isLocalAdmin });
 	const [createGlobalApiKey, { isLoading: isCreating }] = useCreateGlobalApiKeyMutation();
 	const [updateGlobalApiKey, { isLoading: isUpdating }] = useUpdateGlobalApiKeyMutation();
 	const [deleteGlobalApiKey, { isLoading: isDeleting }] = useDeleteGlobalApiKeyMutation();
 	const [createDialogOpen, setCreateDialogOpen] = useState(false);
-	const [createFormKey, setCreateFormKey] = useState(0);
 	const [newKeyName, setNewKeyName] = useState("");
-	const [selectedUserIds, setSelectedUserIds] = useState<string[]>([]);
 	const [createdToken, setCreatedToken] = useState<string | null>(null);
 	const [deleteTargetId, setDeleteTargetId] = useState<string | null>(null);
 	const { copy: copyToClipboard } = useCopyToClipboard();
 
 	const isAuthConfigured = useMemo(() => bifrostConfig?.auth_config?.is_enabled, [bifrostConfig]);
 	const apiKeys = data?.api_keys ?? [];
-	const userOptions = useMemo(
-		() =>
-			(aoneUsersData?.users ?? []).map((user) => ({
-				label: user.display_name || user.name || user.email || user.id,
-				value: user.id,
-			})),
-		[aoneUsersData?.users],
-	);
-	const userNameById = useMemo(() => {
-		const map = new Map<string, string>();
-		for (const user of aoneUsersData?.users ?? []) {
-			map.set(user.id, user.display_name || user.name || user.email || user.id);
-		}
-		return map;
-	}, [aoneUsersData?.users]);
 
 	const resetCreateForm = () => {
 		setNewKeyName("");
-		setSelectedUserIds([]);
 	};
 
 	if (configLoading || authLoading) {
@@ -118,10 +84,7 @@ export default function APIKeysView() {
 			return;
 		}
 		try {
-			const result = await createGlobalApiKey({
-				name,
-				user_ids: selectedUserIds.length > 0 ? selectedUserIds : undefined,
-			}).unwrap();
+			const result = await createGlobalApiKey({ name }).unwrap();
 			setCreatedToken(result.token);
 			resetCreateForm();
 			setCreateDialogOpen(false);
@@ -167,22 +130,15 @@ export default function APIKeysView() {
 				<InfoIcon className="text-muted h-4 w-4" />
 				<AlertDescription>
 					<p className="text-muted-foreground text-sm">
-						Global API keys grant full admin access to dashboard and management APIs when no users are selected. Store them securely — the
-						full token is only shown once at creation.
+						Global API keys grant full admin access to dashboard and management APIs. Usage is always attributed to the admin user. Store
+						them securely — the full token is only shown once at creation.
 					</p>
 				</AlertDescription>
 			</Alert>
 
 			<div className="overflow-hidden rounded-lg border">
 				<div className="flex items-center justify-end border-b px-4 py-3">
-					<Button
-						type="button"
-						onClick={() => {
-							setCreateFormKey((current) => current + 1);
-							setCreateDialogOpen(true);
-						}}
-						data-testid="global-api-key-create-button"
-					>
+					<Button type="button" onClick={() => setCreateDialogOpen(true)} data-testid="global-api-key-create-button">
 						<Plus className="h-4 w-4" />
 						Create API Key
 					</Button>
@@ -192,7 +148,6 @@ export default function APIKeysView() {
 						<TableRow>
 							<TableHead>Name</TableHead>
 							<TableHead>Prefix</TableHead>
-							<TableHead>Users</TableHead>
 							<TableHead>Status</TableHead>
 							<TableHead>Created</TableHead>
 							<TableHead className="w-[120px]">Actions</TableHead>
@@ -201,13 +156,13 @@ export default function APIKeysView() {
 					<TableBody>
 						{isLoading || isFetching ? (
 							<TableRow>
-								<TableCell colSpan={6} className="text-muted-foreground py-8 text-center">
+								<TableCell colSpan={5} className="text-muted-foreground py-8 text-center">
 									Loading API keys...
 								</TableCell>
 							</TableRow>
 						) : apiKeys.length === 0 ? (
 							<TableRow>
-								<TableCell colSpan={6} className="text-muted-foreground py-8 text-center">
+								<TableCell colSpan={5} className="text-muted-foreground py-8 text-center">
 									No global API keys yet.
 								</TableCell>
 							</TableRow>
@@ -217,9 +172,6 @@ export default function APIKeysView() {
 									<TableCell className="font-medium">{apiKey.name}</TableCell>
 									<TableCell>
 										<code className="text-xs">{apiKey.token_prefix}</code>
-									</TableCell>
-									<TableCell className="text-muted-foreground max-w-[220px] truncate text-sm">
-										{formatAllowedUsers(apiKey, userNameById)}
 									</TableCell>
 									<TableCell>
 										<Badge variant={apiKey.is_active ? "default" : "secondary"}>{apiKey.is_active ? "Active" : "Disabled"}</Badge>
@@ -269,9 +221,7 @@ export default function APIKeysView() {
 				<DialogContent className="sm:max-w-[520px]">
 					<DialogHeader>
 						<DialogTitle>Create API Key</DialogTitle>
-						<DialogDescription>
-							Enter a name and optional user scope. The token is shown only once after you confirm creation.
-						</DialogDescription>
+						<DialogDescription>Enter a name for the key. The token is shown only once after you confirm creation.</DialogDescription>
 					</DialogHeader>
 					<div className="space-y-4">
 						<div className="space-y-2">
@@ -283,26 +233,6 @@ export default function APIKeysView() {
 								onChange={(event) => setNewKeyName(event.target.value)}
 								data-testid="global-api-key-name-input"
 							/>
-						</div>
-						<div className="space-y-2">
-							<Label htmlFor="global-api-key-users">Users</Label>
-							<MultiSelect
-								key={createFormKey}
-								options={userOptions}
-								onValueChange={setSelectedUserIds}
-								defaultValue={[]}
-								placeholder={isLoadingUsers ? "Loading users..." : "All users (no restriction)"}
-								variant="inverted"
-								maxCount={3}
-								modalPopover
-								resetOnDefaultValueChange={false}
-								disabled={isLoadingUsers}
-								className="border-input w-full rounded-sm bg-white shadow-none hover:bg-white dark:bg-white dark:hover:bg-white"
-								commandClassName="bg-white dark:bg-white"
-								popoverClassName="z-[200] bg-white dark:bg-white"
-								data-testid="global-api-key-users-select"
-							/>
-							<p className="text-muted-foreground text-xs">Leave empty to allow unrestricted access.</p>
 						</div>
 					</div>
 					<DialogFooter>

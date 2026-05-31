@@ -47,8 +47,7 @@ func (h *GlobalAPIKeysHandler) list(ctx *fasthttp.RequestCtx) {
 }
 
 type createGlobalAPIKeyRequest struct {
-	Name    string   `json:"name"`
-	UserIDs []string `json:"user_ids"`
+	Name string `json:"name"`
 }
 
 func (h *GlobalAPIKeysHandler) create(ctx *fasthttp.RequestCtx) {
@@ -67,7 +66,7 @@ func (h *GlobalAPIKeysHandler) create(ctx *fasthttp.RequestCtx) {
 		return
 	}
 
-	key, token, err := h.configStore.CreateGlobalAPIKey(ctx, req.Name, req.UserIDs)
+	key, token, err := h.configStore.CreateGlobalAPIKey(ctx, req.Name)
 	if err != nil {
 		SendError(ctx, fasthttp.StatusBadRequest, err.Error())
 		return

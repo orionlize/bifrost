@@ -25,13 +25,12 @@ func (m *mockGlobalAPIKeyStore) ListGlobalAPIKeys(_ context.Context) ([]tables.G
 	return m.keys, nil
 }
 
-func (m *mockGlobalAPIKeyStore) CreateGlobalAPIKey(_ context.Context, name string, allowedUserIDs []string) (*tables.GlobalAPIKey, string, error) {
+func (m *mockGlobalAPIKeyStore) CreateGlobalAPIKey(_ context.Context, name string) (*tables.GlobalAPIKey, string, error) {
 	key := &tables.GlobalAPIKey{
-		ID:             "key-1",
-		Name:           name,
-		TokenPrefix:    "bf-ak-abcd...",
-		IsActive:       true,
-		AllowedUserIDs: allowedUserIDs,
+		ID:          "key-1",
+		Name:        name,
+		TokenPrefix: "bf-ak-abcd...",
+		IsActive:    true,
 	}
 	m.keys = append([]tables.GlobalAPIKey{*key}, m.keys...)
 	return key, "bf-ak-abcd1234", nil

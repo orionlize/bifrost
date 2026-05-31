@@ -1297,6 +1297,10 @@ func (p *GovernancePlugin) validateRequiredHeaders(ctx *schemas.BifrostContext) 
 //   - *EvaluationResult: The governance evaluation result
 //   - *schemas.BifrostError: The error to return if request is not allowed, nil if allowed
 func (p *GovernancePlugin) EvaluateGovernanceRequest(ctx *schemas.BifrostContext, evaluationRequest *EvaluationRequest, requestType schemas.RequestType) (*EvaluationResult, *schemas.BifrostError) {
+	// Global API keys and other local-admin credentials bypass virtual-key governance.
+	if bifrost.GetBoolFromContext(ctx, schemas.IsLocalAdminContextKey) {
+		return &EvaluationResult{Decision: DecisionAllow}, nil
+	}
 	// Check if authentication is mandatory (either VK or user auth)
 	// Checking if the virtual key is valid or not
 	isVirtualKeyValid := false

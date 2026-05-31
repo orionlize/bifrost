@@ -332,7 +332,6 @@ const (
 	BifrostContextKeySkipModelCatalogProviderSelection   BifrostContextKey = "bifrost-skip-model-catalog-provider-selection" // bool (set by bifrost - DO NOT SET THIS MANUALLY)) - skip model catalog provider selection
 	IsAPIKeyAuthContextKey                               BifrostContextKey = "is_api_key_auth"
 	IsLocalAdminContextKey                               BifrostContextKey = "is_local_admin"                       // bool (set by auth middleware when password-based auth succeeds - local admin user bypasses RBAC)
-	BifrostContextKeyGlobalAPIKeyAllowedUserIDs          BifrostContextKey = "bifrost-global-api-key-allowed-users" // []string (set by auth middleware for scoped global API keys - empty means unrestricted admin)
 	BifrostContextKeyPassthroughOverridesPresent         BifrostContextKey = "passthrough_overrides_present"        // bool (set by HTTP transport) - passthrough raw request requested
 	BifrostContextKeyConnectionClosed                    BifrostContextKey = "connection_closed"
 	BifrostContextKeyTempTokenScope                      BifrostContextKey = "bifrost-temp-token-scope"       // string (set by auth middleware when a temp token authorized the request - names the scope from the temptoken registry)

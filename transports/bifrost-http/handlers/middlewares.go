@@ -768,45 +768,32 @@ func validateGlobalAPIKey(ctx context.Context, store configstore.ConfigStore, to
 }
 
 // deviceFingerprintHeader carries the caller's device fingerprint on forwarded
-// API requests. The fingerprint must match an active device authorization that
-// belongs to one of the users bound to the presented global API key.
+// API requests for personal Aone virtual keys.
 const deviceFingerprintHeader = "X-Device-Fingerprint"
 
-// enforceDeviceFingerprint gates global-API-key forwarding requests by device
-// fingerprint. For keys scoped to specific Aone users it requires the
-// X-Device-Fingerprint header to match an active device authorization belonging
-// to one of those users; otherwise it writes a 401 and returns false. Admin-scope
-// keys (no bound users) and non-forwarding paths are allowed through unchanged.
-func (m *AuthMiddleware) enforceDeviceFingerprint(ctx *fasthttp.RequestCtx, key *tables.GlobalAPIKey, path string) bool {
+// enforceDeviceFingerprint strips the device fingerprint header from forwarding
+// requests. Global API keys are admin credentials and are not gated by device
+// fingerprint.
+func (m *AuthMiddleware) enforceDeviceFingerprint(ctx *fasthttp.RequestCtx, _ *tables.GlobalAPIKey, path string) bool {
 	if !isDeviceForwardingAPIPath(path) {
 		return true
 	}
-	// Strip the device fingerprint header so it is never forwarded upstream.
-	fingerprint := normalizeDeviceFingerprint(string(ctx.Request.Header.Peek(deviceFingerprintHeader)))
 	ctx.Request.Header.Del(deviceFingerprintHeader)
-
-	// Admin-scope keys (no bound users) are not gated by device fingerprint.
-	if key == nil || len(key.AllowedUserIDs) == 0 {
-		return true
-	}
-	if m.bypassDeviceFingerprintForWebSession(ctx, key.AllowedUserIDs) {
-		return true
-	}
-	return m.checkDeviceFingerprint(ctx, key.AllowedUserIDs, fingerprint)
+	return true
 }
 
 // gateDeviceOnForwarding enforces device-fingerprint gating for a forwarding
 // (inference) request, even on code paths where normal authentication is skipped
 // (DisableAuthOnInference or auth fully disabled). It resolves the Bearer credential
-// to the Aone user(s) it belongs to — either a user-scoped global API key
-// (bf-ak-...) or a personal Aone virtual key (sk-bf-...) — and requires the
-// X-Device-Fingerprint header to match an active device for one of those users,
+// to the Aone user it belongs to — a personal Aone virtual key (sk-bf-...) — and
+// requires the X-Device-Fingerprint header to match an active device for that user,
 // unless the request also carries a valid browser dashboard session cookie for
-// the same user (prompt repository / web playground). Device-bound ZD Switch
-// sessions still require fingerprint enforcement. The fingerprint header is always
-// stripped from forwarding requests. Returns false (and writes a 401/500) when the
-// request must be rejected; returns true (allowing the caller's normal flow) for
-// non-forwarding paths, admin-scope keys, web-session bypass, and credentials not
+// the same user (prompt repository / web playground). Global API keys (bf-ak-...)
+// are admin credentials and bypass device gating. Device-bound ZD Switch sessions
+// still require fingerprint enforcement. The fingerprint header is always stripped
+// from forwarding requests. Returns false (and writes a 401/500) when the request
+// must be rejected; returns true (allowing the caller's normal flow) for
+// non-forwarding paths, global API keys, web-session bypass, and credentials not
 // tied to an Aone user.
 func (m *AuthMiddleware) gateDeviceOnForwarding(ctx *fasthttp.RequestCtx, url string) bool {
 	if m.store == nil || !isDeviceForwardingAPIPath(url) {
@@ -834,10 +821,9 @@ func (m *AuthMiddleware) gateDeviceOnForwarding(ctx *fasthttp.RequestCtx, url st
 		logger.Error("[aone-devices] failed to resolve global API key for forwarding: %v", err)
 		SendError(ctx, fasthttp.StatusInternalServerError, "Internal Server Error")
 		return false
-	} else if globalKey != nil && len(globalKey.AllowedUserIDs) > 0 {
-		// User-scoped global keys must expose AllowedUserIDs to governance even when
-		// inference auth is skipped (DisableAuthOnInference).
-		applyGlobalAPIKeyAuth(ctx, globalKey)
+	} else if globalKey != nil {
+		// Global API keys are admin credentials; allow forwarding without device gating.
+		return true
 	}
 
 	userIDs, err := m.resolveDeviceGatedUsers(ctx, token)
@@ -859,16 +845,15 @@ func (m *AuthMiddleware) gateDeviceOnForwarding(ctx *fasthttp.RequestCtx, url st
 }
 
 // resolveDeviceGatedUsers maps a Bearer credential to the Aone user IDs whose
-// devices gate it. A user-scoped global API key resolves to its allowed users; a
-// personal Aone virtual key resolves to its owning user. Anything else (admin
-// global key, generic virtual key, unknown token) resolves to no users.
+// devices gate it. A personal Aone virtual key resolves to its owning user.
+// Global API keys and other credentials resolve to no users.
 func (m *AuthMiddleware) resolveDeviceGatedUsers(ctx *fasthttp.RequestCtx, token string) ([]string, error) {
 	globalKey, err := validateGlobalAPIKey(ctx, m.store, token)
 	if err != nil {
 		return nil, err
 	}
 	if globalKey != nil {
-		return globalKey.AllowedUserIDs, nil // empty slice for admin-scope keys
+		return nil, nil
 	}
 
 	aoneUserID, err := m.store.GetAoneUserIDByVirtualKeyValue(ctx, token)
@@ -1011,13 +996,37 @@ func (m *AuthMiddleware) applyDeviceTemporaryCredential(ctx *fasthttp.RequestCtx
 	return true, true
 }
 
-func applyGlobalAPIKeyAuth(ctx *fasthttp.RequestCtx, key *tables.GlobalAPIKey) {
+func applyGlobalAPIKeyAuth(ctx *fasthttp.RequestCtx, _ *tables.GlobalAPIKey) {
 	ctx.SetUserValue(schemas.IsAPIKeyAuthContextKey, true)
-	if len(key.AllowedUserIDs) == 0 {
-		ctx.SetUserValue(schemas.IsLocalAdminContextKey, true)
-		return
+	ctx.SetUserValue(schemas.IsLocalAdminContextKey, true)
+}
+
+// authenticateGlobalAPIKeyIfPresent validates Bearer bf-ak- credentials when they
+// are presented on inference paths where normal auth is skipped. Returns false
+// after writing an error response when validation fails.
+func (m *AuthMiddleware) authenticateGlobalAPIKeyIfPresent(ctx *fasthttp.RequestCtx) bool {
+	authorization := strings.TrimSpace(string(ctx.Request.Header.Peek("Authorization")))
+	if authorization == "" {
+		return true
 	}
-	ctx.SetUserValue(schemas.BifrostContextKeyGlobalAPIKeyAllowedUserIDs, key.AllowedUserIDs)
+	scheme, token, ok := strings.Cut(authorization, " ")
+	if !ok || !strings.EqualFold(scheme, "Bearer") {
+		return true
+	}
+	if !strings.HasPrefix(token, configstore.GlobalAPIKeyPrefix) {
+		return true
+	}
+	globalKey, err := validateGlobalAPIKey(ctx, m.store, token)
+	if err != nil {
+		SendError(ctx, fasthttp.StatusInternalServerError, "Internal Server Error")
+		return false
+	}
+	if globalKey == nil {
+		SendError(ctx, fasthttp.StatusUnauthorized, "Unauthorized")
+		return false
+	}
+	applyGlobalAPIKeyAuth(ctx, globalKey)
+	return true
 }
 
 // isInferenceWSEndpoint returns true for WebSocket endpoints that should use
@@ -1270,6 +1279,9 @@ func (m *AuthMiddleware) middleware(shouldSkip func(*configstore.AuthConfig, str
 				// Inference auth may be disabled (DisableAuthOnInference), but a
 				// credential on a forwarding request must still pass device gating.
 				if !m.gateDeviceOnForwarding(ctx, url) {
+					return
+				}
+				if !m.authenticateGlobalAPIKeyIfPresent(ctx) {
 					return
 				}
 				next(ctx)

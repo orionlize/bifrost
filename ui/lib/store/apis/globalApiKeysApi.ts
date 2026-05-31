@@ -5,7 +5,6 @@ export type GlobalApiKey = {
 	name: string;
 	token_prefix: string;
 	is_active: boolean;
-	allowed_user_ids?: string[];
 	created_at: string;
 	updated_at: string;
 };
@@ -25,7 +24,7 @@ export const globalApiKeysApi = baseApi.injectEndpoints({
 			}),
 			providesTags: ["APIKeys"],
 		}),
-		createGlobalApiKey: builder.mutation<CreateGlobalApiKeyResponse, { name: string; user_ids?: string[] }>({
+		createGlobalApiKey: builder.mutation<CreateGlobalApiKeyResponse, { name: string }>({
 			query: (body) => ({
 				url: "/settings/api-keys",
 				method: "POST",

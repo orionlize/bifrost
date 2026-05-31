@@ -34,29 +34,6 @@ func globalAPIKeyPrefix(token string) string {
 	return token[:12] + "..."
 }
 
-func normalizeGlobalAPIKeyUserIDs(userIDs []string) []string {
-	if len(userIDs) == 0 {
-		return nil
-	}
-	seen := make(map[string]struct{}, len(userIDs))
-	out := make([]string, 0, len(userIDs))
-	for _, id := range userIDs {
-		id = strings.TrimSpace(id)
-		if id == "" {
-			continue
-		}
-		if _, ok := seen[id]; ok {
-			continue
-		}
-		seen[id] = struct{}{}
-		out = append(out, id)
-	}
-	if len(out) == 0 {
-		return nil
-	}
-	return out
-}
-
 func (s *RDBConfigStore) ListGlobalAPIKeys(ctx context.Context) ([]tables.GlobalAPIKey, error) {
 	var keys []tables.GlobalAPIKey
 	if err := s.DB().WithContext(ctx).Order("created_at DESC").Find(&keys).Error; err != nil {
@@ -65,24 +42,10 @@ func (s *RDBConfigStore) ListGlobalAPIKeys(ctx context.Context) ([]tables.Global
 	return keys, nil
 }
 
-func (s *RDBConfigStore) CreateGlobalAPIKey(ctx context.Context, name string, allowedUserIDs []string) (*tables.GlobalAPIKey, string, error) {
+func (s *RDBConfigStore) CreateGlobalAPIKey(ctx context.Context, name string) (*tables.GlobalAPIKey, string, error) {
 	name = strings.TrimSpace(name)
 	if name == "" {
 		return nil, "", fmt.Errorf("name is required")
-	}
-
-	allowedUserIDs = normalizeGlobalAPIKeyUserIDs(allowedUserIDs)
-	if len(allowedUserIDs) > 0 {
-		var count int64
-		if err := s.DB().WithContext(ctx).
-			Model(&tables.AoneUserTable{}).
-			Where("aone_user_id IN ?", allowedUserIDs).
-			Count(&count).Error; err != nil {
-			return nil, "", err
-		}
-		if int(count) != len(allowedUserIDs) {
-			return nil, "", fmt.Errorf("one or more users not found")
-		}
 	}
 
 	token, err := generateGlobalAPIKeyToken()
@@ -92,14 +55,13 @@ func (s *RDBConfigStore) CreateGlobalAPIKey(ctx context.Context, name string, al
 
 	now := time.Now()
 	key := &tables.GlobalAPIKey{
-		ID:             uuid.New().String(),
-		Name:           name,
-		TokenHash:      encrypt.HashSHA256(token),
-		TokenPrefix:    globalAPIKeyPrefix(token),
-		IsActive:       true,
-		AllowedUserIDs: allowedUserIDs,
-		CreatedAt:      now,
-		UpdatedAt:      now,
+		ID:          uuid.New().String(),
+		Name:        name,
+		TokenHash:   encrypt.HashSHA256(token),
+		TokenPrefix: globalAPIKeyPrefix(token),
+		IsActive:    true,
+		CreatedAt:   now,
+		UpdatedAt:   now,
 	}
 	if err := s.DB().WithContext(ctx).Create(key).Error; err != nil {
 		return nil, "", err
