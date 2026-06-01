@@ -1,0 +1,138 @@
+name: Docker Prod Build
+
+# Builds the production image from the local Go workspace (Dockerfile.local),
+# matching docker-compose.prod.yml. Pushes to GHCR by default.
+on:
+  workflow_dispatch:
+    inputs:
+      bifrost_base_path:
+        description: "Optional UI/API subpath prefix (e.g. /bifrost)"
+        required: false
+        default: ""
+      push_image:
+        description: "Push the image to GHCR after smoke test"
+        required: false
+        type: boolean
+        default: true
+  push:
+    branches:
+      - dev
+      - main
+    paths:
+      - ".github/workflows/docker-prod-build.yml"
+      - ".github/workflows/scripts/smoke-test-docker-prod.sh"
+      - "docker-compose.prod.yml"
+      - "transports/Dockerfile.local"
+      - "transports/docker-entrypoint.sh"
+      - "core/**"
+      - "framework/**"
+      - "plugins/**"
+      - "transports/**"
+      - "ui/**"
+
+concurrency:
+  group: docker-prod-build-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+  packages: write
+
+env:
+  REGISTRY: ghcr.io
+  IMAGE_NAME: ${{ github.repository }}
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Harden Runner
+        uses: step-security/harden-runner@fa2e9d605c4eeb9fcad4c99c224cee0c6c7f3594 # v2.16.0
+        with:
+          egress-policy: block
+          allowed-endpoints: >
+            auth.docker.io:443
+            dl-cdn.alpinelinux.org:443
+            github.com:443
+            ghcr.io:443
+            production.cloudflare.docker.com:443
+            production.cloudfront.docker.com:443
+            proxy.golang.org:443
+            registry-1.docker.io:443
+            registry.npmjs.org:443
+            storage.googleapis.com:443
+
+      - name: Checkout repository
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+
+      - name: Resolve build inputs
+        id: inputs
+        run: |
+          if [[ "${{ github.event_name }}" == "workflow_dispatch" ]]; then
+            echo "bifrost_base_path=${{ inputs.bifrost_base_path }}" >> "$GITHUB_OUTPUT"
+            echo "push_image=${{ inputs.push_image }}" >> "$GITHUB_OUTPUT"
+          else
+            echo "bifrost_base_path=" >> "$GITHUB_OUTPUT"
+            echo "push_image=true" >> "$GITHUB_OUTPUT"
+          fi
+
+          SHORT_SHA="$(git rev-parse --short HEAD)"
+          echo "short_sha=${SHORT_SHA}" >> "$GITHUB_OUTPUT"
+          echo "version_tag=prod-${SHORT_SHA}" >> "$GITHUB_OUTPUT"
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@8d2750c68a42422c14e847fe6c8ac0403b4cbd6f # v3.12.0
+
+      - name: Log in to GHCR
+        if: steps.inputs.outputs.push_image == 'true'
+        uses: docker/login-action@c94ce9fb468520275223c153574b00df6fe4bcc9 # v3.7.0
+        with:
+          registry: ${{ env.REGISTRY }}
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Build production image
+        uses: docker/build-push-action@10e90e3645eae34f1e60eeb005ba3a3d33f178e8 # v6.19.2
+        with:
+          context: .
+          file: ./transports/Dockerfile.local
+          load: true
+          push: false
+          tags: bifrost:prod-ci
+          build-args: |
+            VERSION=${{ steps.inputs.outputs.short_sha }}
+            BIFROST_BASE_PATH=${{ steps.inputs.outputs.bifrost_base_path }}
+          platforms: linux/amd64
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+      - name: Smoke test container
+        env:
+          BIFROST_BASE_PATH: ${{ steps.inputs.outputs.bifrost_base_path }}
+        run: |
+          chmod +x ./.github/workflows/scripts/smoke-test-docker-prod.sh
+          ./.github/workflows/scripts/smoke-test-docker-prod.sh bifrost:prod-ci 8080
+
+      - name: Tag and push to GHCR
+        if: steps.inputs.outputs.push_image == 'true'
+        run: |
+          IMAGE="${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}"
+          docker tag bifrost:prod-ci "${IMAGE}:prod"
+          docker tag bifrost:prod-ci "${IMAGE}:${{ steps.inputs.outputs.version_tag }}"
+          docker push "${IMAGE}:prod"
+          docker push "${IMAGE}:${{ steps.inputs.outputs.version_tag }}"
+
+      - name: Build summary
+        run: |
+          {
+            echo "### Docker prod build"
+            echo ""
+            echo "- **Commit:** \`${{ steps.inputs.outputs.short_sha }}\`"
+            echo "- **Base path:** \`${{ steps.inputs.outputs.bifrost_base_path || '(root)' }}\`"
+            if [[ "${{ steps.inputs.outputs.push_image }}" == "true" ]]; then
+              echo "- **Image:** \`${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:prod\`"
+              echo "- **Tagged:** \`${{ steps.inputs.outputs.version_tag }}\`"
+            else
+              echo "- **Push:** skipped (workflow input)"
+            fi
+          } >> "$GITHUB_STEP_SUMMARY"
