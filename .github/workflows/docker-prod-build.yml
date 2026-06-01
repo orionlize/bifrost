@@ -55,6 +55,7 @@ jobs:
             dl-cdn.alpinelinux.org:443
             fonts.googleapis.com:443
             fonts.gstatic.com:443
+            getbifrost.ai:443
             github.com:443
             ghcr.io:443
             pkg-containers.githubusercontent.com:443
@@ -65,6 +66,7 @@ jobs:
             registry.npmjs.org:443
             storage.googleapis.com:443
             sum.golang.org:443
+            www.getbifrost.ai:443
 
       - name: Checkout repository
         uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
