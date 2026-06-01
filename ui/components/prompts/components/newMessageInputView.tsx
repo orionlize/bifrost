@@ -8,8 +8,10 @@ import { usePromptContext } from "../context";
 import { fileToAttachment } from "../utils/attachment";
 import { AttachmentBadge } from "./messagesView/attachmentViews";
 import MessageRoleSwitcher from "./messagesView/messageRoleSwitcher";
+import { useT } from "@/lib/i18n";
 
 export function NewMessageInputView() {
+	const t = useT();
 	const {
 		messages,
 		setMessages: onUpdateMessages,
@@ -205,7 +207,7 @@ export function NewMessageInputView() {
 						/>
 						<button
 							type="button"
-							aria-label="Attach file"
+							aria-label={t("prompts.attachFile")}
 							data-testid="new-message-attach-file"
 							onClick={() => fileInputRef.current?.click()}
 							className="hover:bg-muted focus:bg-muted rounded-sm p-1"
@@ -224,7 +226,7 @@ export function NewMessageInputView() {
 			)}
 			<div className="relative">
 				<Textarea
-					placeholder="Type a message..."
+					placeholder={t("prompts.typeMessage")}
 					value={userInput}
 					ref={userInputRef}
 					onChange={(e) => setUserInput(e.target.value)}

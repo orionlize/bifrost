@@ -8,6 +8,7 @@ import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, Command
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Separator } from "@/components/ui/separator";
 import { cn } from "@/lib/utils";
+import { useT } from "@/lib/i18n";
 
 /**
  * Animation types and configurations
@@ -286,7 +287,7 @@ export const MultiSelect = React.forwardRef<MultiSelectRef, MultiSelectProps>(
 			onValueChange,
 			variant,
 			defaultValue = [],
-			placeholder = "Select options",
+			placeholder,
 			animation = 0,
 			animationConfig,
 			maxCount = 3,
@@ -311,6 +312,8 @@ export const MultiSelect = React.forwardRef<MultiSelectRef, MultiSelectProps>(
 		},
 		ref,
 	) => {
+		const t = useT();
+		const resolvedPlaceholder = placeholder ?? t("shared.multiSelect.defaultPlaceholder");
 		const [selectedValues, setSelectedValues] = React.useState<string[]>(defaultValue);
 		const [isPopoverOpen, setIsPopoverOpen] = React.useState(false);
 		const [searchValue, setSearchValue] = React.useState("");
@@ -660,7 +663,7 @@ export const MultiSelect = React.forwardRef<MultiSelectRef, MultiSelectProps>(
 					</div>
 					<div id={selectedCountId} className="sr-only" aria-live="polite">
 						{selectedValues.length === 0
-							? "No options selected"
+							? t("shared.multiSelect.noOptionsSelected")
 							: `${selectedValues.length} option${selectedValues.length === 1 ? "" : "s"} selected: ${selectedValues
 									.map((value) => getOptionByValue(value)?.label)
 									.filter(Boolean)
@@ -678,7 +681,7 @@ export const MultiSelect = React.forwardRef<MultiSelectRef, MultiSelectProps>(
 							aria-haspopup="listbox"
 							aria-controls={isPopoverOpen ? listboxId : undefined}
 							aria-describedby={`${triggerDescriptionId} ${selectedCountId}`}
-							aria-label={`Multi-select: ${selectedValues.length} of ${getAllOptions().length} options selected. ${placeholder}`}
+							aria-label={`Multi-select: ${selectedValues.length} of ${getAllOptions().length} options selected. ${resolvedPlaceholder}`}
 							className={cn(
 								"border-input bg-background hover:bg-background dark:hover:bg-input/50 flex h-auto min-h-9 items-center justify-between rounded-md border p-1 font-normal shadow-none [&_svg]:pointer-events-auto",
 								autoSize ? "w-auto" : "w-full",
@@ -824,7 +827,7 @@ export const MultiSelect = React.forwardRef<MultiSelectRef, MultiSelectProps>(
 								</div>
 							) : (
 								<div className="mx-auto flex w-full items-center justify-between">
-									<span className="text-muted-foreground mx-2 text-sm font-normal">{placeholder}</span>
+									<span className="text-muted-foreground mx-2 text-sm font-normal">{resolvedPlaceholder}</span>
 									<ChevronDown className="text-muted-foreground mx-2 h-4 cursor-pointer" />
 								</div>
 							)}
@@ -848,11 +851,11 @@ export const MultiSelect = React.forwardRef<MultiSelectRef, MultiSelectProps>(
 						<Command className={cn("flex w-full flex-col", commandClassName)}>
 							{searchable && (
 								<CommandInput
-									placeholder="Search options..."
+									placeholder={t("shared.multiSelect.searchPlaceholder")}
 									onKeyDown={handleInputKeyDown}
 									value={searchValue}
 									onValueChange={setSearchValue}
-									aria-label="Search through available options"
+									aria-label={t("shared.multiSelect.searchAriaLabel")}
 									aria-describedby={`${multiSelectId}-search-help`}
 								/>
 							)}
@@ -872,7 +875,7 @@ export const MultiSelect = React.forwardRef<MultiSelectRef, MultiSelectProps>(
 									scrollbarColor: "rgba(156, 163, 175, 0.5) transparent",
 								}}
 							>
-								<CommandEmpty>{emptyIndicator || "No results found."}</CommandEmpty>{" "}
+								<CommandEmpty>{emptyIndicator || t("shared.multiSelect.noResults")}</CommandEmpty>{" "}
 								{!hideSelectAll && !searchValue && (
 									<CommandGroup>
 										<CommandItem
@@ -895,7 +898,7 @@ export const MultiSelect = React.forwardRef<MultiSelectRef, MultiSelectProps>(
 												<CheckIcon className="h-4 w-4" />
 											</div>
 											<span>
-												(Select All
+												({t("shared.multiSelect.selectAll")}
 												{getAllOptions().length > 20 ? ` - ${getAllOptions().length} options` : ""})
 											</span>
 										</CommandItem>
@@ -977,7 +980,7 @@ export const MultiSelect = React.forwardRef<MultiSelectRef, MultiSelectProps>(
 											<>
 												<Separator orientation="vertical" className="flex h-full min-h-6" />
 												<CommandItem onSelect={handleClear} className="flex-1 cursor-pointer justify-center">
-													Clear
+													{t("shared.multiSelect.clear")}
 												</CommandItem>
 											</>
 										)}

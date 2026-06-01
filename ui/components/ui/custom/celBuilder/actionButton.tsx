@@ -4,10 +4,12 @@
  */
 
 import { Button } from "@/components/ui/button";
+import { useT } from "@/lib/i18n";
 import { Plus, X } from "lucide-react";
 import { ActionProps } from "react-querybuilder";
 
 export function ActionButton({ handleOnClick, label, className, title }: ActionProps) {
+	const t = useT();
 	const labelStr = typeof label === "string" ? label : "";
 	const labelLower = labelStr.toLowerCase();
 	const isAddButton = labelLower.includes("add");
@@ -21,7 +23,14 @@ export function ActionButton({ handleOnClick, label, className, title }: ActionP
 
 	// Icon-only remove button needs an accessible name (no visible label is rendered)
 	const iconOnly = isRemoveButton;
-	const ariaLabel = iconOnly ? labelStr?.trim() || (typeof title === "string" ? title.trim() : "") || "Remove" : undefined;
+	const titleStr = typeof title === "string" ? title.trim() : "";
+	const removeAria =
+		titleStr === "Remove rule"
+			? t("routing.celBuilder.removeRule")
+			: titleStr === "Remove group"
+				? t("routing.celBuilder.removeGroup")
+				: t("routing.celBuilder.remove");
+	const ariaLabel = iconOnly ? labelStr?.trim() || titleStr || removeAria : undefined;
 
 	return (
 		<Button

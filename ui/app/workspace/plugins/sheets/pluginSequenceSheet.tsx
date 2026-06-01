@@ -4,6 +4,7 @@ import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle } from "
 import { getErrorMessage, useUpdatePluginMutation } from "@/lib/store";
 import { Plugin } from "@/lib/types/plugins";
 import { cn } from "@/lib/utils";
+import { useT } from "@/lib/i18n";
 import { DragDropProvider } from "@dnd-kit/react";
 import { useSortable } from "@dnd-kit/react/sortable";
 import { GripVertical, Lock } from "lucide-react";
@@ -39,6 +40,7 @@ function buildSequenceItems(plugins: Plugin[]): SequenceItem[] {
 }
 
 function SortableBlock({ item, index }: { item: SequenceItem; index: number }) {
+	const t = useT();
 	const isBuiltin = item.type === "builtin";
 	const { ref, isDragging, handleRef, targetRef } = useSortable({
 		id: item.id,
@@ -62,7 +64,7 @@ function SortableBlock({ item, index }: { item: SequenceItem; index: number }) {
 				</div>
 			)}
 			<span className={cn("text-sm", isBuiltin && "text-muted-foreground font-medium")}>
-				{isBuiltin ? "Built-in Plugins" : item.plugin?.name}
+				{isBuiltin ? t("plugins.builtinPlugins") : item.plugin?.name}
 			</span>
 			{!isBuiltin && item.plugin?.status && (
 				<div
@@ -77,6 +79,7 @@ function SortableBlock({ item, index }: { item: SequenceItem; index: number }) {
 }
 
 export default function PluginSequenceSheet({ open, onClose, plugins }: PluginSequenceSheetProps) {
+	const t = useT();
 	const [items, setItems] = useState<SequenceItem[]>([]);
 	const [updatePlugin, { isLoading }] = useUpdatePluginMutation();
 	const wasOpenRef = useRef(false);
@@ -125,7 +128,7 @@ export default function PluginSequenceSheet({ open, onClose, plugins }: PluginSe
 					},
 				}).unwrap();
 			}
-			toast.success("Plugin sequence updated");
+			toast.success(t("plugins.sequenceUpdated"));
 			onClose();
 		} catch (error) {
 			toast.error(getErrorMessage(error));
@@ -136,7 +139,7 @@ export default function PluginSequenceSheet({ open, onClose, plugins }: PluginSe
 		<Sheet open={open} onOpenChange={onClose}>
 			<SheetContent className="flex w-full flex-col overflow-x-hidden p-8">
 				<SheetHeader className="flex flex-col items-start p-0">
-					<SheetTitle>Edit Plugin Sequence</SheetTitle>
+					<SheetTitle>{t("plugins.pluginSequence")}</SheetTitle>
 					<SheetDescription>Drag plugins above or below the built-in plugins block to control execution order.</SheetDescription>
 				</SheetHeader>
 
@@ -173,7 +176,7 @@ export default function PluginSequenceSheet({ open, onClose, plugins }: PluginSe
 					</Alert>
 					<div className="flex justify-end gap-2 pt-4">
 						<Button type="button" variant="outline" onClick={onClose} disabled={isLoading} data-testid="plugin-sequence-cancel-button">
-							Cancel
+							{t("common.actions.cancel")}
 						</Button>
 						<Button onClick={handleSave} disabled={isLoading} isLoading={isLoading} data-testid="plugin-sequence-save-button" type="button">
 							Save Sequence

@@ -5,8 +5,10 @@ export interface UserGroupTierMapping {
 	id?: string;
 	tier_id?: string;
 	source_provider?: string; // omit/empty = any provider
+	source_key_id?: string; // omit/empty = any key
 	source_model: string; // "*" = any model
 	target_provider?: string; // omit = keep incoming provider
+	target_key_id?: string; // omit = keep incoming key selection
 	target_model: string;
 }
 
@@ -52,8 +54,10 @@ export interface UserGroup {
 
 export interface UserGroupTierMappingInput {
 	source_provider?: string;
+	source_key_id?: string;
 	source_model: string;
 	target_provider?: string;
+	target_key_id?: string;
 	target_model: string;
 }
 
@@ -122,4 +126,8 @@ export interface UserGroupMemberUsage {
 export interface GetUserGroupUsageResponse {
 	usage: UserGroupMemberUsage[];
 	count: number;
+}
+
+export interface ResetUserGroupMemberUsageRequest {
+	identity: string;
 }

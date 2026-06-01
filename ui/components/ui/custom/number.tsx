@@ -2,6 +2,7 @@ import { VariantProps, cva } from "class-variance-authority";
 import React, { useCallback, useEffect, useRef, useState } from "react";
 import "./input.css";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "../tooltip";
+import { useT } from "@/lib/i18n";
 import { cn } from "../utils";
 
 const inputVariants = cva(
@@ -56,6 +57,7 @@ const NumberInput = React.forwardRef<HTMLInputElement, NumberInputProps>(
 		},
 		ref,
 	) => {
+		const t = useT();
 		// Internal state to handle intermediate values (like empty string or partial input)
 		const initialValue = value === undefined ? defaultValue : value;
 		const [internalValue, setInternalValue] = useState<string>(() => {
@@ -150,22 +152,25 @@ const NumberInput = React.forwardRef<HTMLInputElement, NumberInputProps>(
 
 			// Check if the pasted content is a valid number format
 			if (!/^-?\d*\.?\d*$/.test(pastedText)) {
-				onValueError?.("Invalid number format");
-				setErrorMessage("Invalid number format");
+				const msg = t("shared.numberInput.invalidFormat");
+				onValueError?.(msg);
+				setErrorMessage(msg);
 				return;
 			}
 
 			// Handle decimal restriction
 			if (!allowDecimal && pastedText.includes(".")) {
-				onValueError?.("Decimal numbers are not allowed");
-				setErrorMessage("Decimal numbers are not allowed");
+				const msg = t("shared.numberInput.noDecimals");
+				onValueError?.(msg);
+				setErrorMessage(msg);
 				return;
 			}
 
 			// Handle negative restriction
 			if (!allowNegative && pastedText.includes("-")) {
-				onValueError?.("Negative numbers are not allowed");
-				setErrorMessage("Negative numbers are not allowed");
+				const msg = t("shared.numberInput.noNegative");
+				onValueError?.(msg);
+				setErrorMessage(msg);
 				return;
 			}
 

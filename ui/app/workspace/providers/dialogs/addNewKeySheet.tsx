@@ -1,5 +1,6 @@
 import Provider from "@/components/provider";
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sheet";
+import { useT } from "@/lib/i18n";
 import { ModelProvider } from "@/lib/types/config";
 import { toast } from "sonner";
 import ProviderKeyForm from "../views/providerKeyForm";
@@ -13,14 +14,20 @@ interface Props {
 }
 
 export default function AddNewKeySheet({ show, onCancel, provider, keyId, providerName }: Props) {
+	const t = useT();
 	const isEditing = keyId !== null;
 	const resolvedProviderName = (providerName ?? provider.name).toLowerCase();
 	const isVLLM = resolvedProviderName === "vllm";
 	const isOllamaOrSGL = resolvedProviderName === "ollama" || resolvedProviderName === "sgl";
-	const entityLabel = isVLLM ? "model" : isOllamaOrSGL ? "server" : "key";
-	const EntityLabel = entityLabel.charAt(0).toUpperCase() + entityLabel.slice(1);
-	const dialogTitle = isEditing ? `Edit ${entityLabel}` : `Add new ${entityLabel}`;
-	const successMessage = isEditing ? `${EntityLabel} updated successfully` : `${EntityLabel} added successfully`;
+	const entityLabel = isVLLM
+		? t("providers.keysTable.entityModel")
+		: isOllamaOrSGL
+			? t("providers.keysTable.entityServer")
+			: t("providers.keysTable.entityKey");
+	const dialogTitle = isEditing ? t("providers.keySheet.editEntity", { entity: entityLabel }) : t("providers.keySheet.addEntity", { entity: entityLabel });
+	const successMessage = isEditing
+		? t("providers.keySheet.updatedSuccess", { entity: entityLabel })
+		: t("providers.keySheet.addedSuccess", { entity: entityLabel });
 
 	return (
 		<Sheet

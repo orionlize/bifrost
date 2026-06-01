@@ -5,12 +5,14 @@ import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip
 import { getErrorMessage } from "@/lib/store";
 import { useListFeatureFlagsQuery, useUpdateFeatureFlagMutation } from "@/lib/store/apis/featureFlagsApi";
 import type { FeatureFlagStatus } from "@/lib/types/featureFlag";
+import { useT } from "@/lib/i18n";
 import { RbacOperation, RbacResource, useRbac } from "@enterprise/lib";
 import { Crown, Flag, Lock } from "lucide-react";
 import { toast } from "sonner";
 import { FeatureFlagsEmptyState } from "./featureFlagsEmptyState";
 
 export default function FeatureFlagsView() {
+	const t = useT();
 	const hasUpdateAccess = useRbac(RbacResource.FeatureFlags, RbacOperation.Update);
 	const { data, isLoading, isError, error } = useListFeatureFlagsQuery();
 	const [updateFeatureFlag] = useUpdateFeatureFlagMutation();
@@ -20,7 +22,12 @@ export default function FeatureFlagsView() {
 	async function handleToggle(flag: FeatureFlagStatus, checked: boolean) {
 		try {
 			await updateFeatureFlag({ id: flag.id, enabled: checked }).unwrap();
-			toast.success(`${flag.display_name || flag.id} ${checked ? "enabled" : "disabled"}`);
+			toast.success(
+				t("configViews.featureFlags.toggleSuccess", {
+					name: flag.display_name || flag.id,
+					state: checked ? t("configViews.featureFlags.enabled") : t("configViews.featureFlags.disabled"),
+				}),
+			);
 		} catch (err) {
 			toast.error(getErrorMessage(err));
 		}
@@ -31,16 +38,15 @@ export default function FeatureFlagsView() {
 			<header className="space-y-1">
 				<h2 className="flex flex-row items-center gap-1 text-lg font-semibold tracking-tight">
 					<Flag className="size-4" />
-					Feature Flags
+					{t("configPages.featureFlagsTitle")}
 				</h2>
-				<p className="text-muted-foreground text-sm">
-					Toggle in-process feature flags. Flags are declared in code; values can also be set via{" "}
-					<code className="text-xs">config.json</code> or Helm, in which case they appear here as locked.
-				</p>
+				<p className="text-muted-foreground text-sm">{t("configPages.featureFlagsDesc")}</p>
 			</header>
 
-			{isLoading && <p className="text-muted-foreground text-sm">Loading feature flags...</p>}
-			{isError && <p className="text-sm text-red-500">Failed to load feature flags: {getErrorMessage(error)}</p>}
+			{isLoading && <p className="text-muted-foreground text-sm">{t("configPages.loadingFeatureFlags")}</p>}
+			{isError && (
+				<p className="text-sm text-red-500">{t("configViews.featureFlags.loadFailed", { message: getErrorMessage(error) })}</p>
+			)}
 
 			{!isLoading && !isError && flags.length === 0 && <FeatureFlagsEmptyState />}
 
@@ -66,9 +72,8 @@ interface FeatureFlagRowProps {
 }
 
 function FeatureFlagRow({ flag, canUpdate, onToggle }: FeatureFlagRowProps) {
+	const t = useT();
 	const disabled = flag.locked || !flag.registered || !canUpdate;
-	// Fall back to id when display_name is empty so unregistered orphans
-	// still render something readable in the primary slot.
 	const primaryLabel = flag.display_name || flag.id;
 
 	return (
@@ -84,11 +89,7 @@ function FeatureFlagRow({ flag, canUpdate, onToggle }: FeatureFlagRowProps) {
 						{!flag.registered && <UnregisteredBadge />}
 					</div>
 					{flag.description && <p className="text-muted-foreground text-sm">{flag.description}</p>}
-					{!flag.registered && (
-						<p className="text-muted-foreground text-xs">
-							No code currently reads this flag. The override is stored but inert until a Register() call is added.
-						</p>
-					)}
+					{!flag.registered && <p className="text-muted-foreground text-xs">{t("configViews.featureFlags.unregisteredHint")}</p>}
 				</div>
 			</TableCell>
 			<TableCell className="w-px align-top">
@@ -113,42 +114,45 @@ function SourceBadge({ source }: { source: FeatureFlagStatus["source"] }) {
 }
 
 function LockedBadge() {
+	const t = useT();
 	return (
 		<Tooltip>
 			<TooltipTrigger asChild>
 				<Badge variant="secondary" className="flex items-center gap-1 text-xs">
 					<Lock className="size-3" />
-					Locked
+					{t("configViews.shared.locked")}
 				</Badge>
 			</TooltipTrigger>
-			<TooltipContent>Value is pinned by config.json or Helm; edit your config to change it.</TooltipContent>
+			<TooltipContent>{t("configViews.featureFlags.lockedTooltip")}</TooltipContent>
 		</Tooltip>
 	);
 }
 
 function EnterpriseBadge() {
+	const t = useT();
 	return (
 		<Tooltip>
 			<TooltipTrigger asChild>
 				<Badge variant="secondary" className="flex items-center gap-1 text-xs">
 					<Crown className="size-3" />
-					Enterprise
+					{t("configViews.shared.enterprise")}
 				</Badge>
 			</TooltipTrigger>
-			<TooltipContent>This flag gates an enterprise-only feature. Upgrade to enable it.</TooltipContent>
+			<TooltipContent>{t("configViews.featureFlags.enterpriseTooltip")}</TooltipContent>
 		</Tooltip>
 	);
 }
 
 function UnregisteredBadge() {
+	const t = useT();
 	return (
 		<Tooltip>
 			<TooltipTrigger asChild>
 				<Badge variant="destructive" className="text-xs">
-					Unregistered
+					{t("configViews.shared.unregistered")}
 				</Badge>
 			</TooltipTrigger>
-			<TooltipContent>This id has no code registration. Restore the Register() call or clean up the stale value.</TooltipContent>
+			<TooltipContent>{t("configViews.featureFlags.unregisteredTooltip")}</TooltipContent>
 		</Tooltip>
 	);
 }

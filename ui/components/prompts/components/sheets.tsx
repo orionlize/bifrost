@@ -2,8 +2,10 @@ import { usePromptContext } from "../context";
 import { FolderSheet } from "../sheets/folderSheet";
 import { PromptSheet } from "../sheets/promptSheet";
 import { CommitVersionSheet } from "../sheets/commitVersionSheet";
+import { useT } from "@/lib/i18n";
 
 export function PromptSheets() {
+	const t = useT();
 	const { folderSheet, setFolderSheet, promptSheet, setPromptSheet, commitSheet, setCommitSheet, setUrlState } = usePromptContext();
 
 	return (

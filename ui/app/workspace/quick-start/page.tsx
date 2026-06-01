@@ -5,6 +5,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import GradientHeader from "@/components/ui/gradientHeader";
 import { useAoneCurrentUser } from "@/hooks/useAoneCurrentUser";
 import { IS_ENTERPRISE } from "@/lib/constants/config";
+import { useT } from "@/lib/i18n";
 import { useGetProvidersQuery, useIsAuthEnabledQuery } from "@/lib/store";
 import { getAoneApiKey } from "@/lib/utils/aoneUserStorage";
 import {
@@ -39,6 +40,7 @@ function resolveProviderGuide(
 }
 
 export default function QuickStartView() {
+	const t = useT();
 	const { data: providers = [], isLoading } = useGetProvidersQuery();
 	const { data: authStatus } = useIsAuthEnabledQuery();
 	const { data: aoneUser } = useAoneCurrentUser();
@@ -59,9 +61,7 @@ export default function QuickStartView() {
 
 	const isAoneAuth = !IS_ENTERPRISE && (authStatus?.aone_oauth_enabled ?? false);
 	const usingPlaceholderKey = apiKey === PLACEHOLDER_API_KEY;
-	const apiKeyWarning = isAoneAuth
-		? "No personal API key found. Sign in with your Aone account before importing."
-		: "Replace your-api-key in the examples with your API key.";
+	const apiKeyWarning = isAoneAuth ? t("quickStart.apiKeyWarningAone") : t("quickStart.apiKeyWarningDefault");
 
 	const anthropicGuide = useMemo(
 		() => resolveProviderGuide(configuredProviders, "anthropic", "anthropic", apiKey),
@@ -118,45 +118,42 @@ export default function QuickStartView() {
 	return (
 		<div className="flex flex-col gap-6 p-6">
 			<div>
-				<GradientHeader title="Quick Start" />
-				<p className="text-muted-foreground mt-2 max-w-3xl text-sm">
-					Manual integration examples for your configured providers, or one-click Claude Code, Codex CLI, and Gemini CLI setup via CC
-					Switch.
-				</p>
+				<GradientHeader title={t("quickStart.title")} />
+				<p className="text-muted-foreground mt-2 max-w-3xl text-sm">{t("quickStart.subtitle")}</p>
 			</div>
 
 			<div className="grid gap-4 xl:grid-cols-3">
 				<CcSwitchImportCard
-					title="Claude Code · CC Switch"
+					title={t("quickStart.claudeCode.title")}
 					icon={Terminal}
-					description="Import your Bifrost gateway into Claude Code with the CC Switch desktop app. Install"
+					description={t("quickStart.claudeCode.description")}
 					testId="quick-start-cc-switch-claude"
 					importUrl={claudeCcSwitchUrl}
-					manualConfigLabel="Manual setup for ~/.claude/settings.json (merge into your existing config):"
+					manualConfigLabel={t("quickStart.claudeCode.manualLabel")}
 					manualConfig={claudeSettingsJson}
 					manualConfigLanguage="json"
 					showApiKeyWarning={usingPlaceholderKey}
 					apiKeyWarning={apiKeyWarning}
 				/>
 				<CcSwitchImportCard
-					title="Gemini CLI · CC Switch"
+					title={t("quickStart.geminiCli.title")}
 					icon={Diamond}
-					description="Import your Bifrost gateway into Gemini CLI with the CC Switch desktop app. Install"
+					description={t("quickStart.geminiCli.description")}
 					testId="quick-start-cc-switch-gemini"
 					importUrl={geminiCcSwitchUrl}
-					manualConfigLabel="Manual setup (add to your shell profile or run before gemini):"
+					manualConfigLabel={t("quickStart.geminiCli.manualLabel")}
 					manualConfig={geminiEnvScript}
 					manualConfigLanguage="shell"
 					showApiKeyWarning={usingPlaceholderKey}
 					apiKeyWarning={apiKeyWarning}
 				/>
 				<CcSwitchImportCard
-					title="Codex CLI · CC Switch"
+					title={t("quickStart.codexCli.title")}
 					icon={SquareCode}
-					description="Import your Bifrost gateway into OpenAI Codex CLI with the CC Switch desktop app. Install"
+					description={t("quickStart.codexCli.description")}
 					testId="quick-start-cc-switch-codex"
 					importUrl={codexCcSwitchUrl}
-					manualConfigLabel="Manual setup for ~/.codex/config.toml (merge into your existing config):"
+					manualConfigLabel={t("quickStart.codexCli.manualLabel")}
 					manualConfig={codexConfigToml}
 					manualConfigLanguage="shell"
 					showApiKeyWarning={usingPlaceholderKey}
@@ -168,24 +165,24 @@ export default function QuickStartView() {
 				<CardHeader>
 					<CardTitle className="flex items-center gap-2">
 						<Rocket className="size-5" />
-						Provider Integration
+						{t("quickStart.providerIntegration")}
 					</CardTitle>
 					<CardDescription>
-						Examples below use your currently configured providers. Gateway URL: <code>{baseUrl}</code>
+						{t("quickStart.providerIntegrationDesc")} <code>{baseUrl}</code>
 					</CardDescription>
 				</CardHeader>
 				<CardContent>
 					{isLoading ? (
-						<p className="text-muted-foreground text-sm">Loading provider configuration...</p>
+						<p className="text-muted-foreground text-sm">{t("quickStart.loadingProviders")}</p>
 					) : configuredProviders.length === 0 ? (
 						<Alert>
 							<AlertCircle className="size-4" />
 							<AlertDescription className="flex flex-wrap items-center gap-1">
-								No providers configured yet. Go to{" "}
+								{t("quickStart.noProviders")}{" "}
 								<Link to="/workspace/providers" className="text-primary underline-offset-4 hover:underline">
-									Model Providers
+									{t("quickStart.modelProviders")}
 								</Link>{" "}
-								to add one.
+								{t("quickStart.toAddOne")}
 							</AlertDescription>
 						</Alert>
 					) : (

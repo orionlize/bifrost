@@ -14,6 +14,8 @@ package governance
 
 import (
 	"context"
+	"errors"
+	"fmt"
 	"sort"
 	"strings"
 	"sync"
@@ -27,6 +29,13 @@ import (
 	"gorm.io/gorm/clause"
 )
 
+var (
+	// ErrUserGroupNotFound is returned when resetting usage for an unknown group.
+	ErrUserGroupNotFound = errors.New("user group not found")
+	// ErrUserGroupMemberNotFound is returned when the identity is not a group member.
+	ErrUserGroupMemberNotFound = errors.New("member not found in user group")
+)
+
 // userGroupCounter is an in-memory token counter for one (identity, group, window) triple.
 type userGroupCounter struct {
 	tokens    int64
@@ -38,11 +47,12 @@ type userGroupCounter struct {
 type DegradationResult struct {
 	Provider  string   // target provider ("" = keep incoming)
 	Model     string   // target model ("" = keep incoming)
+	KeyID     string   // target provider key ID pin ("" = keep incoming key selection)
 	Fallbacks []string // cross-model fallbacks ("provider/model"), terminal tiers only
 	GroupName string
 	GroupID   string
 	TierOrder int
-	Changed   bool // true when provider/model differs from the incoming request
+	Changed   bool // true when provider/model/key differs from the incoming request
 }
 
 // UserGroupManager owns the user-group cache and per-user window usage counters.
@@ -127,14 +137,23 @@ func (m *UserGroupManager) Load(ctx context.Context) error {
 	m.mu.Unlock()
 
 	// Seed counters (preserve any newer in-memory deltas not yet dumped).
+	now := time.Now()
 	m.usageMu.Lock()
 	for i := range usageRows {
 		row := usageRows[i]
+		g, ok := groupMap[row.UserGroupID]
+		if !ok {
+			continue
+		}
 		key := usageKey(row.Identity, row.UserGroupID, row.Window)
 		if existing, ok := m.usage[key]; ok && existing.dirty {
 			continue
 		}
-		m.usage[key] = &userGroupCounter{tokens: row.TokenCurrentUsage, lastReset: row.TokenLastReset}
+		c := &userGroupCounter{tokens: row.TokenCurrentUsage, lastReset: row.TokenLastReset}
+		if _, dur := windowConfig(g, row.Window); dur != nil {
+			m.resetCounterIfExpired(c, g, *dur, now)
+		}
+		m.usage[key] = c
 	}
 	m.usageMu.Unlock()
 
@@ -180,6 +199,18 @@ func isWindowExpired(lastReset time.Time, resetDuration string, calendarAligned 
 	return now.Sub(lastReset) >= d
 }
 
+// resetCounterIfExpired zeroes a counter when its rolling/calendar window has elapsed.
+func (m *UserGroupManager) resetCounterIfExpired(c *userGroupCounter, g *configstoreTables.TableUserGroup, resetDuration string, now time.Time) {
+	if c == nil || g == nil {
+		return
+	}
+	if isWindowExpired(c.lastReset, resetDuration, g.CalendarAligned, now) {
+		c.tokens = 0
+		c.lastReset = m.resetBaseline(g, resetDuration, now)
+		c.dirty = true
+	}
+}
+
 // effectiveTokens returns the live token count for a window, treating an expired
 // window as zero (grace handling, mirrors the rate-limit reset semantics).
 func (m *UserGroupManager) effectiveTokens(identity string, g *configstoreTables.TableUserGroup, window, resetDuration string, now time.Time) int64 {
@@ -189,9 +220,7 @@ func (m *UserGroupManager) effectiveTokens(identity string, g *configstoreTables
 	if !ok {
 		return 0
 	}
-	if isWindowExpired(c.lastReset, resetDuration, g.CalendarAligned, now) {
-		return 0
-	}
+	m.resetCounterIfExpired(c, g, resetDuration, now)
 	return c.tokens
 }
 
@@ -214,6 +243,61 @@ func (m *UserGroupManager) usagePercent(identity string, g *configstoreTables.Ta
 	return pct
 }
 
+// WindowUsageRange returns the wall-clock [start, end] interval for aggregating logged
+// token usage for a group window (e.g. the last 5h for the short window).
+func WindowUsageRange(g *configstoreTables.TableUserGroup, window string, now time.Time) (start, end time.Time, ok bool) {
+	if g == nil {
+		return time.Time{}, time.Time{}, false
+	}
+	limit, dur := windowConfig(g, window)
+	if limit == nil || dur == nil {
+		return time.Time{}, time.Time{}, false
+	}
+	d, err := configstoreTables.ParseDuration(*dur)
+	if err != nil || d <= 0 {
+		return time.Time{}, time.Time{}, false
+	}
+	end = now
+	if g.CalendarAligned && configstoreTables.IsCalendarAlignableDuration(*dur) {
+		start = configstoreTables.GetCalendarPeriodStart(*dur, now)
+	} else {
+		start = now.Add(-d)
+	}
+	return start, end, true
+}
+
+// LogUsageRangeStart returns the wall-clock start for aggregating logged tokens in
+// a window. When the counter was reset after the nominal window start (manual reset
+// or rolling expiry), only logs since lastReset are included.
+func LogUsageRangeStart(windowStart time.Time, lastReset *time.Time) time.Time {
+	if lastReset != nil && lastReset.After(windowStart) {
+		return *lastReset
+	}
+	return windowStart
+}
+
+// ShouldUseGovernanceCounterForDisplay reports when live counters should be shown
+// instead of log aggregates. Hourly log matviews cannot attribute usage after a
+// mid-window reset (manual or rolling), while counters track since lastReset.
+func ShouldUseGovernanceCounterForDisplay(windowStart time.Time, lastReset *time.Time) bool {
+	return lastReset != nil && !lastReset.Before(windowStart)
+}
+
+// ReconcileTokenUsage returns the effective token count for display: the higher of
+// the live governance counter and a log aggregate. Counters can lead logs briefly
+// on hot paths; logs can lead counters after restart before counters catch up.
+func ReconcileTokenUsage(counter, logged int64) int64 {
+	if logged > counter {
+		return logged
+	}
+	return counter
+}
+
+// ActiveTierForUsagePercent returns the active degradation tier for a usage percentage.
+func ActiveTierForUsagePercent(g *configstoreTables.TableUserGroup, pct float64) *configstoreTables.TableUserGroupTier {
+	return activeTierForGroup(g, pct)
+}
+
 // activeTierForGroup returns the highest-threshold tier whose ThresholdPct is met by
 // the current usage percentage, or nil if no tier is active.
 func activeTierForGroup(g *configstoreTables.TableUserGroup, pct float64) *configstoreTables.TableUserGroupTier {
@@ -230,7 +314,8 @@ func activeTierForGroup(g *configstoreTables.TableUserGroup, pct float64) *confi
 // ResolveDegradation determines the model substitution (if any) for a request from a
 // caller identified by identity (user ID or VK ID) holding virtual key vkID. It selects
 // the most aggressive active tier across all of the VK's groups and applies its mapping.
-func (m *UserGroupManager) ResolveDegradation(identity, vkID, provider, model string) *DegradationResult {
+// keyID is the incoming provider key pin from x-bf-api-key-id (empty when unset).
+func (m *UserGroupManager) ResolveDegradation(identity, vkID, provider, model, keyID string) *DegradationResult {
 	if m == nil {
 		return nil
 	}
@@ -281,10 +366,13 @@ func (m *UserGroupManager) ResolveDegradation(identity, vkID, provider, model st
 		TierOrder: bestTier.TierOrder,
 	}
 
-	if tp, tm, matched := matchMapping(bestTier, provider, model); matched {
+	if tp, tm, tk, matched := matchMapping(bestTier, provider, model, keyID); matched {
 		res.Provider = tp
 		res.Model = tm
-		res.Changed = !strings.EqualFold(tm, model) || (tp != "" && !strings.EqualFold(tp, provider))
+		res.KeyID = tk
+		res.Changed = !strings.EqualFold(tm, model) ||
+			(tp != "" && !strings.EqualFold(tp, provider)) ||
+			(tk != "" && !strings.EqualFold(tk, keyID))
 	}
 
 	// Terminal tiers attach cross-model fallbacks regardless of mapping match.
@@ -309,14 +397,19 @@ func moreAggressive(a, b *configstoreTables.TableUserGroupTier) bool {
 	return a.TierOrder > b.TierOrder
 }
 
-// matchMapping finds the substitution target for the given provider/model in a tier.
-// Exact (model + optional provider) matches win over wildcard ("*") matches.
-func matchMapping(tier *configstoreTables.TableUserGroupTier, provider, model string) (targetProvider, targetModel string, matched bool) {
+// matchMapping finds the substitution target for the given provider/model/key in a tier.
+// Exact (model + optional provider/key) matches win over wildcard ("*") matches.
+func matchMapping(tier *configstoreTables.TableUserGroupTier, provider, model, keyID string) (targetProvider, targetModel, targetKeyID string, matched bool) {
 	var wildcard *configstoreTables.TableUserGroupTierMapping
 	for i := range tier.Mappings {
 		mp := &tier.Mappings[i]
 		if mp.SourceProvider != nil && *mp.SourceProvider != "" && !strings.EqualFold(*mp.SourceProvider, provider) {
 			continue
+		}
+		if mp.SourceKeyID != nil && strings.TrimSpace(*mp.SourceKeyID) != "" && keyID != "" {
+			if !strings.EqualFold(strings.TrimSpace(*mp.SourceKeyID), keyID) {
+				continue
+			}
 		}
 		if mp.SourceModel == "*" {
 			if wildcard == nil {
@@ -325,21 +418,27 @@ func matchMapping(tier *configstoreTables.TableUserGroupTier, provider, model st
 			continue
 		}
 		if strings.EqualFold(mp.SourceModel, model) {
-			tp := ""
-			if mp.TargetProvider != nil {
-				tp = *mp.TargetProvider
-			}
-			return tp, mp.TargetModel, true
+			return mappingTarget(mp)
 		}
 	}
 	if wildcard != nil {
-		tp := ""
-		if wildcard.TargetProvider != nil {
-			tp = *wildcard.TargetProvider
-		}
-		return tp, wildcard.TargetModel, true
+		return mappingTarget(wildcard)
 	}
-	return "", "", false
+	return "", "", "", false
+}
+
+func mappingTarget(mp *configstoreTables.TableUserGroupTierMapping) (targetProvider, targetModel, targetKeyID string, matched bool) {
+	tp := ""
+	if mp.TargetProvider != nil {
+		tp = *mp.TargetProvider
+	}
+	tk := ""
+	if mp.TargetKeyID != nil {
+		if trimmed := strings.TrimSpace(*mp.TargetKeyID); trimmed != "" {
+			tk = trimmed
+		}
+	}
+	return tp, mp.TargetModel, tk, true
 }
 
 // UserGroupWindowStatus is the live usage of one window for one member.
@@ -402,11 +501,10 @@ func (m *UserGroupManager) GroupMemberUsage(groupID string) []UserGroupMemberUsa
 			var lastReset *time.Time
 			m.usageMu.Lock()
 			if c, present := m.usage[usageKey(vkID, g.ID, window)]; present {
+				m.resetCounterIfExpired(c, g, *dur, now)
 				lr := c.lastReset
 				lastReset = &lr
-				if !isWindowExpired(c.lastReset, *dur, g.CalendarAligned, now) {
-					used = c.tokens
-				}
+				used = c.tokens
 			}
 			m.usageMu.Unlock()
 
@@ -471,11 +569,7 @@ func (m *UserGroupManager) RecordUsage(identity, vkID string, tokens int64) {
 				c = &userGroupCounter{lastReset: now}
 				m.usage[key] = c
 			}
-			// Lazily reset an expired window before accumulating.
-			if isWindowExpired(c.lastReset, *dur, g.CalendarAligned, now) {
-				c.tokens = 0
-				c.lastReset = m.resetBaseline(g, *dur, now)
-			}
+			m.resetCounterIfExpired(c, g, *dur, now)
 			c.tokens += tokens
 			c.dirty = true
 		}
@@ -546,11 +640,84 @@ func (m *UserGroupManager) Tick(ctx context.Context) {
 		return
 	}
 
+	m.persistUsageRows(ctx, toPersist)
+}
+
+func (m *UserGroupManager) persistUsageRows(ctx context.Context, rows []configstoreTables.TableUserGroupUsage) {
+	if m == nil || m.configStore == nil || len(rows) == 0 {
+		return
+	}
 	db := m.configStore.ScopedDB(ctx)
 	if err := db.Clauses(clause.OnConflict{
 		Columns:   []clause.Column{{Name: "identity"}, {Name: "user_group_id"}, {Name: "window"}},
 		DoUpdates: clause.AssignmentColumns([]string{"token_current_usage", "token_last_reset", "updated_at"}),
-	}).Create(&toPersist).Error; err != nil {
+	}).Create(&rows).Error; err != nil {
 		m.logger.Error("failed to persist user group usage: %v", err)
 	}
+}
+
+// ResetMemberUsage zeroes the short and weekly window counters for one group
+// member and starts fresh windows from now. This clears the active degradation tier.
+func (m *UserGroupManager) ResetMemberUsage(ctx context.Context, groupID, identity string) error {
+	if m == nil {
+		return fmt.Errorf("user group manager not configured")
+	}
+	if groupID == "" || identity == "" {
+		return fmt.Errorf("group id and identity are required")
+	}
+
+	m.mu.RLock()
+	g, ok := m.groups[groupID]
+	if !ok {
+		m.mu.RUnlock()
+		return ErrUserGroupNotFound
+	}
+	isMember := false
+	for _, gid := range m.vkToGroups[identity] {
+		if gid == groupID {
+			isMember = true
+			break
+		}
+	}
+	m.mu.RUnlock()
+	if !isMember {
+		return ErrUserGroupMemberNotFound
+	}
+
+	now := time.Now()
+	toPersist := make([]configstoreTables.TableUserGroupUsage, 0, 2)
+
+	m.usageMu.Lock()
+	for _, window := range []string{configstoreTables.UserGroupWindowShort, configstoreTables.UserGroupWindowWeekly} {
+		limit, dur := windowConfig(g, window)
+		if limit == nil || dur == nil {
+			continue
+		}
+		key := usageKey(identity, groupID, window)
+		c, present := m.usage[key]
+		if !present {
+			c = &userGroupCounter{}
+			m.usage[key] = c
+		}
+		c.tokens = 0
+		c.lastReset = now
+		c.dirty = false
+		toPersist = append(toPersist, configstoreTables.TableUserGroupUsage{
+			ID:                uuid.NewString(),
+			Identity:          identity,
+			UserGroupID:       groupID,
+			Window:            window,
+			TokenCurrentUsage: 0,
+			TokenLastReset:    c.lastReset,
+			UpdatedAt:         now,
+		})
+	}
+	m.usageMu.Unlock()
+
+	if len(toPersist) == 0 {
+		return fmt.Errorf("group has no configured usage windows")
+	}
+
+	m.persistUsageRows(ctx, toPersist)
+	return nil
 }

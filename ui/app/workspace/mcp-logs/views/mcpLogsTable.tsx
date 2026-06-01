@@ -9,6 +9,7 @@ import {
 } from "@/components/table";
 import { Button } from "@/components/ui/button";
 import { Table, TableBody, TableCell, TableRow } from "@/components/ui/table";
+import { useT } from "@/lib/i18n";
 import type { MCPToolLogEntry, Pagination } from "@/lib/types/logs";
 import { cn } from "@/lib/utils";
 import type { ColumnOrderState, ColumnPinningState, VisibilityState } from "@tanstack/react-table";
@@ -54,6 +55,7 @@ export function MCPLogsDataTable({
 	onTogglePin,
 	onReorderColumns,
 }: DataTableProps) {
+	const t = useT();
 	const [sorting, setSorting] = useState<SortingState>([{ id: pagination.sort_by, desc: pagination.order === "desc" }]);
 
 	const fixedColumnIds = useMemo(() => new Set<string>(["actions"]), []);
@@ -165,12 +167,12 @@ export function MCPLogsDataTable({
 										{polling ? (
 											<>
 												<RefreshCw className="h-4 w-4 animate-spin" />
-												Waiting for new MCP logs...
+												{t("mcp.logs.table.waiting")}
 											</>
 										) : (
 											<Button variant="ghost" size="sm" onClick={onRefresh} disabled={loading} data-testid="mcp-logs-table-refresh-btn">
 												<RefreshCw className={`h-4 w-4 ${loading ? "animate-spin" : ""}`} />
-												Refresh
+												{t("common.actions.refresh")}
 											</Button>
 										)}
 									</div>
@@ -204,7 +206,7 @@ export function MCPLogsDataTable({
 							) : loading ? null : (
 								<TableRow>
 									<TableCell colSpan={columns.length} className="h-24 text-center">
-										No results found. Try adjusting your filters and/or time range.
+										{t("mcp.logs.table.noResults")}
 									</TableCell>
 								</TableRow>
 							)}
@@ -214,7 +216,11 @@ export function MCPLogsDataTable({
 				{/* Pagination Footer */}
 				<div className="flex items-center justify-between text-xs" data-testid="pagination">
 					<div className="text-muted-foreground flex items-center gap-2">
-						{startItemDisplay.toLocaleString()}-{endItemDisplay.toLocaleString()} of {totalItems.toLocaleString()} entries
+						{t("mcp.logs.table.entries", {
+							from: startItemDisplay.toLocaleString(),
+							to: endItemDisplay.toLocaleString(),
+							total: totalItems.toLocaleString(),
+						})}
 					</div>
 
 					<div className="flex items-center gap-2">
@@ -224,15 +230,15 @@ export function MCPLogsDataTable({
 							onClick={() => goToPage(currentPage - 1)}
 							disabled={currentPage <= 1}
 							data-testid="prev-page"
-							aria-label="Previous page"
+							aria-label={t("mcp.logs.table.prevPageAria")}
 						>
 							<ChevronLeft className="size-3" />
 						</Button>
 
 						<div className="flex items-center gap-1">
-							<span>Page</span>
+							<span>{t("mcp.logs.table.page")}</span>
 							<span>{currentPage}</span>
-							<span>of {totalPages}</span>
+							<span>{t("mcp.logs.table.ofPages", { total: totalPages })}</span>
 						</div>
 
 						<Button
@@ -241,7 +247,7 @@ export function MCPLogsDataTable({
 							onClick={() => goToPage(currentPage + 1)}
 							disabled={totalPages === 0 || currentPage >= totalPages}
 							data-testid="next-page"
-							aria-label="Next page"
+							aria-label={t("mcp.logs.table.nextPageAria")}
 						>
 							<ChevronRight className="size-3" />
 						</Button>

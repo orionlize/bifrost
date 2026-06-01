@@ -1,6 +1,7 @@
 import { Progress } from "@/components/ui/progress";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { resetDurationLabels, supportsCalendarAlignment } from "@/lib/constants/governance";
+import { useT } from "@/lib/i18n";
 import { cn } from "@/lib/utils";
 import { formatCompactNumber } from "@/lib/utils/numbers";
 
@@ -66,6 +67,7 @@ function Bar({
 	compact?: boolean;
 	calendarAligned?: boolean;
 }) {
+	const t = useT();
 	const pct = max > 0 ? Math.min((current / max) * 100, 100) : 0;
 	const isExhausted = max > 0 && current >= max;
 	const barClass = isExhausted ? "[&>div]:bg-red-500/70" : pct > 80 ? "[&>div]:bg-amber-500/70" : "[&>div]:bg-emerald-500/70";
@@ -88,7 +90,9 @@ function Bar({
 					{current.toLocaleString()} / {max.toLocaleString()} {label}
 				</p>
 				{resetDuration ? (
-					<p className="text-primary-foreground/80 text-xs">Resets {formatResetDuration(resetDuration, calendarAligned)}</p>
+					<p className="text-primary-foreground/80 text-xs">
+						{t("governanceShared.resets", { duration: formatResetDuration(resetDuration, calendarAligned) })}
+					</p>
 				) : null}
 			</TooltipContent>
 		</Tooltip>

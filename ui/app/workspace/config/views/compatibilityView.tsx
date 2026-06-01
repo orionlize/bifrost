@@ -2,11 +2,16 @@ import { Button } from "@/components/ui/button";
 import { Switch } from "@/components/ui/switch";
 import { getErrorMessage, useGetCoreConfigQuery, useUpdateCoreConfigMutation } from "@/lib/store";
 import { CompatConfig, DefaultCoreConfig } from "@/lib/types/config";
+import { useT } from "@/lib/i18n";
+import { useNavDescription, useNavTitle } from "@/lib/i18n/useNavTitle";
 import { RbacOperation, RbacResource, useRbac } from "@enterprise/lib";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { toast } from "sonner";
 
 export default function CompatibilityView() {
+	const t = useT();
+	const pageTitle = useNavTitle("compatibility");
+	const pageDescription = useNavDescription("compatibility");
 	const hasSettingsUpdateAccess = useRbac(RbacResource.Settings, RbacOperation.Update);
 	const { data: bifrostConfig } = useGetCoreConfigQuery({ fromDB: true });
 	const config = bifrostConfig?.client_config?.compat;
@@ -37,7 +42,7 @@ export default function CompatibilityView() {
 
 	const handleSave = useCallback(async () => {
 		if (!bifrostConfig) {
-			toast.error("Configuration not loaded");
+			toast.error(t("configViews.shared.configNotLoaded"));
 			return;
 		}
 
@@ -49,18 +54,18 @@ export default function CompatibilityView() {
 					compat: localCompatConfig,
 				},
 			}).unwrap();
-			toast.success("Compatibility settings updated successfully.");
+			toast.success(t("configViews.compatibility.updated"));
 		} catch (error) {
 			toast.error(getErrorMessage(error));
 		}
-	}, [bifrostConfig, localCompatConfig, updateCoreConfig]);
+	}, [bifrostConfig, localCompatConfig, updateCoreConfig, t]);
 
 	return (
 		<div className="mx-auto w-full max-w-4xl space-y-6">
 			<div>
-				<h2 className="text-lg font-semibold tracking-tight">Compatibility</h2>
+				<h2 className="text-lg font-semibold tracking-tight">{pageTitle}</h2>
 				<p className="text-muted-foreground text-sm">
-					Configure request conversions and compatibility fallbacks.{" "}
+					{pageDescription}{" "}
 					<a
 						className="text-primary underline"
 						href="https://docs.getbifrost.ai/features/compat-plugin"
@@ -68,7 +73,7 @@ export default function CompatibilityView() {
 						rel="noopener noreferrer"
 						data-testid="litellm-docs-link"
 					>
-						Learn more
+						{t("configViews.shared.learnMore")}
 					</a>
 				</p>
 			</div>
@@ -77,9 +82,9 @@ export default function CompatibilityView() {
 				<div className="flex items-center justify-between space-x-2">
 					<div className="space-y-0.5">
 						<label htmlFor="compat-convert-text-to-chat" className="text-sm font-medium">
-							Convert Text to Chat
+							{t("configViews.compatibility.convertTextToChat")}
 						</label>
-						<p className="text-muted-foreground text-sm">Convert text completion requests to chat for models that only support chat.</p>
+						<p className="text-muted-foreground text-sm">{t("configViews.compatibility.convertTextToChatDesc")}</p>
 					</div>
 					<Switch
 						id="compat-convert-text-to-chat"
@@ -94,11 +99,9 @@ export default function CompatibilityView() {
 				<div className="flex items-center justify-between space-x-2">
 					<div className="space-y-0.5">
 						<label htmlFor="compat-convert-chat-to-responses" className="text-sm font-medium">
-							Convert Chat to Responses
+							{t("configViews.compatibility.convertChatToResponses")}
 						</label>
-						<p className="text-muted-foreground text-sm">
-							Convert chat completion requests to responses for models that only support responses.
-						</p>
+						<p className="text-muted-foreground text-sm">{t("configViews.compatibility.convertChatToResponsesDesc")}</p>
 					</div>
 					<Switch
 						id="compat-convert-chat-to-responses"
@@ -113,9 +116,9 @@ export default function CompatibilityView() {
 				<div className="flex items-center justify-between space-x-2">
 					<div className="space-y-0.5">
 						<label htmlFor="compat-should-drop-params" className="text-sm font-medium">
-							Drop Unsupported Params
+							{t("configViews.compatibility.dropUnsupportedParams")}
 						</label>
-						<p className="text-muted-foreground text-sm">Drop unsupported parameters based on model catalog allowlist.</p>
+						<p className="text-muted-foreground text-sm">{t("configViews.compatibility.dropUnsupportedParamsDesc")}</p>
 					</div>
 					<Switch
 						id="compat-should-drop-params"
@@ -130,9 +133,9 @@ export default function CompatibilityView() {
 				<div className="flex items-center justify-between space-x-2">
 					<div className="space-y-0.5">
 						<label htmlFor="compat-should-convert-params" className="text-sm font-medium">
-							Convert Unsupported Param Values
+							{t("configViews.compatibility.convertUnsupportedParamValues")}
 						</label>
-						<p className="text-muted-foreground text-sm">Converts model parameter values that are not supported by the model.</p>
+						<p className="text-muted-foreground text-sm">{t("configViews.compatibility.convertUnsupportedParamValuesDesc")}</p>
 					</div>
 					<Switch
 						id="compat-should-convert-params"
@@ -147,7 +150,7 @@ export default function CompatibilityView() {
 
 			<div className="flex justify-end pt-2">
 				<Button onClick={handleSave} disabled={!hasChanges || isLoading || !hasSettingsUpdateAccess} data-testid="compat-save-button">
-					{isLoading ? "Saving..." : "Save Changes"}
+					{isLoading ? t("common.actions.saving") : t("common.actions.saveChanges")}
 				</Button>
 			</div>
 		</div>

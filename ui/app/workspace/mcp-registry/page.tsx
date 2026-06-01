@@ -1,6 +1,7 @@
 import FullPageLoader from "@/components/fullPageLoader";
 import { useToast } from "@/hooks/use-toast";
 import { useDebouncedValue } from "@/hooks/useDebounce";
+import { useT } from "@/lib/i18n";
 import { getErrorMessage, useGetMCPClientsQuery } from "@/lib/store";
 import { useEffect, useState } from "react";
 import MCPClientsTable from "./views/mcpClientsTable";
@@ -9,6 +10,7 @@ const POLLING_INTERVAL = 5000;
 const PAGE_SIZE = 25;
 
 export default function MCPServersPage() {
+	const t = useT();
 	const [search, setSearch] = useState("");
 	const [offset, setOffset] = useState(0);
 	const debouncedSearch = useDebouncedValue(search, 300);
@@ -50,7 +52,7 @@ export default function MCPServersPage() {
 			const message = getErrorMessage(error);
 			if (message.toLowerCase().includes("mcp is not configured in this bifrost instance")) return;
 			toast({
-				title: "Error",
+				title: t("mcp.error"),
 				description: message,
 				variant: "destructive",
 			});

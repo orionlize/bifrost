@@ -1,8 +1,12 @@
 import { describe, expect, it } from "vitest";
 
+import { en } from "@/lib/i18n/locales/en";
+import { createTranslator } from "@/lib/i18n/utils";
 import type { LogEntry } from "@/lib/types/logs";
 
 import { getMessage } from "./columns";
+
+const t = createTranslator(en);
 
 describe("getMessage", () => {
 	it("returns EI realtime text from input history", () => {
@@ -16,7 +20,7 @@ describe("getMessage", () => {
 			],
 		} as unknown as LogEntry;
 
-		expect(getMessage(log)).toBe("User: hello from the browser");
+		expect(getMessage(log, t)).toBe("User: hello from the browser");
 	});
 
 	it("returns LM realtime text from output message", () => {
@@ -30,7 +34,7 @@ describe("getMessage", () => {
 			},
 		} as unknown as LogEntry;
 
-		expect(getMessage(log)).toBe("Assistant: hello from the model");
+		expect(getMessage(log, t)).toBe("Assistant: hello from the model");
 	});
 
 	it("returns split realtime text when both user and assistant are present", () => {
@@ -48,7 +52,7 @@ describe("getMessage", () => {
 			},
 		} as unknown as LogEntry;
 
-		expect(getMessage(log)).toBe("User: who are you?\nAssistant: I am the assistant.");
+		expect(getMessage(log, t)).toBe("User: who are you?\nAssistant: I am the assistant.");
 	});
 
 	it("returns split realtime text including tool output", () => {
@@ -70,7 +74,7 @@ describe("getMessage", () => {
 			},
 		} as unknown as LogEntry;
 
-		expect(getMessage(log)).toBe('Tool Result: {"nextResponse":"tool result"}\nUser: who are you?\nAssistant: I am the assistant.');
+		expect(getMessage(log, t)).toBe('Tool Result: {"nextResponse":"tool result"}\nUser: who are you?\nAssistant: I am the assistant.');
 	});
 
 	it("returns realtime assistant tool calls from output message", () => {
@@ -95,6 +99,6 @@ describe("getMessage", () => {
 			},
 		} as unknown as LogEntry;
 
-		expect(getMessage(log)).toBe('User: show me a pastel palette\nAssistant Tool Call: display_color_palette({"theme":"pastel"})');
+		expect(getMessage(log, t)).toBe('User: show me a pastel palette\nAssistant Tool Call: display_color_palette({"theme":"pastel"})');
 	});
 });

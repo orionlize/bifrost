@@ -15,6 +15,7 @@ import {
 	useLazyGetProviderQuery,
 } from "@/lib/store";
 import { KnownProvider, ModelProviderName, ProviderStatus } from "@/lib/types/config";
+import { useT } from "@/lib/i18n";
 import { cn } from "@/lib/utils";
 import { RbacOperation, RbacResource, useRbac } from "@enterprise/lib";
 import { useNavigate } from "@tanstack/react-router";
@@ -29,6 +30,7 @@ import { AddProviderDropdown } from "./views/addProviderDropdown";
 import { ProvidersEmptyState } from "./views/providersEmptyState";
 
 export default function Providers() {
+	const t = useT();
 	const dispatch = useAppDispatch();
 	const navigate = useNavigate();
 	const hasProvidersAccess = useRbac(RbacResource.ModelProvider, RbacOperation.View);
@@ -90,8 +92,8 @@ export default function Providers() {
 					);
 					return;
 				}
-				toast.error("Something went wrong", {
-					description: `We encountered an error while getting provider config: ${getErrorMessage(err)}`,
+				toast.error(t("providers.somethingWrong"), {
+					description: t("providers.getConfigErrorDescription", { message: getErrorMessage(err) }),
 				});
 			});
 	}, [provider, isLoadingProviders]);
@@ -128,7 +130,7 @@ export default function Providers() {
 				setProvider(name);
 				return;
 			}
-			toast.error("Failed to add provider", {
+			toast.error(t("providers.failedToAdd"), {
 				description: getErrorMessage(err),
 			});
 		}
@@ -197,7 +199,7 @@ export default function Providers() {
 							{/* Configured Providers (standard with keys + custom) */}
 							{configuredProviders.length > 0 && (
 								<div className="mb-4">
-									<div className="text-muted-foreground mb-2 text-xs font-medium">Configured Providers</div>
+									<div className="text-muted-foreground mb-2 text-xs font-medium">{t("providers.configuredProviders")}</div>
 									{configuredProviders.map((p) => {
 										const isCustom = !ProviderNames.includes(p.name as KnownProvider);
 										const label = isCustom ? p.name : ProviderLabels[p.name as keyof typeof ProviderLabels];
@@ -232,7 +234,7 @@ export default function Providers() {
 												<ProviderStatusBadge status={p.provider_status} />
 												{isCustom && (
 													<Badge variant="secondary" className="text-muted-foreground ml-auto shrink-0 px-1.5 py-0.5 text-[10px] font-bold">
-														CUSTOM
+														{t("providers.customBadge")}
 													</Badge>
 												)}
 											</div>
@@ -262,7 +264,7 @@ export default function Providers() {
 			)}
 			{!selectedProvider && (
 				<div className="bg-muted/10 flex w-full items-center justify-center rounded-md" style={{ maxHeight: "calc(100vh - 300px)" }}>
-					<div className="text-muted-foreground text-sm">Select a provider</div>
+					<div className="text-muted-foreground text-sm">{t("providers.selectProvider")}</div>
 				</div>
 			)}
 			{!isLoadingProvider && selectedProvider && (
@@ -306,12 +308,13 @@ function TruncatedName({ name }: { name: string }) {
 }
 
 function ProviderStatusBadge({ status }: { status: ProviderStatus }) {
+	const t = useT();
 	return status != "active" ? (
 		<Tooltip>
 			<TooltipTrigger>
 				<AlertCircle className="h-3 w-3" />
 			</TooltipTrigger>
-			<TooltipContent>{status === "error" ? "Provider could not be initialized" : "Provider is deleted"}</TooltipContent>
+			<TooltipContent>{status === "error" ? t("providers.providerInitFailed") : t("providers.providerDeleted")}</TooltipContent>
 		</Tooltip>
 	) : null;
 }
@@ -324,6 +327,7 @@ function KeyDiscoveryFailedBadge({
 		description?: string;
 	};
 }) {
+	const t = useT();
 	const providerFailed = provider.status === "list_models_failed";
 
 	if (!providerFailed) return null;
@@ -333,7 +337,7 @@ function KeyDiscoveryFailedBadge({
 			<TooltipTrigger>
 				<AlertCircle className="h-3 w-3" />
 			</TooltipTrigger>
-			<TooltipContent>{provider.description || "Provider model discovery failed."}</TooltipContent>
+			<TooltipContent>{provider.description || t("providers.discoveryFailed")}</TooltipContent>
 		</Tooltip>
 	);
 }

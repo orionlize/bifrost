@@ -4,6 +4,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { RenderProviderIcon, ProviderIconType } from "@/lib/constants/icons";
 import { getProviderLabel } from "@/lib/constants/logs";
+import { useT } from "@/lib/i18n";
 import { isKnownProvider } from "@/lib/types/config";
 import { buildCurlExample, buildSdkExample, getProviderIntegrationGuide } from "@/lib/utils/providerIntegration";
 import { useCopyToClipboard } from "@/hooks/useCopyToClipboard";
@@ -27,6 +28,7 @@ interface ProviderIntegrationCardProps {
 }
 
 export function ProviderIntegrationCard({ provider, baseUrl, apiKey }: ProviderIntegrationCardProps) {
+	const t = useT();
 	const [language, setLanguage] = useState<"python" | "typescript">("python");
 	const { copy: copyToClipboard } = useCopyToClipboard();
 
@@ -45,7 +47,7 @@ export function ProviderIntegrationCard({ provider, baseUrl, apiKey }: ProviderI
 				<div>
 					<h3 className="font-semibold">{getProviderLabel(provider)}</h3>
 					<p className="text-muted-foreground text-sm">
-						Base URL:{" "}
+						{t("quickStart.baseUrl")}{" "}
 						<code className="text-xs">
 							{baseUrl}
 							{guide.pathPrefix}
@@ -56,19 +58,19 @@ export function ProviderIntegrationCard({ provider, baseUrl, apiKey }: ProviderI
 
 			<div className="mb-4 grid gap-2 text-sm">
 				<div>
-					<span className="text-muted-foreground">Authentication: </span>
+					<span className="text-muted-foreground">{t("quickStart.authentication")} </span>
 					<code className="text-xs">{guide.authHeader}</code>
 				</div>
 				<div>
-					<span className="text-muted-foreground">Example model: </span>
+					<span className="text-muted-foreground">{t("quickStart.exampleModel")} </span>
 					<code className="text-xs">{guide.exampleModel}</code>
 				</div>
 			</div>
 
 			<Tabs defaultValue="curl">
 				<TabsList>
-					<TabsTrigger value="curl">cURL</TabsTrigger>
-					<TabsTrigger value="sdk">SDK</TabsTrigger>
+					<TabsTrigger value="curl">{t("quickStart.curl")}</TabsTrigger>
+					<TabsTrigger value="sdk">{t("quickStart.sdk")}</TabsTrigger>
 				</TabsList>
 				<TabsContent value="curl" className="mt-3">
 					<div className="relative">
@@ -93,10 +95,10 @@ export function ProviderIntegrationCard({ provider, baseUrl, apiKey }: ProviderI
 								</SelectTrigger>
 								<SelectContent>
 									<SelectItem className="text-xs" value="python">
-										Python
+										{t("quickStart.python")}
 									</SelectItem>
 									<SelectItem className="text-xs" value="typescript">
-										TypeScript
+										{t("quickStart.typescript")}
 									</SelectItem>
 								</SelectContent>
 							</Select>

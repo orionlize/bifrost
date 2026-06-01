@@ -19,6 +19,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { useToast } from "@/hooks/use-toast";
 import { MCP_STATUS_COLORS } from "@/lib/constants/config";
 import { getErrorMessage, useDeleteMCPClientMutation, useReconnectMCPClientMutation, useUpdateMCPClientMutation } from "@/lib/store";
+import { useT } from "@/lib/i18n";
 import { MCPClient } from "@/lib/types/mcp";
 import { RbacOperation, RbacResource, useRbac } from "@enterprise/lib";
 import { ChevronLeft, ChevronRight, Loader2, MoreHorizontal, PencilIcon, Plus, RefreshCcw, Search, Trash2 } from "lucide-react";
@@ -45,6 +46,7 @@ function MCPClientActionsMenu({
 	onReconnect: (client: MCPClient) => void;
 	onDelete: (client: MCPClient) => void;
 }) {
+	const t = useT();
 	const [isOpen, setIsOpen] = useState(false);
 
 	return (
@@ -54,7 +56,7 @@ function MCPClientActionsMenu({
 					variant="ghost"
 					size="icon"
 					className="h-8 w-8"
-					aria-label="MCP server actions"
+					aria-label={t("mcp.actions.serverActionsAria")}
 					data-testid={`mcp-client-actions-${client.config.client_id}-btn`}
 				>
 					{isReconnecting ? <Loader2 className="h-4 w-4 animate-spin" /> : <MoreHorizontal className="h-4 w-4" />}
@@ -81,7 +83,7 @@ function MCPClientActionsMenu({
 						}}
 					>
 						<PencilIcon className="h-4 w-4" />
-						Edit
+						{t("mcp.actions.edit")}
 					</DropdownMenuItem>
 				)}
 				{hasUpdateAccess && (
@@ -95,7 +97,7 @@ function MCPClientActionsMenu({
 						}}
 					>
 						<RefreshCcw className="h-4 w-4" />
-						Reconnect
+						{t("mcp.actions.reconnect")}
 					</DropdownMenuItem>
 				)}
 				{hasDeleteAccess && (
@@ -109,7 +111,7 @@ function MCPClientActionsMenu({
 						}}
 					>
 						<Trash2 className="h-4 w-4" />
-						Delete
+						{t("mcp.actions.delete")}
 					</DropdownMenuItem>
 				)}
 			</DropdownMenuContent>
@@ -140,6 +142,7 @@ export default function MCPClientsTable({
 	limit,
 	onOffsetChange,
 }: MCPClientsTableProps) {
+	const t = useT();
 	const [formOpen, setFormOpen] = useState(false);
 	const hasCreateMCPClientAccess = useRbac(RbacResource.MCPGateway, RbacOperation.Create);
 	const hasUpdateMCPClientAccess = useRbac(RbacResource.MCPGateway, RbacOperation.Update);
@@ -166,25 +169,25 @@ export default function MCPClientsTable({
 			setReconnectingClients((prev) => [...prev, client.config.client_id]);
 			await reconnectMCPClient(client.config.client_id).unwrap();
 			setReconnectingClients((prev) => prev.filter((id) => id !== client.config.client_id));
-			toast({ title: "Reconnected", description: `Client ${client.config.name} reconnected successfully.` });
+			toast({ title: t("mcp.reconnected"), description: t("mcp.reconnectedDesc", { name: client.config.name }) });
 			if (refetch) {
 				await refetch();
 			}
 		} catch (error) {
 			setReconnectingClients((prev) => prev.filter((id) => id !== client.config.client_id));
-			toast({ title: "Error", description: getErrorMessage(error), variant: "destructive" });
+			toast({ title: t("mcp.error"), description: getErrorMessage(error), variant: "destructive" });
 		}
 	};
 
 	const handleDelete = async (client: MCPClient) => {
 		try {
 			await deleteMCPClient(client.config.client_id).unwrap();
-			toast({ title: "Deleted", description: `Client ${client.config.name} removed successfully.` });
+			toast({ title: t("mcp.deleted"), description: t("mcp.removedDesc", { name: client.config.name }) });
 			if (refetch) {
 				await refetch();
 			}
 		} catch (error) {
-			toast({ title: "Error", description: getErrorMessage(error), variant: "destructive" });
+			toast({ title: t("mcp.error"), description: getErrorMessage(error), variant: "destructive" });
 		}
 	};
 
@@ -213,13 +216,13 @@ export default function MCPClientsTable({
 			case "none":
 			case undefined:
 			case "":
-				return "None";
+				return t("mcp.authType.none");
 			case "headers":
 			case "per_user_headers":
-				return "Headers";
+				return t("mcp.authType.headers");
 			case "oauth":
 			case "per_user_oauth":
-				return "OAuth";
+				return t("mcp.authType.oauth");
 			default:
 				return type;
 		}
@@ -229,10 +232,10 @@ export default function MCPClientsTable({
 		switch (type) {
 			case "per_user_oauth":
 			case "per_user_headers":
-				return "Per-User";
+				return t("mcp.authScope.perUser");
 			case "oauth":
 			case "headers":
-				return "Shared";
+				return t("mcp.authScope.shared");
 			default:
 				return "-";
 		}
@@ -311,21 +314,20 @@ export default function MCPClientsTable({
 			<AlertDialog open={!!clientToDelete} onOpenChange={(open) => !open && setClientToDelete(null)}>
 				<AlertDialogContent>
 					<AlertDialogHeader>
-						<AlertDialogTitle>Remove MCP Server</AlertDialogTitle>
+						<AlertDialogTitle>{t("mcp.deleteDialog.title")}</AlertDialogTitle>
 						<AlertDialogDescription>
-							Are you sure you want to remove MCP server {clientToDelete?.config.name}? You will need to reconnect the server to continue
-							using it.
+							{t("mcp.deleteDialog.description", { name: clientToDelete?.config.name ?? "" })}
 						</AlertDialogDescription>
 					</AlertDialogHeader>
 					<AlertDialogFooter>
-						<AlertDialogCancel>Cancel</AlertDialogCancel>
+						<AlertDialogCancel>{t("common.actions.cancel")}</AlertDialogCancel>
 						<AlertDialogAction
 							onClick={() => {
 								if (clientToDelete) void handleDelete(clientToDelete);
 							}}
 							className="bg-destructive hover:bg-destructive/90"
 						>
-							Delete
+							{t("common.actions.delete")}
 						</AlertDialogAction>
 					</AlertDialogFooter>
 				</AlertDialogContent>
@@ -333,18 +335,18 @@ export default function MCPClientsTable({
 
 			<div className="flex items-center justify-between gap-4">
 				<div>
-					<h2 className="text-lg font-semibold tracking-tight">MCP Server Catalog</h2>
-					<p className="text-muted-foreground text-sm">Manage servers that can connect to the MCP Tools endpoint.</p>
+					<h2 className="text-lg font-semibold tracking-tight">{t("mcp.catalogTitle")}</h2>
+					<p className="text-muted-foreground text-sm">{t("mcp.catalogDescription")}</p>
 				</div>
 				<Button
 					onClick={handleCreate}
 					disabled={!hasCreateMCPClientAccess}
 					data-testid="create-mcp-client-btn"
-					aria-label="New MCP Server"
+					aria-label={t("mcp.newServer")}
 					className="gap-2"
 				>
 					<Plus className="h-4 w-4" />
-					<span className="hidden sm:inline">New MCP Server</span>
+					<span className="hidden sm:inline">{t("mcp.newServer")}</span>
 				</Button>
 			</div>
 
@@ -353,8 +355,8 @@ export default function MCPClientsTable({
 				<div className="relative max-w-sm flex-1">
 					<Search className="text-muted-foreground absolute top-1/2 left-3 h-4 w-4 -translate-y-1/2" />
 					<Input
-						aria-label="Search MCP servers by name"
-						placeholder="Search by name..."
+						aria-label={t("mcp.searchAria")}
+						placeholder={t("mcp.searchPlaceholder")}
 						value={search}
 						onChange={(e) => onSearchChange(e.target.value)}
 						className="pl-9"
@@ -367,16 +369,16 @@ export default function MCPClientsTable({
 				<Table data-testid="mcp-clients-table">
 					<TableHeader>
 						<TableRow className="bg-muted/50">
-							<TableHead className="font-semibold">Name</TableHead>
-							<TableHead className="font-semibold">Connection Type</TableHead>
-							<TableHead className="font-semibold">Auth Type</TableHead>
-							<TableHead className="font-semibold">Auth Scope</TableHead>
-							<TableHead className="font-semibold">Code Mode</TableHead>
-							<TableHead className="font-semibold">VK Access</TableHead>
-							<TableHead className="font-semibold">Enabled Tools</TableHead>
-							<TableHead className="font-semibold">Auto-execute Tools</TableHead>
-							<TableHead className="font-semibold">State</TableHead>
-							<TableHead className="font-semibold">Status</TableHead>
+							<TableHead className="font-semibold">{t("tables.name")}</TableHead>
+							<TableHead className="font-semibold">{t("tables.connectionType")}</TableHead>
+							<TableHead className="font-semibold">{t("tables.authType")}</TableHead>
+							<TableHead className="font-semibold">{t("tables.authScope")}</TableHead>
+							<TableHead className="font-semibold">{t("tables.codeMode")}</TableHead>
+							<TableHead className="font-semibold">{t("tables.vkAccess")}</TableHead>
+							<TableHead className="font-semibold">{t("tables.enabledTools")}</TableHead>
+							<TableHead className="font-semibold">{t("tables.autoExecuteTools")}</TableHead>
+							<TableHead className="font-semibold">{t("tables.state")}</TableHead>
+							<TableHead className="font-semibold">{t("tables.status")}</TableHead>
 							<TableHead className={`bg-muted/50 sticky right-0 z-10 w-14 text-right ${PIN_SHADOW_RIGHT}`}></TableHead>
 						</TableRow>
 					</TableHeader>
@@ -384,7 +386,7 @@ export default function MCPClientsTable({
 						{mcpClients.length === 0 ? (
 							<TableRow>
 								<TableCell colSpan={11} className="h-24 text-center">
-									<span className="text-muted-foreground text-sm">No matching MCP servers found.</span>
+									<span className="text-muted-foreground text-sm">{t("mcp.noMatch")}</span>
 								</TableCell>
 							</TableRow>
 						) : (
@@ -421,15 +423,19 @@ export default function MCPClientsTable({
 													c.state == "connected" ? MCP_STATUS_COLORS[c.config.is_code_mode_client ? "connected" : "disconnected"] : ""
 												}
 											>
-												{c.state == "connected" ? <>{c.config.is_code_mode_client ? "Enabled" : "Disabled"}</> : "-"}
+												{c.state == "connected" ? (
+													<>{c.config.is_code_mode_client ? t("mcp.codeMode.enabled") : t("mcp.codeMode.disabled")}</>
+												) : (
+													"-"
+												)}
 											</Badge>
 										</TableCell>
 										<TableCell data-testid="mcp-client-vk-access">
 											{c.config.allow_on_all_virtual_keys
-												? "All"
+												? t("mcp.vkAccess.all")
 												: c.vk_configs?.length
-													? `${c.vk_configs.length} ${c.vk_configs.length === 1 ? "VK" : "VKs"}`
-													: "None"}
+													? `${c.vk_configs.length} ${c.vk_configs.length === 1 ? t("mcp.vkAccess.vk") : t("mcp.vkAccess.vks")}`
+													: t("mcp.vkAccess.none")}
 										</TableCell>
 										<TableCell>
 											{c.state == "connected" ? (
@@ -478,11 +484,15 @@ export default function MCPClientsTable({
 													})
 														.unwrap()
 														.then(() => {
-															toast({ title: `Server ${checked ? "enabled" : "disabled"} successfully` });
+															toast({
+																title: t("mcp.serverToggled", {
+																	state: checked ? t("mcp.enabled") : t("mcp.disabled"),
+																}),
+															});
 															if (refetch) refetch();
 														})
 														.catch((err) => {
-															toast({ title: "Error", description: getErrorMessage(err), variant: "destructive" });
+															toast({ title: t("mcp.error"), description: getErrorMessage(err), variant: "destructive" });
 														})
 														.finally(() => {
 															setTogglingClientIds((prev) => {
@@ -521,7 +531,11 @@ export default function MCPClientsTable({
 			{totalCount > 0 && (
 				<div className="flex items-center justify-between px-2">
 					<p className="text-muted-foreground text-sm">
-						Showing {offset + 1}-{Math.min(offset + limit, totalCount)} of {totalCount}
+						{t("mcp.pagination.showing", {
+							from: offset + 1,
+							to: Math.min(offset + limit, totalCount),
+							total: totalCount,
+						})}
 					</p>
 					<div className="flex gap-2">
 						<Button
@@ -532,7 +546,7 @@ export default function MCPClientsTable({
 							data-testid="mcp-clients-pagination-prev-btn"
 						>
 							<ChevronLeft className="mr-1 h-4 w-4" />
-							Previous
+							{t("shared.pagination.previous")}
 						</Button>
 						<Button
 							variant="outline"
@@ -541,7 +555,7 @@ export default function MCPClientsTable({
 							onClick={() => onOffsetChange(offset + limit)}
 							data-testid="mcp-clients-pagination-next-btn"
 						>
-							Next
+							{t("shared.pagination.next")}
 							<ChevronRight className="ml-1 h-4 w-4" />
 						</Button>
 					</div>

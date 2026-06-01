@@ -9,6 +9,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { fileToAttachment } from "../../utils/attachment";
 import { AttachmentDisplay } from "./attachmentViews";
 import MessageRoleSwitcher from "./messageRoleSwitcher";
+import { useT } from "@/lib/i18n";
 
 /**
  * Render an interactive user message block that supports viewing and editing content, role switching, file attachments (via picker or drag-and-drop), and special handling for JSON and Jinja-variable content.
@@ -33,6 +34,7 @@ export function UserMessageView({
 	onChange: (serialized: SerializedMessage) => void;
 	onRemove?: () => void;
 }) {
+	const t = useT();
 	const [editMode, setEditMode] = useState(false);
 	const containerRef = useRef<HTMLDivElement>(null);
 	const fileInputRef = useRef<HTMLInputElement>(null);
@@ -220,7 +222,7 @@ export function UserMessageView({
 							/>
 							<button
 								type="button"
-								aria-label="Attach file"
+								aria-label={t("prompts.attachFile")}
 								data-testid="user-msg-attach"
 								onClick={() => fileInputRef.current?.click()}
 								className="hover:bg-muted focus:bg-muted rounded-sm p-1 opacity-0 transition-opacity group-focus-within:opacity-100 group-hover:opacity-100 focus:opacity-100"
@@ -232,7 +234,7 @@ export function UserMessageView({
 					{!disabled && (
 						<button
 							type="button"
-							aria-label="Edit message"
+							aria-label={t("prompts.editMessage")}
 							data-testid="user-msg-edit"
 							onClick={() => setEditMode(true)}
 							className="hover:bg-muted focus:bg-muted rounded-sm p-1 opacity-0 transition-opacity group-focus-within:opacity-100 group-hover:opacity-100 focus:opacity-100"
@@ -243,7 +245,7 @@ export function UserMessageView({
 					{!disabled && onRemove && (
 						<button
 							type="button"
-							aria-label="Delete message"
+							aria-label={t("prompts.deleteMessage")}
 							data-testid="user-msg-delete"
 							onClick={onRemove}
 							className="hover:bg-muted focus:bg-muted rounded-sm p-1 opacity-0 transition-opacity group-focus-within:opacity-100 group-hover:opacity-100 focus:opacity-100"

@@ -10,6 +10,7 @@ import { getErrorMessage, useCreateCustomerMutation, useUpdateCustomerMutation }
 import { CreateCustomerRequest, Customer, UpdateCustomerRequest } from "@/lib/types/governance";
 import { formatCurrency } from "@/lib/utils/governance";
 import { Validator } from "@/lib/utils/validation";
+import { useT } from "@/lib/i18n";
 import { RbacOperation, RbacResource, useRbac } from "@enterprise/lib";
 import { formatDistanceToNow } from "date-fns";
 import isEqual from "lodash.isequal";
@@ -47,6 +48,7 @@ const createInitialState = (customer?: Customer | null): Omit<CustomerFormData, 
 };
 
 export default function CustomerSheet({ open, onOpenChange, customer, onSuccess }: CustomerSheetProps) {
+	const t = useT();
 	const isEditing = !!customer;
 	const [initialState, setInitialState] = useState<Omit<CustomerFormData, "isDirty">>(createInitialState(customer));
 	const [formData, setFormData] = useState<CustomerFormData>({
@@ -102,28 +104,28 @@ export default function CustomerSheet({ open, onOpenChange, customer, onSuccess 
 	const validator = useMemo(
 		() =>
 			new Validator([
-				Validator.required(formData.name.trim(), "Customer name is required"),
-				Validator.custom(formData.isDirty, "No changes to save"),
+				Validator.required(formData.name.trim(), t("customers.nameRequired")),
+				Validator.custom(formData.isDirty, t("customers.noChanges")),
 				...(formData.budgetMaxLimit !== undefined && formData.budgetMaxLimit !== null
 					? [
-							Validator.minValue(budgetMaxLimitNum ?? 0, 0.01, "Budget max limit must be greater than $0.01"),
-							Validator.required(formData.budgetResetDuration, "Budget reset duration is required"),
+							Validator.minValue(budgetMaxLimitNum ?? 0, 0.01, t("customers.budgetMin")),
+							Validator.required(formData.budgetResetDuration, t("customers.budgetResetRequired")),
 						]
 					: []),
 				...(formData.tokenMaxLimit !== undefined && formData.tokenMaxLimit !== null
 					? [
-							Validator.minValue(tokenMaxLimitNum ?? 0, 1, "Token max limit must be at least 1"),
-							Validator.required(formData.tokenResetDuration, "Token reset duration is required"),
+							Validator.minValue(tokenMaxLimitNum ?? 0, 1, t("customers.tokenMin")),
+							Validator.required(formData.tokenResetDuration, t("customers.tokenResetRequired")),
 						]
 					: []),
 				...(formData.requestMaxLimit !== undefined && formData.requestMaxLimit !== null
 					? [
-							Validator.minValue(requestMaxLimitNum ?? 0, 1, "Request max limit must be at least 1"),
-							Validator.required(formData.requestResetDuration, "Request reset duration is required"),
+							Validator.minValue(requestMaxLimitNum ?? 0, 1, t("customers.requestMin")),
+							Validator.required(formData.requestResetDuration, t("customers.requestResetRequired")),
 						]
 					: []),
 			]),
-		[formData, budgetMaxLimitNum, tokenMaxLimitNum, requestMaxLimitNum],
+		[formData, budgetMaxLimitNum, tokenMaxLimitNum, requestMaxLimitNum, t],
 	);
 
 	const updateField = <K extends keyof CustomerFormData>(field: K, value: CustomerFormData[K]) => {
@@ -172,7 +174,7 @@ export default function CustomerSheet({ open, onOpenChange, customer, onSuccess 
 				}
 
 				await updateCustomer({ customerId: customer.id, data: updateData }).unwrap();
-				toast.success("Customer updated successfully");
+				toast.success(t("customers.updated"));
 			} else {
 				const createData: CreateCustomerRequest = {
 					name: formData.name,
@@ -199,7 +201,7 @@ export default function CustomerSheet({ open, onOpenChange, customer, onSuccess 
 				}
 
 				await createCustomer(createData).unwrap();
-				toast.success("Customer created successfully");
+				toast.success(t("customers.created"));
 			}
 
 			onOpenChange(false);
@@ -212,21 +214,17 @@ export default function CustomerSheet({ open, onOpenChange, customer, onSuccess 
 	const isSubmitDisabled = loading || !validator.isValid() || !hasPermission;
 
 	const getTooltipMessage = () => {
-		if (!hasPermission) return "You don't have permission to perform this action";
-		if (loading) return "Saving...";
-		return validator.getFirstError() || "Please fix validation errors";
+		if (!hasPermission) return t("customers.noPermission");
+		if (loading) return t("common.actions.saving");
+		return validator.getFirstError() || t("customers.fixValidation");
 	};
 
 	return (
 		<Sheet open={open} onOpenChange={onOpenChange}>
 			<SheetContent className="max-w-[900px] sm:max-w-2xl" data-testid="customer-dialog-content">
 				<SheetHeader className="flex flex-col items-start p-8 pb-6" headerClassName="mb-0">
-					<SheetTitle className="flex items-center gap-2">{isEditing ? "Edit Customer" : "Create Customer"}</SheetTitle>
-					<SheetDescription>
-						{isEditing
-							? "Update the customer information and settings."
-							: "Create a new customer account to organize teams and manage resources."}
-					</SheetDescription>
+					<SheetTitle className="flex items-center gap-2">{isEditing ? t("customers.editTitle") : t("customers.createTitle")}</SheetTitle>
+					<SheetDescription>{isEditing ? t("customers.editDescription") : t("customers.createDescription")}</SheetDescription>
 				</SheetHeader>
 
 				<form onSubmit={handleSubmit} className="flex flex-1 flex-col overflow-hidden">
@@ -234,22 +232,22 @@ export default function CustomerSheet({ open, onOpenChange, customer, onSuccess 
 						<div className="space-y-6">
 							<div className="space-y-4">
 								<div className="space-y-2">
-									<Label htmlFor="name">Customer Name *</Label>
+									<Label htmlFor="name">{t("customers.sheet.customerNameLabel")}</Label>
 									<Input
 										id="name"
 										data-testid="customer-name-input"
-										placeholder="e.g., Acme Corporation"
+										placeholder={t("customers.sheet.customerNamePlaceholder")}
 										value={formData.name}
 										maxLength={50}
 										onChange={(e) => updateField("name", e.target.value)}
 									/>
-									<p className="text-muted-foreground text-sm">This name will be used to identify the customer account.</p>
+									<p className="text-muted-foreground text-sm">{t("customers.sheet.customerNameHint")}</p>
 								</div>
 							</div>
 
 							<NumberAndSelect
 								id="budgetMaxLimit"
-								label="Maximum Spend (USD)"
+								label={t("customers.maxSpend")}
 								value={formData.budgetMaxLimit}
 								selectValue={formData.budgetResetDuration}
 								onChangeNumber={(value) => updateField("budgetMaxLimit", value)}
@@ -260,7 +258,7 @@ export default function CustomerSheet({ open, onOpenChange, customer, onSuccess 
 
 							<NumberAndSelect
 								id="tokenMaxLimit"
-								label="Maximum Tokens"
+								label={t("customers.maxTokens")}
 								value={formData.tokenMaxLimit}
 								selectValue={formData.tokenResetDuration}
 								onChangeNumber={(value) => updateField("tokenMaxLimit", value)}
@@ -270,7 +268,7 @@ export default function CustomerSheet({ open, onOpenChange, customer, onSuccess 
 
 							<NumberAndSelect
 								id="requestMaxLimit"
-								label="Maximum Requests"
+								label={t("customers.maxRequests")}
 								value={formData.requestMaxLimit}
 								selectValue={formData.requestResetDuration}
 								onChangeNumber={(value) => updateField("requestMaxLimit", value)}
@@ -280,7 +278,7 @@ export default function CustomerSheet({ open, onOpenChange, customer, onSuccess 
 
 							{isEditing && (customer?.budget || customer?.rate_limit) && (
 								<div className="bg-muted/50 space-y-4 rounded-lg border p-4">
-									<p className="text-sm font-medium">Current Usage</p>
+									<p className="text-sm font-medium">{t("customers.sheet.currentUsage")}</p>
 									<div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
 										{customer?.budget && (
 											<div className="space-y-1">
@@ -353,14 +351,18 @@ export default function CustomerSheet({ open, onOpenChange, customer, onSuccess 
 
 					<SheetFooter className="flex-row justify-end gap-2 border-t px-6 py-4">
 						<Button type="button" variant="outline" onClick={() => onOpenChange(false)} disabled={loading}>
-							Cancel
+							{t("governanceShared.cancel")}
 						</Button>
 						<TooltipProvider>
 							<Tooltip>
 								<TooltipTrigger asChild>
 									<span>
 										<Button type="submit" disabled={isSubmitDisabled}>
-											{loading ? "Saving..." : isEditing ? "Update Customer" : "Create Customer"}
+											{loading
+												? t("common.actions.saving")
+												: isEditing
+													? t("customers.updateCustomer")
+													: t("customers.addCustomer")}
 										</Button>
 									</span>
 								</TooltipTrigger>

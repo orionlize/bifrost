@@ -3,6 +3,8 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { getErrorMessage, useForcePricingSyncMutation, useGetCoreConfigQuery, useUpdateCoreConfigMutation } from "@/lib/store";
 import { DefaultCoreConfig } from "@/lib/types/config";
+import { useT } from "@/lib/i18n";
+import { useNavDescription, useNavTitle } from "@/lib/i18n/useNavTitle";
 import { RbacOperation, RbacResource, useRbac } from "@enterprise/lib";
 import { useEffect, useMemo } from "react";
 import { useForm } from "react-hook-form";
@@ -16,6 +18,9 @@ interface ModelSettingsFormData {
 }
 
 export default function ModelSettingsView() {
+	const t = useT();
+	const pageTitle = useNavTitle("modelSettings");
+	const pageDescription = useNavDescription("modelSettings");
 	const hasSettingsUpdateAccess = useRbac(RbacResource.Settings, RbacOperation.Update);
 	const { data: bifrostConfig } = useGetCoreConfigQuery({ fromDB: true });
 	const frameworkConfig = bifrostConfig?.framework_config;
@@ -87,7 +92,7 @@ export default function ModelSettingsView() {
 					routing_chain_max_depth: data.routing_chain_max_depth,
 				},
 			}).unwrap();
-			toast.success("Model settings updated successfully.");
+			toast.success(t("configViews.modelSettings.updated"));
 			reset(data);
 		} catch (error) {
 			toast.error(getErrorMessage(error));
@@ -97,7 +102,7 @@ export default function ModelSettingsView() {
 	const handleForceSync = async () => {
 		try {
 			await forcePricingSync().unwrap();
-			toast.success("Pricing sync triggered successfully.");
+			toast.success(t("configViews.modelSettings.syncTriggered"));
 		} catch (error) {
 			toast.error(getErrorMessage(error));
 		}
@@ -107,31 +112,30 @@ export default function ModelSettingsView() {
 		<div className="mx-auto w-full max-w-7xl space-y-4" data-testid="model-settings-view">
 			<form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
 				<div>
-					<h2 className="text-lg font-semibold tracking-tight">Model Settings</h2>
-					<p className="text-muted-foreground text-sm">Configure pricing and routing behaviour.</p>
+					<h2 className="text-lg font-semibold tracking-tight">{pageTitle}</h2>
+					<p className="text-muted-foreground text-sm">{pageDescription}</p>
 				</div>
 
 				<div className="space-y-4">
-					{/* Pricing Datasheet URL */}
 					<div className="space-y-2 rounded-sm border p-4">
 						<div className="space-y-0.5">
-							<Label htmlFor="pricing-datasheet-url">Pricing Datasheet URL</Label>
-							<p className="text-muted-foreground text-sm">URL to a custom pricing datasheet. Leave empty to use default pricing.</p>
+							<Label htmlFor="pricing-datasheet-url">{t("configViews.modelSettings.pricingDatasheetUrl")}</Label>
+							<p className="text-muted-foreground text-sm">{t("configViews.modelSettings.pricingDatasheetUrlDesc")}</p>
 						</div>
 						<Input
 							id="pricing-datasheet-url"
 							type="text"
-							placeholder="https://example.com/pricing.json"
+							placeholder={t("configViews.modelSettings.pricingDatasheetPlaceholder")}
 							data-testid="pricing-datasheet-url-input"
 							{...register("pricing_datasheet_url", {
 								pattern: {
 									value: /^(https?:\/\/)?((localhost|(\d{1,3}\.){3}\d{1,3})(:\d+)?|([\da-z\.-]+)\.([a-z\.]{2,6}))[\/\w \.-]*\/?$/,
-									message: "Please enter a valid URL.",
+									message: t("configViews.shared.invalidUrl"),
 								},
 								validate: {
 									checkIfHttp: (value) => {
 										if (!value) return true;
-										return value.startsWith("http://") || value.startsWith("https://") || "URL must start with http:// or https://";
+										return value.startsWith("http://") || value.startsWith("https://") || t("configViews.shared.urlMustStartWithHttp");
 									},
 								},
 							})}
@@ -140,26 +144,25 @@ export default function ModelSettingsView() {
 						{errors.pricing_datasheet_url && <p className="text-destructive text-sm">{errors.pricing_datasheet_url.message}</p>}
 					</div>
 
-					{/* Model Parameters URL */}
 					<div className="space-y-2 rounded-sm border p-4">
 						<div className="space-y-0.5">
-							<Label htmlFor="model-parameters-url">Model Parameters URL</Label>
-							<p className="text-muted-foreground text-sm">URL to a custom model parameters datasheet. Leave empty to use default.</p>
+							<Label htmlFor="model-parameters-url">{t("configViews.modelSettings.modelParametersUrl")}</Label>
+							<p className="text-muted-foreground text-sm">{t("configViews.modelSettings.modelParametersUrlDesc")}</p>
 						</div>
 						<Input
 							id="model-parameters-url"
 							type="text"
-							placeholder="https://example.com/model-parameters.json"
+							placeholder={t("configViews.modelSettings.modelParametersPlaceholder")}
 							data-testid="model-parameters-url-input"
 							{...register("model_parameters_url", {
 								pattern: {
 									value: /^(https?:\/\/)?((localhost|(\d{1,3}\.){3}\d{1,3})(:\d+)?|([\da-z\.-]+)\.([a-z\.]{2,6}))[\/\w \.-]*\/?$/,
-									message: "Please enter a valid URL.",
+									message: t("configViews.shared.invalidUrl"),
 								},
 								validate: {
 									checkIfHttp: (value) => {
 										if (!value) return true;
-										return value.startsWith("http://") || value.startsWith("https://") || "URL must start with http:// or https://";
+										return value.startsWith("http://") || value.startsWith("https://") || t("configViews.shared.urlMustStartWithHttp");
 									},
 								},
 							})}
@@ -168,11 +171,10 @@ export default function ModelSettingsView() {
 						{errors.model_parameters_url && <p className="text-destructive text-sm">{errors.model_parameters_url.message}</p>}
 					</div>
 
-					{/* Pricing Sync Interval */}
 					<div className="space-y-2 rounded-sm border p-4">
 						<div className="space-y-0.5">
-							<Label htmlFor="pricing-sync-interval">Pricing Sync Interval (hours)</Label>
-							<p className="text-muted-foreground text-sm">How often to sync pricing data from the datasheet URL.</p>
+							<Label htmlFor="pricing-sync-interval">{t("configViews.modelSettings.syncIntervalHours")}</Label>
+							<p className="text-muted-foreground text-sm">{t("configViews.modelSettings.syncIntervalDesc")}</p>
 						</div>
 						<Input
 							id="pricing-sync-interval"
@@ -180,22 +182,19 @@ export default function ModelSettingsView() {
 							data-testid="pricing-sync-interval-input"
 							className={errors.pricing_sync_interval_hours ? "border-destructive" : ""}
 							{...register("pricing_sync_interval_hours", {
-								required: "Pricing sync interval is required",
-								min: { value: 1, message: "Sync interval must be at least 1 hour" },
-								max: { value: 8760, message: "Sync interval cannot exceed 8760 hours (1 year)" },
+								required: t("configViews.modelSettings.syncIntervalRequired"),
+								min: { value: 1, message: t("configViews.modelSettings.syncIntervalMin") },
+								max: { value: 8760, message: t("configViews.modelSettings.syncIntervalMax") },
 								valueAsNumber: true,
 							})}
 						/>
 						{errors.pricing_sync_interval_hours && <p className="text-destructive text-sm">{errors.pricing_sync_interval_hours.message}</p>}
 					</div>
 
-					{/* Routing Chain Max Depth */}
 					<div className="flex items-center justify-between rounded-sm border p-4">
 						<div className="space-y-0.5">
-							<Label htmlFor="routing-chain-max-depth">Routing Chain Max Depth</Label>
-							<p className="text-muted-foreground text-sm">
-								Maximum number of chained routing rule evaluations per request. Prevents infinite loops from circular rule definitions.
-							</p>
+							<Label htmlFor="routing-chain-max-depth">{t("configViews.modelSettings.routingChainMaxDepth")}</Label>
+							<p className="text-muted-foreground text-sm">{t("configViews.modelSettings.routingChainMaxDepthDesc")}</p>
 						</div>
 						<Input
 							id="routing-chain-max-depth"
@@ -203,9 +202,9 @@ export default function ModelSettingsView() {
 							className={`w-24 ${errors.routing_chain_max_depth ? "border-destructive" : ""}`}
 							data-testid="routing-chain-max-depth-input"
 							{...register("routing_chain_max_depth", {
-								required: "Routing chain max depth is required",
-								min: { value: 1, message: "Must be at least 1" },
-								max: { value: 100, message: "Cannot exceed 100" },
+								required: t("configViews.modelSettings.routingDepthRequired"),
+								min: { value: 1, message: t("configViews.modelSettings.routingDepthMin") },
+								max: { value: 100, message: t("configViews.modelSettings.routingDepthMax") },
 								valueAsNumber: true,
 							})}
 						/>
@@ -221,10 +220,10 @@ export default function ModelSettingsView() {
 						disabled={isForceSyncing || isLoading || hasChanges || !hasSettingsUpdateAccess}
 						data-testid="pricing-force-sync-btn"
 					>
-						{isForceSyncing ? "Syncing..." : "Force Sync Now"}
+						{isForceSyncing ? t("configViews.shared.syncing") : t("configViews.shared.forceSyncNow")}
 					</Button>
 					<Button type="submit" disabled={!hasChanges || isLoading || !hasSettingsUpdateAccess} data-testid="model-settings-save-btn">
-						{isLoading ? "Saving..." : "Save Changes"}
+						{isLoading ? t("common.actions.saving") : t("common.actions.saveChanges")}
 					</Button>
 				</div>
 			</form>

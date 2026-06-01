@@ -2,6 +2,7 @@ import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip
 import { COMPACT_NUMBER_FORMAT } from "@/lib/utils/numbers";
 import NumberFlow from "@number-flow/react";
 import { memo, useMemo } from "react";
+import { useT } from "@/lib/i18n";
 import type { ProviderCostHistogramResponse, ProviderLatencyHistogramResponse, ProviderTokenHistogramResponse } from "@/lib/types/logs";
 import { CHART_COLORS, CHART_HEADER_LEGEND_CLASS, LATENCY_COLORS, getModelColor } from "../utils/chartUtils";
 import { ChartCard } from "./charts/chartCard";
@@ -79,6 +80,7 @@ function ProviderUsageTabImpl({
 	onProviderTokenProviderChange,
 	onProviderLatencyProviderChange,
 }: ProviderUsageTabProps) {
+	const t = useT();
 	const providerCostTotal = useMemo(() => {
 		if (!providerCostData?.buckets) return null;
 		if (providerCostProvider === "all") {
@@ -122,10 +124,10 @@ function ProviderUsageTabImpl({
 		<div className="grid grid-cols-1 gap-2 lg:grid-cols-2 2xl:grid-cols-3">
 			{/* Provider Cost Chart */}
 			<ChartCard
-				title="Provider Cost"
+				title={t("dashboardCharts.titles.providerCost")}
 				loading={loadingProviderCost}
 				testId="chart-provider-cost"
-				totalLabel="Total"
+				totalLabel={t("dashboardCharts.total")}
 				total={
 					providerCostTotal !== null ? (
 						<NumberFlow value={providerCostTotal} format={{ ...COMPACT_NUMBER_FORMAT, style: "currency", currency: "USD" }} />
@@ -215,10 +217,10 @@ function ProviderUsageTabImpl({
 
 			{/* Provider Token Usage Chart */}
 			<ChartCard
-				title="Provider Token Usage"
+				title={t("dashboardCharts.titles.providerTokenUsage")}
 				loading={loadingProviderTokens}
 				testId="chart-provider-tokens"
-				totalLabel="Total"
+				totalLabel={t("dashboardCharts.total")}
 				total={providerTokenTotal !== null ? <NumberFlow value={providerTokenTotal} format={COMPACT_NUMBER_FORMAT} /> : undefined}
 				totalTooltip={providerTokenTotal !== null ? providerTokenTotal.toLocaleString("en-US") : undefined}
 				legend={
@@ -264,11 +266,11 @@ function ProviderUsageTabImpl({
 							<>
 								<span className="flex items-center gap-1">
 									<span className="h-2 w-2 shrink-0 rounded-full" style={{ backgroundColor: CHART_COLORS.promptTokens }} />
-									<span className="text-muted-foreground">Input</span>
+									<span className="text-muted-foreground">{t("dashboardCharts.legends.input")}</span>
 								</span>
 								<span className="flex items-center gap-1">
 									<span className="h-2 w-2 shrink-0 rounded-full" style={{ backgroundColor: CHART_COLORS.completionTokens }} />
-									<span className="text-muted-foreground">Output</span>
+									<span className="text-muted-foreground">{t("dashboardCharts.legends.output")}</span>
 								</span>
 							</>
 						)}
@@ -301,10 +303,10 @@ function ProviderUsageTabImpl({
 
 			{/* Provider Latency Chart */}
 			<ChartCard
-				title="Provider Latency"
+				title={t("dashboardCharts.titles.providerLatency")}
 				loading={loadingProviderLatency}
 				testId="chart-provider-latency"
-				totalLabel="Avg"
+				totalLabel={t("dashboardCharts.avg")}
 				total={
 					providerLatencyAvg !== null ? (
 						<NumberFlow value={providerLatencyAvg} format={{ minimumFractionDigits: 2, maximumFractionDigits: 2 }} suffix="ms" />
@@ -356,19 +358,19 @@ function ProviderUsageTabImpl({
 							<>
 								<span className="flex items-center gap-1">
 									<span className="h-2 w-2 rounded-full" style={{ backgroundColor: LATENCY_COLORS.avg }} />
-									<span className="text-muted-foreground">Avg</span>
+									<span className="text-muted-foreground">{t("dashboardCharts.legends.avg")}</span>
 								</span>
 								<span className="flex items-center gap-1">
 									<span className="h-2 w-2 rounded-full" style={{ backgroundColor: LATENCY_COLORS.p90 }} />
-									<span className="text-muted-foreground">P90</span>
+									<span className="text-muted-foreground">{t("dashboardCharts.legends.p90")}</span>
 								</span>
 								<span className="flex items-center gap-1">
 									<span className="h-2 w-2 rounded-full" style={{ backgroundColor: LATENCY_COLORS.p95 }} />
-									<span className="text-muted-foreground">P95</span>
+									<span className="text-muted-foreground">{t("dashboardCharts.legends.p95")}</span>
 								</span>
 								<span className="flex items-center gap-1">
 									<span className="h-2 w-2 rounded-full" style={{ backgroundColor: LATENCY_COLORS.p99 }} />
-									<span className="text-muted-foreground">P99</span>
+									<span className="text-muted-foreground">{t("dashboardCharts.legends.p99")}</span>
 								</span>
 							</>
 						)}

@@ -7,6 +7,7 @@ import { Input } from "@/components/ui/input";
 import { Switch } from "@/components/ui/switch";
 import { setPluginFormDirtyState, useAppDispatch, useAppSelector, useUpdatePluginMutation } from "@/lib/store";
 import { PluginType } from "@/lib/types/plugins";
+import { useT } from "@/lib/i18n";
 import { cn } from "@/lib/utils";
 import { RbacOperation, RbacResource, useRbac } from "@enterprise/lib";
 import { zodResolver } from "@hookform/resolvers/zod";
@@ -45,6 +46,7 @@ const getPluginTypeColor = (type: PluginType) => {
 };
 
 export default function PluginsView(props: Props) {
+	const t = useT();
 	const dispatch = useAppDispatch();
 	const hasUpdatePluginAccess = useRbac(RbacResource.Plugins, RbacOperation.Update);
 	const hasDeletePluginAccess = useRbac(RbacResource.Plugins, RbacOperation.Delete);
@@ -94,7 +96,7 @@ export default function PluginsView(props: Props) {
 				try {
 					config = JSON.parse(values.config);
 				} catch {
-					toast.error("Invalid JSON in configuration");
+					toast.error(t("plugins.invalidJson"));
 					return;
 				}
 			}
@@ -107,15 +109,15 @@ export default function PluginsView(props: Props) {
 					...(config !== undefined && { config }),
 				},
 			}).unwrap();
-			toast.success("Plugin updated successfully");
+			toast.success(t("plugins.updated"));
 			form.reset(values);
 		} catch {
-			toast.error("Failed to update plugin");
+			toast.error(t("plugins.updateFailed"));
 		}
 	};
 
 	const onError = () => {
-		toast.error("Please fix the form errors before submitting");
+		toast.error(t("plugins.fixFormErrors"));
 	};
 
 	const handleDeleteClick = () => {
@@ -128,7 +130,7 @@ export default function PluginsView(props: Props) {
 
 	const handleDeleteSuccess = () => {
 		setShowDeleteDialog(false);
-		toast.success("Plugin deleted successfully");
+		toast.success(t("plugins.deleted"));
 		props.onDelete();
 	};
 
@@ -150,16 +152,16 @@ export default function PluginsView(props: Props) {
 			<Form {...form}>
 				<form onSubmit={form.handleSubmit(onSubmit, onError)} className="space-y-6">
 					<div className="">
-						<h3 className="mb-4 text-lg font-semibold">Plugin Configuration</h3>
+						<h3 className="mb-4 text-lg font-semibold">{t("plugins.pluginConfiguration")}</h3>
 						<div className="space-y-6">
 							<FormField
 								control={form.control}
 								name="name"
 								render={({ field }) => (
 									<FormItem>
-										<FormLabel>Name</FormLabel>
+										<FormLabel>{t("tables.name")}</FormLabel>
 										<FormControl>
-											<Input placeholder="Plugin name" {...field} readOnly disabled className="cursor-not-allowed" />
+											<Input placeholder={t("plugins.pluginNamePlaceholder")} {...field} readOnly disabled className="cursor-not-allowed" />
 										</FormControl>
 										<FormDescription>The name of the plugin</FormDescription>
 										<FormMessage />
@@ -209,7 +211,7 @@ export default function PluginsView(props: Props) {
 									<FormItem>
 										<FormLabel>Path</FormLabel>
 										<FormControl>
-											<Input placeholder="Plugin path" {...field} value={field.value || ""} />
+											<Input placeholder={t("plugins.pluginPathPlaceholder")} {...field} value={field.value || ""} />
 										</FormControl>
 										<FormDescription>The file system path to the plugin</FormDescription>
 										<FormMessage />
@@ -314,7 +316,7 @@ export default function PluginsView(props: Props) {
 							disabled={!hasDeletePluginAccess}
 						>
 							<Trash2Icon className="h-4 w-4" />
-							Delete Plugin
+							{t("plugins.deletePluginTitle")}
 						</Button>
 						<Button
 							type="button"
@@ -326,7 +328,7 @@ export default function PluginsView(props: Props) {
 						</Button>
 						<Button type="submit" disabled={isLoading || !form.formState.isDirty || !hasUpdatePluginAccess}>
 							<SaveIcon className="h-4 w-4" />
-							{isLoading ? "Saving..." : "Save Changes"}
+							{isLoading ? t("plugins.saving") : t("plugins.saveChanges")}
 						</Button>
 					</div>
 				</form>

@@ -1114,7 +1114,25 @@ func (p *LoggerPlugin) GetAvailableUsers(ctx context.Context, limit int, query s
 	if err != nil {
 		return nil, fmt.Errorf("failed to get available users: %w", err)
 	}
-	return keyPairResultsToKeyPairs(results), nil
+	return EnsureLocalAdminUserPair(keyPairResultsToKeyPairs(results), query), nil
+}
+
+// EnsureLocalAdminUserPair prepends the local-admin identity used for global API
+// key usage so it always appears in logs filter dropdowns.
+func EnsureLocalAdminUserPair(pairs []KeyPair, query string) []KeyPair {
+	admin := KeyPair{ID: schemas.LocalAdminUserID, Name: schemas.LocalAdminUserName}
+	if query != "" {
+		q := strings.ToLower(query)
+		if !strings.Contains(strings.ToLower(admin.ID), q) && !strings.Contains(strings.ToLower(admin.Name), q) {
+			return pairs
+		}
+	}
+	for _, pair := range pairs {
+		if pair.ID == admin.ID {
+			return pairs
+		}
+	}
+	return append([]KeyPair{admin}, pairs...)
 }
 
 // GetAvailableBusinessUnits returns all unique business unit ID-Name pairs from logs.

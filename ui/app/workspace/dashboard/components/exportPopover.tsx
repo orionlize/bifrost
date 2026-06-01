@@ -3,9 +3,9 @@ import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigge
 import { buildCSV, downloadCSV } from "@/lib/utils/csv";
 import { Download, FileSpreadsheet, FileText, Loader2 } from "lucide-react";
 import { useCallback, useState } from "react";
+import { useT } from "@/lib/i18n";
 import { type DashboardData, getCSVSections } from "../utils/exportUtils";
 
-const PDF_TAB_LABELS = ["Overview", "Provider Usage", "Model Rankings", "MCP Usage"];
 
 interface ExportPopoverProps {
 	getData: () => DashboardData;
@@ -15,6 +15,7 @@ interface ExportPopoverProps {
 }
 
 export function ExportPopover({ getData, onPreloadData, onPdfExport, onPdfExportDone }: ExportPopoverProps) {
+	const t = useT();
 	const [exporting, setExporting] = useState(false);
 
 	const handleCsvExport = useCallback(async () => {
@@ -35,7 +36,7 @@ export function ExportPopover({ getData, onPreloadData, onPdfExport, onPdfExport
 		} finally {
 			setExporting(false);
 		}
-	}, [getData, onPreloadData]);
+	}, [getData, onPreloadData, t]);
 
 	const handlePdfExport = useCallback(async () => {
 		setExporting(true);
@@ -50,37 +51,42 @@ export function ExportPopover({ getData, onPreloadData, onPdfExport, onPdfExport
 
 			const sections = elements.map((element, i) => ({
 				element,
-				label: PDF_TAB_LABELS[i],
+				label: [
+				t("dashboardCharts.export.tabs.overview"),
+				t("dashboardCharts.export.tabs.providerUsage"),
+				t("dashboardCharts.export.tabs.modelRankings"),
+				t("dashboardCharts.export.tabs.mcpUsage"),
+			][i],
 			}));
 
 			await generatePdf(sections, "dashboard-export", {
 				branding: {
 					logoSrc: "/bifrost-logo.webp",
-					text: "Powered by",
+					text: t("dashboardCharts.export.poweredBy"),
 				},
 			});
 		} finally {
 			onPdfExportDone();
 			setExporting(false);
 		}
-	}, [onPdfExport, onPdfExportDone]);
+	}, [onPdfExport, onPdfExportDone, t]);
 
 	return (
 		<DropdownMenu>
 			<DropdownMenuTrigger asChild>
 				<Button variant="outline" size="default" disabled={exporting} data-testid="dashboard-export-trigger">
 					{exporting ? <Loader2 className="h-4 w-4 animate-spin" /> : <Download className="h-4 w-4" />}
-					{exporting ? "Exporting..." : "Export"}
+					{exporting ? t("dashboardCharts.export.exporting") : t("dashboardCharts.export.export")}
 				</Button>
 			</DropdownMenuTrigger>
 			<DropdownMenuContent align="end">
 				<DropdownMenuItem onClick={handleCsvExport} data-testid="export-csv-item">
 					<FileSpreadsheet className="h-4 w-4" />
-					CSV
+					{t("dashboardCharts.export.csv")}
 				</DropdownMenuItem>
 				<DropdownMenuItem onClick={handlePdfExport} data-testid="export-pdf-item">
 					<FileText className="h-4 w-4" />
-					PDF
+					{t("dashboardCharts.export.pdf")}
 				</DropdownMenuItem>
 			</DropdownMenuContent>
 		</DropdownMenu>

@@ -9,6 +9,7 @@ import { Folder } from "@/lib/types/prompts";
 import { useEffect } from "react";
 import { useForm } from "react-hook-form";
 import { toast } from "sonner";
+import { useT } from "@/lib/i18n";
 
 interface FolderFormData {
 	name: string;
@@ -23,6 +24,7 @@ interface FolderSheetProps {
 }
 
 export function FolderSheet({ open, onOpenChange, folder, onSaved }: FolderSheetProps) {
+	const t = useT();
 	const [createFolder, { isLoading: isCreating }] = useCreateFolderMutation();
 	const [updateFolder, { isLoading: isUpdating }] = useUpdateFolderMutation();
 
@@ -54,13 +56,13 @@ export function FolderSheet({ open, onOpenChange, folder, onSaved }: FolderSheet
 					id: folder.id,
 					data: { name: data.name.trim(), description: data.description.trim() || undefined },
 				}).unwrap();
-				toast.success("Folder updated");
+				toast.success(t("prompts.folderUpdated"));
 			} else {
 				await createFolder({
 					name: data.name.trim(),
 					description: data.description.trim() || undefined,
 				}).unwrap();
-				toast.success("Folder created");
+				toast.success(t("prompts.folderCreated"));
 			}
 			onSaved();
 			onOpenChange(false);
@@ -82,9 +84,9 @@ export function FolderSheet({ open, onOpenChange, folder, onSaved }: FolderSheet
 			>
 				<form onSubmit={handleSubmit(onSubmit)}>
 					<SheetHeader className="flex flex-col items-start">
-						<SheetTitle>{isEditing ? "Edit Folder" : "Create Folder"}</SheetTitle>
+						<SheetTitle>{isEditing ? t("prompts.editFolder") : t("prompts.createFolder")}</SheetTitle>
 						<SheetDescription>
-							{isEditing ? "Update the folder name and description." : "Create a new folder to organize your prompts."}
+							{isEditing ? t("prompts.updateFolderDesc") : t("prompts.createFolderDesc")}
 						</SheetDescription>
 					</SheetHeader>
 
@@ -94,10 +96,10 @@ export function FolderSheet({ open, onOpenChange, folder, onSaved }: FolderSheet
 							<Input
 								id="name"
 								data-testid="folder-name-input"
-								placeholder="My Prompts"
+								placeholder={t("prompts.folderNamePlaceholder")}
 								{...register("name", {
-									required: "Folder name is required",
-									validate: (v) => v.trim().length > 0 || "Folder name cannot be blank",
+									required: t("prompts.folderNameRequired"),
+									validate: (v) => v.trim().length > 0 || t("prompts.folderNameBlank"),
 								})}
 								autoFocus
 							/>
@@ -109,7 +111,7 @@ export function FolderSheet({ open, onOpenChange, folder, onSaved }: FolderSheet
 							<Textarea
 								id="description"
 								data-testid="folder-description-input"
-								placeholder="Prompts for customer support use cases..."
+								placeholder={t("prompts.folderDescPlaceholder")}
 								className="resize-none"
 								{...register("description")}
 							/>
@@ -121,7 +123,7 @@ export function FolderSheet({ open, onOpenChange, folder, onSaved }: FolderSheet
 							Cancel
 						</Button>
 						<Button type="submit" data-testid="folder-submit" disabled={isLoading}>
-							{isLoading ? "Saving..." : isEditing ? "Update" : "Create"}
+							{isLoading ? t("common.actions.saving") : isEditing ? t("common.actions.saveChanges") : t("common.actions.create")}
 						</Button>
 					</SheetFooter>
 				</form>

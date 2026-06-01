@@ -2,6 +2,7 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdownMenu";
 import { Status, StatusBarColors, Statuses } from "@/lib/constants/logs";
+import type { TranslateFn } from "@/lib/i18n";
 import type { MCPToolLogEntry } from "@/lib/types/logs";
 import { ColumnDef, Row } from "@tanstack/react-table";
 import { format, isValid } from "date-fns";
@@ -20,6 +21,7 @@ const getValidatedStatus = (status: string): Status => {
 export const createMCPColumns = (
 	handleDelete: (log: MCPToolLogEntry) => Promise<void>,
 	hasDeleteAccess: boolean,
+	t: TranslateFn,
 ): ColumnDef<MCPToolLogEntry>[] => [
 	{
 		accessorKey: "status",
@@ -35,7 +37,7 @@ export const createMCPColumns = (
 		accessorKey: "timestamp",
 		header: ({ column }) => (
 			<Button variant="ghost" onClick={() => column.toggleSorting(column.getIsSorted() === "asc")}>
-				Time
+				{t("mcp.logs.columns.time")}
 				<ArrowUpDown className="ml-2 h-4 w-4" />
 			</Button>
 		),
@@ -43,12 +45,16 @@ export const createMCPColumns = (
 		cell: ({ row }) => {
 			const timestamp = row.original.timestamp;
 			const date = new Date(timestamp);
-			return <div className="truncate text-xs">{isValid(date) ? format(date, "yyyy-MM-dd hh:mm:ss aa (XXX)") : "Invalid date"}</div>;
+			return (
+				<div className="truncate text-xs">
+					{isValid(date) ? format(date, "yyyy-MM-dd hh:mm:ss aa (XXX)") : t("mcp.logs.details.invalidDate")}
+				</div>
+			);
 		},
 	},
 	{
 		accessorKey: "tool_name",
-		header: "Tool Name",
+		header: t("mcp.logs.columns.toolName"),
 		size: 300,
 		cell: ({ row }) => {
 			const toolName = row.getValue("tool_name") as string;
@@ -57,7 +63,7 @@ export const createMCPColumns = (
 	},
 	{
 		accessorKey: "server_label",
-		header: "Server",
+		header: t("mcp.logs.columns.server"),
 		size: 150,
 		cell: ({ row }) => {
 			const serverLabel = row.getValue("server_label") as string;
@@ -74,7 +80,7 @@ export const createMCPColumns = (
 		accessorKey: "latency",
 		header: ({ column }) => (
 			<Button variant="ghost" onClick={() => column.toggleSorting(column.getIsSorted() === "asc")}>
-				Latency
+				{t("mcp.logs.columns.latency")}
 				<ArrowUpDown className="ml-2 h-4 w-4" />
 			</Button>
 		),
@@ -82,18 +88,20 @@ export const createMCPColumns = (
 		cell: ({ row }) => {
 			const latency = row.original.latency;
 			return (
-				<div className="pl-4 font-mono text-sm">{latency === undefined || latency === null ? "N/A" : `${latency.toLocaleString()}ms`}</div>
+				<div className="pl-4 font-mono text-sm">
+					{latency === undefined || latency === null ? t("mcp.logs.details.na") : `${latency.toLocaleString()}ms`}
+				</div>
 			);
 		},
 	},
 	{
 		accessorKey: "cost",
-		header: "Cost",
+		header: t("mcp.logs.columns.cost"),
 		size: 120,
 		cell: ({ row }) => {
 			const cost = row.original.cost;
 			const isValidNumber = typeof cost === "number" && Number.isFinite(cost);
-			return <div className="font-mono text-sm">{isValidNumber ? `${cost.toFixed(4)}` : "N/A"}</div>;
+			return <div className="font-mono text-sm">{isValidNumber ? `${cost.toFixed(4)}` : t("mcp.logs.details.na")}</div>;
 		},
 	},
 	...(hasDeleteAccess
@@ -108,7 +116,13 @@ export const createMCPColumns = (
 							<div className="flex justify-center">
 								<DropdownMenu>
 									<DropdownMenuTrigger asChild onClick={(event) => event.stopPropagation()}>
-										<Button variant="ghost" size="icon" data-testid="log-actions-btn" aria-label="Log actions" className="h-7 w-7">
+										<Button
+											variant="ghost"
+											size="icon"
+											data-testid="log-actions-btn"
+											aria-label={t("mcp.logs.table.logActionsAria")}
+											className="h-7 w-7"
+										>
 											<MoreHorizontal className="h-4 w-4" />
 										</Button>
 									</DropdownMenuTrigger>
@@ -123,7 +137,7 @@ export const createMCPColumns = (
 											}}
 										>
 											<Trash2 className="h-4 w-4" />
-											Delete
+											{t("common.actions.delete")}
 										</DropdownMenuItem>
 									</DropdownMenuContent>
 								</DropdownMenu>

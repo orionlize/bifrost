@@ -3,6 +3,7 @@ import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "
 import { Input } from "@/components/ui/input";
 import { Switch } from "@/components/ui/switch";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
+import { useT } from "@/lib/i18n";
 import { maximFormSchema, type MaximFormSchema } from "@/lib/types/schemas";
 import { RbacOperation, RbacResource, useRbac } from "@enterprise/lib";
 import { zodResolver } from "@hookform/resolvers/zod";
@@ -23,6 +24,7 @@ interface MaximFormFragmentProps {
 }
 
 export function MaximFormFragment({ initialConfig, onSave, onDelete, isDeleting = false, isLoading = false }: MaximFormFragmentProps) {
+	const t = useT();
 	const hasMaximAccess = useRbac(RbacResource.Observability, RbacOperation.Update);
 	const [showApiKey, setShowApiKey] = useState(false);
 	const [isSaving, setIsSaving] = useState(false);
@@ -66,12 +68,12 @@ export function MaximFormFragment({ initialConfig, onSave, onDelete, isDeleting 
 							name="maxim_config.api_key"
 							render={({ field }) => (
 								<FormItem>
-									<FormLabel>API Key</FormLabel>
+									<FormLabel>{t("observabilityConnectors.maxim.apiKey")}</FormLabel>
 									<FormControl>
 										<div className="relative">
 											<Input
 												type={showApiKey ? "text" : "password"}
-												placeholder="Enter your Maxim API key"
+												placeholder={t("observabilityConnectors.maxim.apiKeyPlaceholder")}
 												disabled={!hasMaximAccess}
 												{...field}
 												className="pr-10"
@@ -98,9 +100,9 @@ export function MaximFormFragment({ initialConfig, onSave, onDelete, isDeleting 
 							name="maxim_config.log_repo_id"
 							render={({ field }) => (
 								<FormItem>
-									<FormLabel>Log Repository ID (Optional)</FormLabel>
+									<FormLabel>{t("observabilityConnectors.maxim.logRepoId")}</FormLabel>
 									<FormControl>
-										<Input placeholder="Enter log repository ID" disabled={!hasMaximAccess} {...field} value={field.value ?? ""} />
+										<Input placeholder={t("observabilityConnectors.maxim.logRepoPlaceholder")} disabled={!hasMaximAccess} {...field} value={field.value ?? ""} />
 									</FormControl>
 									<FormMessage />
 								</FormItem>
@@ -116,7 +118,7 @@ export function MaximFormFragment({ initialConfig, onSave, onDelete, isDeleting 
 						name="enabled"
 						render={({ field }) => (
 							<FormItem className="flex items-center gap-2 py-2">
-								<FormLabel className="text-muted-foreground text-sm font-medium">Enabled</FormLabel>
+								<FormLabel className="text-muted-foreground text-sm font-medium">{t("observabilityConnectors.enabled")}</FormLabel>
 								<FormControl>
 									<Switch
 										checked={field.value}
@@ -135,8 +137,8 @@ export function MaximFormFragment({ initialConfig, onSave, onDelete, isDeleting 
 								variant="outline"
 								onClick={onDelete}
 								disabled={isDeleting}
-								title="Delete connector"
-								aria-label="Delete connector"
+								title={t("observabilityConnectors.deleteConnector")}
+								aria-label={t("observabilityConnectors.deleteConnectorAria")}
 							>
 								<Trash2 className="size-4" />
 							</Button>
@@ -155,23 +157,23 @@ export function MaximFormFragment({ initialConfig, onSave, onDelete, isDeleting 
 							}}
 							disabled={!hasMaximAccess || isLoading || !form.formState.isDirty}
 						>
-							Reset
+							{t("observabilityConnectors.reset")}
 						</Button>
 						<TooltipProvider>
 							<Tooltip>
 								<TooltipTrigger asChild>
 									<Button type="submit" disabled={!hasMaximAccess || !form.formState.isDirty} isLoading={isSaving}>
-										Save Maxim Configuration
+										{t("observabilityConnectors.maxim.save")}
 									</Button>
 								</TooltipTrigger>
 								{!form.formState.isDirty && (
 									<TooltipContent>
 										<p>
 											{!form.formState.isDirty
-												? "No changes made and validation errors present"
+												? t("observabilityConnectors.noChangesWithErrors")
 												: !form.formState.isDirty
-													? "No changes made"
-													: "Please fix validation errors"}
+													? t("observabilityConnectors.noChanges")
+													: t("observabilityConnectors.fixValidation")}
 										</p>
 									</TooltipContent>
 								)}

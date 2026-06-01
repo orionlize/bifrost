@@ -14,6 +14,7 @@ import { Input } from "@/components/ui/input";
 import { Switch } from "@/components/ui/switch";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { useDebouncedValue } from "@/hooks/useDebounce";
+import { useT } from "@/lib/i18n";
 import { getErrorMessage } from "@/lib/store";
 import { useListAoneDevicesQuery, useUpdateAoneDeviceMutation } from "@/lib/store/apis/aoneDevicesApi";
 import type { AoneDeviceListItem } from "@/lib/types/aoneDevice";
@@ -44,6 +45,7 @@ function truncateFingerprint(value: string, head = 18, tail = 8) {
 }
 
 export default function AoneDevicesView() {
+	const t = useT();
 	const [urlState, setUrlState] = useQueryStates(
 		{
 			search: parseAsString.withDefault(""),
@@ -70,11 +72,9 @@ export default function AoneDevicesView() {
 			<header className="space-y-2">
 				<h2 className="flex flex-row items-center gap-2 text-lg font-semibold tracking-tight">
 					<Laptop className="size-4" />
-					Devices
+					{t("aone.devicesTitle")}
 				</h2>
-				<p className="text-muted-foreground max-w-2xl text-sm">
-					Manage desktop clients authorized through ZD Switch. Each row binds a device fingerprint to an Aone user.
-				</p>
+				<p className="text-muted-foreground max-w-2xl text-sm">{t("aone.devicesDescription")}</p>
 			</header>
 
 			<div className="flex flex-col gap-4 rounded-lg border p-4 sm:flex-row sm:items-center sm:justify-between">
@@ -83,7 +83,7 @@ export default function AoneDevicesView() {
 					<Input
 						data-testid="aone-devices-search-input"
 						className="pl-9"
-						placeholder="Search fingerprint, device name, user..."
+						placeholder={t("aone.searchDevices")}
 						value={urlState.search}
 						onChange={(event) => {
 							void setUrlState({ search: event.target.value, offset: 0 });
@@ -93,20 +93,20 @@ export default function AoneDevicesView() {
 				<div className="text-muted-foreground flex items-center gap-2 text-sm">
 					<Laptop className="size-4 shrink-0" />
 					<span>
-						{totalCount} device{totalCount === 1 ? "" : "s"}
-						{isFetching ? " · refreshing..." : ""}
+						{totalCount === 1 ? t("aone.deviceCount", { count: totalCount }) : t("aone.devicesCount", { count: totalCount })}
+						{isFetching ? t("aone.refreshing") : ""}
 					</span>
 				</div>
 			</div>
 
 			{isLoading && (
 				<div className="rounded-lg border border-dashed p-10 text-center">
-					<p className="text-muted-foreground text-sm">Loading devices...</p>
+					<p className="text-muted-foreground text-sm">{t("aone.loadingDevices")}</p>
 				</div>
 			)}
 			{isError && (
 				<div className="rounded-lg border border-red-200 bg-red-50 p-4 text-sm text-red-600 dark:border-red-900/40 dark:bg-red-950/20 dark:text-red-400">
-					Failed to load devices: {getErrorMessage(error)}
+					{t("aone.loadDevicesFailed", { message: getErrorMessage(error) })}
 				</div>
 			)}
 
@@ -115,10 +115,8 @@ export default function AoneDevicesView() {
 					<div className="bg-muted mx-auto mb-4 flex size-12 items-center justify-center rounded-full">
 						<Laptop className="text-muted-foreground size-5" />
 					</div>
-					<p className="text-sm font-medium">No authorized devices yet</p>
-					<p className="text-muted-foreground mt-1 text-sm">
-						Devices appear here after a desktop client completes OAuth and registers its fingerprint.
-					</p>
+					<p className="text-sm font-medium">{t("aone.emptyDevicesTitle")}</p>
+					<p className="text-muted-foreground mt-1 text-sm">{t("aone.emptyDevicesDescription")}</p>
 				</div>
 			)}
 
@@ -127,12 +125,12 @@ export default function AoneDevicesView() {
 					<Table>
 						<TableHeader>
 							<TableRow className="bg-muted/40 hover:bg-muted/40">
-								<TableHead className="pl-4">Fingerprint</TableHead>
-								<TableHead>Device</TableHead>
-								<TableHead>User</TableHead>
-								<TableHead>Status</TableHead>
-								<TableHead>Last API access</TableHead>
-								<TableHead className="pr-4 text-right">Enabled</TableHead>
+								<TableHead className="pl-4">{t("aone.tableFingerprint")}</TableHead>
+								<TableHead>{t("aone.tableDevice")}</TableHead>
+								<TableHead>{t("aone.tableUserCol")}</TableHead>
+								<TableHead>{t("aone.tableDeviceStatus")}</TableHead>
+								<TableHead>{t("aone.tableLastApiAccess")}</TableHead>
+								<TableHead className="pr-4 text-right">{t("aone.tableDeviceEnabled")}</TableHead>
 							</TableRow>
 						</TableHeader>
 						<TableBody>
@@ -147,7 +145,11 @@ export default function AoneDevicesView() {
 			{totalCount > PAGE_SIZE && (
 				<div className="flex items-center justify-between gap-4">
 					<p className="text-muted-foreground text-sm">
-						Showing {urlState.offset + 1}-{Math.min(urlState.offset + PAGE_SIZE, totalCount)} of {totalCount}
+						{t("aone.showingRange", {
+							from: urlState.offset + 1,
+							to: Math.min(urlState.offset + PAGE_SIZE, totalCount),
+							total: totalCount,
+						})}
 					</p>
 					<div className="flex gap-2">
 						<Button
@@ -161,7 +163,7 @@ export default function AoneDevicesView() {
 							}}
 						>
 							<ChevronLeft className="size-4" />
-							Previous
+							{t("aone.previous")}
 						</Button>
 						<Button
 							type="button"
@@ -173,7 +175,7 @@ export default function AoneDevicesView() {
 								void setUrlState({ offset: urlState.offset + PAGE_SIZE });
 							}}
 						>
-							Next
+							{t("aone.next")}
 							<ChevronRight className="size-4" />
 						</Button>
 					</div>
@@ -184,6 +186,7 @@ export default function AoneDevicesView() {
 }
 
 function AoneDeviceRow({ device }: { device: AoneDeviceListItem }) {
+	const t = useT();
 	const userLabel = device.user_display_name || device.aone_user_id;
 
 	return (
@@ -208,7 +211,7 @@ function AoneDeviceRow({ device }: { device: AoneDeviceListItem }) {
 			</TableCell>
 			<TableCell>
 				<Badge variant={device.is_active ? "default" : "secondary"} data-testid={`aone-device-status-${device.id}`}>
-					{device.is_active ? "Active" : "Revoked"}
+					{device.is_active ? t("aone.statusActive") : t("aone.statusRevoked")}
 				</Badge>
 			</TableCell>
 			<TableCell className="text-sm">{formatRelativeTime(device.last_api_access_at)}</TableCell>
@@ -220,6 +223,7 @@ function AoneDeviceRow({ device }: { device: AoneDeviceListItem }) {
 }
 
 function AoneDeviceEnableSwitch({ device }: { device: AoneDeviceListItem }) {
+	const t = useT();
 	const [updateDevice, { isLoading }] = useUpdateAoneDeviceMutation();
 	const [dialogOpen, setDialogOpen] = useState(false);
 	const [nextEnabled, setNextEnabled] = useState(device.is_active);
@@ -230,7 +234,7 @@ function AoneDeviceEnableSwitch({ device }: { device: AoneDeviceListItem }) {
 				id: device.id,
 				body: { is_active: nextEnabled },
 			}).unwrap();
-			toast.success(nextEnabled ? "Device enabled" : "Device disabled");
+			toast.success(nextEnabled ? t("aone.deviceEnabled") : t("aone.deviceDisabled"));
 			setDialogOpen(false);
 		} catch (mutationError) {
 			toast.error(getErrorMessage(mutationError));
@@ -244,7 +248,7 @@ function AoneDeviceEnableSwitch({ device }: { device: AoneDeviceListItem }) {
 					checked={device.is_active}
 					disabled={isLoading}
 					data-testid={`aone-device-enabled-switch-${device.id}`}
-					aria-label={device.is_active ? "Disable device" : "Enable device"}
+					aria-label={device.is_active ? t("aone.disableDeviceAria") : t("aone.enableDeviceAria")}
 					onCheckedChange={(checked) => {
 						setNextEnabled(checked);
 						setDialogOpen(true);
@@ -254,15 +258,13 @@ function AoneDeviceEnableSwitch({ device }: { device: AoneDeviceListItem }) {
 			<AlertDialog open={dialogOpen} onOpenChange={setDialogOpen}>
 				<AlertDialogContent>
 					<AlertDialogHeader>
-						<AlertDialogTitle>{nextEnabled ? "Enable device" : "Disable device"}</AlertDialogTitle>
+						<AlertDialogTitle>{nextEnabled ? t("aone.enableDevice") : t("aone.disableDevice")}</AlertDialogTitle>
 						<AlertDialogDescription>
-							{nextEnabled
-								? "This will reactivate the authorization code for this device fingerprint."
-								: "This will revoke the authorization code. The desktop client must sign in again to obtain a new code."}
+							{nextEnabled ? t("aone.enableDeviceDescription") : t("aone.disableDeviceDescription")}
 						</AlertDialogDescription>
 					</AlertDialogHeader>
 					<AlertDialogFooter>
-						<AlertDialogCancel>Cancel</AlertDialogCancel>
+						<AlertDialogCancel>{t("governanceShared.cancel")}</AlertDialogCancel>
 						<AlertDialogAction
 							onClick={(event) => {
 								event.preventDefault();
@@ -271,7 +273,7 @@ function AoneDeviceEnableSwitch({ device }: { device: AoneDeviceListItem }) {
 							disabled={isLoading}
 							className={nextEnabled ? undefined : "bg-destructive text-destructive-foreground hover:bg-destructive/90"}
 						>
-							{nextEnabled ? "Enable device" : "Disable device"}
+							{nextEnabled ? t("aone.enableDevice") : t("aone.disableDevice")}
 						</AlertDialogAction>
 					</AlertDialogFooter>
 				</AlertDialogContent>

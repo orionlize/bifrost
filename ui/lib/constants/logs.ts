@@ -343,3 +343,7 @@ export const RoutingEngineUsedColors = {
 } as const;
 
 export type Status = (typeof Statuses)[number];
+
+/** User identity for global API key and other local-admin LLM/MCP log attribution. */
+export const LOCAL_ADMIN_USER_ID = "admin";
+export const LOCAL_ADMIN_USER_NAME = "全局";

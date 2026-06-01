@@ -9,7 +9,9 @@ import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sheet";
 import { ProviderIconType, RenderProviderIcon } from "@/lib/constants/icons";
-import { getProviderLabel, RequestTypeLabels } from "@/lib/constants/logs";
+import { getProviderLabel } from "@/lib/constants/logs";
+import { logRequestTypeFilterLabel } from "@/lib/i18n/filterLabels";
+import type { TranslateFn } from "@/lib/i18n";
 import {
 	getErrorMessage,
 	useCreatePricingOverrideMutation,
@@ -27,6 +29,7 @@ import {
 	PricingOverrideScopeKind,
 } from "@/lib/types/governance";
 import { cn } from "@/lib/utils";
+import { useT } from "@/lib/i18n";
 import { ChevronDown, Save, X } from "lucide-react";
 import { Dispatch, SetStateAction, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useForm } from "react-hook-form";
@@ -35,39 +38,43 @@ import { PricingFieldSelector } from "./pricingFieldSelector";
 
 export const REQUEST_TYPE_GROUPS = [
 	{
-		label: "Chat / Text / Responses",
+		groupKey: "chat",
 		types: ["chat_completion", "text_completion", "responses"],
 	},
 	{
-		label: "Embedding",
+		groupKey: "embedding",
 		types: ["embedding"],
 	},
 	{
-		label: "Rerank",
+		groupKey: "rerank",
 		types: ["rerank"],
 	},
 	{
-		label: "Audio",
+		groupKey: "audio",
 		types: ["speech", "transcription"],
 	},
 	{
-		label: "Image",
+		groupKey: "image",
 		types: ["image_generation", "image_variation", "image_edit"],
 	},
 	{
-		label: "Video",
+		groupKey: "video",
 		types: ["video_generation", "video_remix"],
 	},
 	{
-		label: "OCR",
+		groupKey: "ocr",
 		types: ["ocr"],
 	},
 ] as const;
 
 export const REQUEST_TYPE_OPTIONS = REQUEST_TYPE_GROUPS.flatMap((g) => g.types);
 
-export function getRequestTypeGroup(rt: string): string | undefined {
-	return REQUEST_TYPE_GROUPS.find((g) => (g.types as readonly string[]).includes(rt))?.label;
+export function getRequestTypeGroupLabel(t: TranslateFn, rt: string): string | undefined {
+	const group = REQUEST_TYPE_GROUPS.find((g) => (g.types as readonly string[]).includes(rt));
+	if (!group) {
+		return undefined;
+	}
+	return t(`pricing.fieldSelector.groups.${group.groupKey}`);
 }
 
 export const PRICING_FIELDS = [
@@ -461,6 +468,7 @@ function isCompleteScopeLock(scopeLock?: PricingOverrideDrawerProps["scopeLock"]
 }
 
 export default function PricingOverrideSheet({ open, onOpenChange, editingOverride, scopeLock, onSaved }: PricingOverrideDrawerProps) {
+	const t = useT();
 	const { data: providersData, isLoading: isProvidersLoading, error: providersError } = useGetProvidersQuery();
 	const { data: virtualKeysData, isLoading: isVirtualKeysLoading, error: virtualKeysError } = useGetVirtualKeysQuery();
 	const { data: allKeysData = [] } = useGetAllKeysQuery();
@@ -652,7 +660,7 @@ export default function PricingOverrideSheet({ open, onOpenChange, editingOverri
 				resolvedScopeKind === "virtual_key_provider_key") &&
 			!resolvedVirtualKeyID
 		) {
-			setError("virtualKeyID", { message: "User is required" });
+			setError("virtualKeyID", { message: t("pricing.sheet.userRequired") });
 			hasErrors = true;
 		}
 
@@ -723,15 +731,15 @@ export default function PricingOverrideSheet({ open, onOpenChange, editingOverri
 		try {
 			if (editingOverride) {
 				await updateOverride({ id: editingOverride.id, data: requestPayload }).unwrap();
-				toast.success("Pricing override updated");
+				toast.success(t("pricing.sheet.updated"));
 			} else {
 				await createOverride(requestPayload).unwrap();
-				toast.success("Pricing override created");
+				toast.success(t("pricing.sheet.created"));
 			}
 			handleCloseDrawer();
 			onSaved?.();
 		} catch (error) {
-			toast.error("Failed to save pricing override", { description: getErrorMessage(error) });
+			toast.error(t("pricing.sheet.saveFailed"), { description: getErrorMessage(error) });
 		}
 	};
 
@@ -739,7 +747,7 @@ export default function PricingOverrideSheet({ open, onOpenChange, editingOverri
 		<Sheet open={open} onOpenChange={(o) => (o ? onOpenChange(true) : handleCloseDrawer())}>
 			<SheetContent side="right" className="dark:bg-card flex w-full flex-col overflow-x-hidden bg-white p-0 pt-4 sm:max-w-2xl">
 				<SheetHeader className="flex flex-col items-start px-8 py-4" headerClassName="mb-0 sticky -top-4 bg-card z-10">
-					<SheetTitle className="">{editingOverride ? "Edit Pricing Override" : "Create Pricing Override"}</SheetTitle>
+					<SheetTitle className="">{editingOverride ? t("pricing.sheet.editTitle") : t("pricing.sheet.createTitle")}</SheetTitle>
 				</SheetHeader>
 
 				<Form {...methods}>
@@ -749,14 +757,14 @@ export default function PricingOverrideSheet({ open, onOpenChange, editingOverri
 								<FormField
 									control={control}
 									name="name"
-									rules={{ required: "Name is required" }}
+									rules={{ required: t("pricing.sheet.name") }}
 									render={({ field }) => (
 										<FormItem>
 											<FormLabel>
-												Name <span className="text-red-500">*</span>
+												{t("pricing.sheet.name")} <span className="text-red-500">*</span>
 											</FormLabel>
 											<FormControl>
-												<Input data-testid="pricing-override-name-input" placeholder="e.g., GPT-4 Negotiated Rate" {...field} />
+												<Input data-testid="pricing-override-name-input" placeholder={t("pricing.sheet.namePlaceholder")} {...field} />
 											</FormControl>
 											<FormMessage />
 										</FormItem>
@@ -765,7 +773,7 @@ export default function PricingOverrideSheet({ open, onOpenChange, editingOverri
 
 								{shouldLockScope && scopeLock ? (
 									<div className="space-y-2">
-										<Label htmlFor="pricing-override-scope-lock-input">Scope</Label>
+										<Label htmlFor="pricing-override-scope-lock-input">{t("pricing.sheet.scope")}</Label>
 										<Input
 											id="pricing-override-scope-lock-input"
 											data-testid="pricing-override-scope-lock-input"
@@ -780,7 +788,7 @@ export default function PricingOverrideSheet({ open, onOpenChange, editingOverri
 											name="scopeRoot"
 											render={({ field }) => (
 												<FormItem>
-													<FormLabel>Scope root</FormLabel>
+													<FormLabel>{t("pricing.sheet.scopeRoot")}</FormLabel>
 													<Select
 														value={field.value}
 														onValueChange={(value: ScopeRoot) => {
@@ -795,8 +803,8 @@ export default function PricingOverrideSheet({ open, onOpenChange, editingOverri
 															</SelectTrigger>
 														</FormControl>
 														<SelectContent>
-															<SelectItem value="global">Global</SelectItem>
-															<SelectItem value="virtual_key">User</SelectItem>
+															<SelectItem value="global">{t("pricing.sheet.global")}</SelectItem>
+															<SelectItem value="virtual_key">{t("pricing.sheet.user")}</SelectItem>
 														</SelectContent>
 													</Select>
 												</FormItem>
@@ -810,7 +818,7 @@ export default function PricingOverrideSheet({ open, onOpenChange, editingOverri
 												render={({ field }) => (
 													<FormItem>
 														<FormLabel>
-															User <span className="text-red-500">*</span>
+															{t("pricing.sheet.user")} <span className="text-red-500">*</span>
 														</FormLabel>
 														<FormControl>
 															<ComboboxSelect
@@ -823,7 +831,7 @@ export default function PricingOverrideSheet({ open, onOpenChange, editingOverri
 																	setValue("providerKeyID", "");
 																	clearErrors("virtualKeyID");
 																}}
-																placeholder={isVirtualKeysLoading ? "Loading..." : "Select user"}
+																placeholder={isVirtualKeysLoading ? t("pricing.sheet.loading") : t("pricing.sheet.selectUser")}
 																disabled={isVirtualKeysLoading || !!virtualKeysError}
 																noPortal
 																className="h-9"
@@ -845,7 +853,7 @@ export default function PricingOverrideSheet({ open, onOpenChange, editingOverri
 												name="providerID"
 												render={({ field }) => (
 													<FormItem>
-														<FormLabel>Provider</FormLabel>
+														<FormLabel>{t("pricing.sheet.provider")}</FormLabel>
 														<Select
 															value={field.value || "__none__"}
 															onValueChange={(value) => {
@@ -860,7 +868,7 @@ export default function PricingOverrideSheet({ open, onOpenChange, editingOverri
 																	disabled={isProvidersLoading || !!providersError}
 																>
 																	{isProvidersLoading ? (
-																		<span className="text-muted-foreground">Loading...</span>
+																		<span className="text-muted-foreground">{t("common.actions.loading")}</span>
 																	) : field.value ? (
 																		<div className="flex items-center gap-1.5">
 																			<RenderProviderIcon
@@ -904,14 +912,14 @@ export default function PricingOverrideSheet({ open, onOpenChange, editingOverri
 													name="providerKeyID"
 													render={({ field }) => (
 														<FormItem>
-															<FormLabel>Provider key</FormLabel>
+															<FormLabel>{t("pricing.sheet.providerKeyLabel")}</FormLabel>
 															<FormControl>
 																<ComboboxSelect
 																	data-testid="pricing-override-provider-key-select"
 																	options={providerScopedKeyOptions.map((option) => ({ label: option.label, value: option.id }))}
 																	value={field.value || null}
 																	onValueChange={(value) => field.onChange(value ?? "")}
-																	placeholder="All provider keys"
+																	placeholder={t("pricing.sheet.allProviderKeys")}
 																	noPortal
 																	className="h-9"
 																/>
@@ -934,7 +942,7 @@ export default function PricingOverrideSheet({ open, onOpenChange, editingOverri
 										name="matchType"
 										render={({ field }) => (
 											<FormItem>
-												<FormLabel>Match type</FormLabel>
+												<FormLabel>{t("pricing.sheet.matchTypeLabel")}</FormLabel>
 												<Select
 													value={field.value}
 													onValueChange={(value: PricingOverrideMatchType) => {
@@ -944,7 +952,7 @@ export default function PricingOverrideSheet({ open, onOpenChange, editingOverri
 												>
 													<FormControl>
 														<SelectTrigger data-testid="pricing-override-match-type-select" className="w-full">
-															<SelectValue placeholder="Select match type" />
+															<SelectValue placeholder={t("pricing.sheet.selectMatchType")} />
 														</SelectTrigger>
 													</FormControl>
 													<SelectContent>
@@ -987,7 +995,7 @@ export default function PricingOverrideSheet({ open, onOpenChange, editingOverri
 								render={({ field }) => (
 									<FormItem>
 										<FormLabel>
-											Request types <span className="text-red-500">*</span>
+											{t("pricing.sheet.requestTypesLabel")} <span className="text-red-500">*</span>
 										</FormLabel>
 										<Popover open={requestTypePopoverOpen} onOpenChange={setRequestTypePopoverOpen} modal={false}>
 											<PopoverTrigger asChild>
@@ -1000,9 +1008,9 @@ export default function PricingOverrideSheet({ open, onOpenChange, editingOverri
 													>
 														<span className="truncate text-left">
 															{field.value.length > 0 ? (
-																field.value.map((rt) => RequestTypeLabels[rt as keyof typeof RequestTypeLabels] ?? rt).join(", ")
+																field.value.map((rt) => logRequestTypeFilterLabel(t, rt)).join(", ")
 															) : (
-																<span className="text-muted-foreground">Select request types...</span>
+																<span className="text-muted-foreground">{t("pricing.sheet.selectRequestTypes")}</span>
 															)}
 														</span>
 														<ChevronDown className="h-4 w-4 shrink-0" />
@@ -1012,8 +1020,10 @@ export default function PricingOverrideSheet({ open, onOpenChange, editingOverri
 											<PopoverContent align="start" className="w-[320px] p-2">
 												<div className="max-h-72 space-y-1 overflow-y-auto" onWheel={(e) => e.stopPropagation()}>
 													{REQUEST_TYPE_GROUPS.map((group) => (
-														<div key={group.label}>
-															<div className="text-muted-foreground px-2 py-1 text-xs font-medium">{group.label}</div>
+														<div key={group.groupKey}>
+															<div className="text-muted-foreground px-2 py-1 text-xs font-medium">
+																{t(`pricing.fieldSelector.groups.${group.groupKey}`)}
+															</div>
 															{group.types.map((requestType) => {
 																const checked = field.value.includes(requestType as RequestType);
 																return (
@@ -1033,7 +1043,7 @@ export default function PricingOverrideSheet({ open, onOpenChange, editingOverri
 																				if (next.length > 0) clearErrors("requestTypes");
 																			}}
 																		/>
-																		<span>{RequestTypeLabels[requestType as keyof typeof RequestTypeLabels] ?? requestType}</span>
+																		<span>{logRequestTypeFilterLabel(t, requestType)}</span>
 																	</label>
 																);
 															})}
@@ -1048,7 +1058,7 @@ export default function PricingOverrideSheet({ open, onOpenChange, editingOverri
 														variant="ghost"
 														onClick={() => field.onChange([])}
 													>
-														Clear
+														{t("shared.multiSelect.clear")}
 													</Button>
 												</div>
 											</PopoverContent>
@@ -1064,7 +1074,7 @@ export default function PricingOverrideSheet({ open, onOpenChange, editingOverri
 								render={({ field }) => (
 									<FormItem>
 										<FormLabel>
-											Pricing fields <span className="text-red-500">*</span>{" "}
+											{t("pricing.sheet.pricingFieldsLabel")} <span className="text-red-500">*</span>{" "}
 											<span className="text-muted-foreground text-xs font-normal">(USD per unit)</span>
 										</FormLabel>
 										<PricingFieldSelector
@@ -1111,11 +1121,11 @@ export default function PricingOverrideSheet({ open, onOpenChange, editingOverri
 								disabled={isSaving}
 							>
 								<X className="h-4 w-4" />
-								Cancel
+								{t("common.actions.cancel")}
 							</Button>
 							<Button data-testid="pricing-override-save-btn" type="submit" disabled={isSaving}>
 								<Save className="h-4 w-4" />
-								{editingOverride ? "Update Override" : "Save Override"}
+								{editingOverride ? t("pricing.sheet.updateOverride") : t("pricing.sheet.saveOverride")}
 							</Button>
 						</div>
 					</form>

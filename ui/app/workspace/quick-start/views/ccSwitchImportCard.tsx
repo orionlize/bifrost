@@ -3,6 +3,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { CodeEditor } from "@/components/ui/codeEditor";
 import { useCopyToClipboard } from "@/hooks/useCopyToClipboard";
+import { useT } from "@/lib/i18n";
 import { AlertCircle, Copy, ExternalLink, LucideIcon } from "lucide-react";
 
 const EditorOptions = {
@@ -40,6 +41,7 @@ export function CcSwitchImportCard({
 	showApiKeyWarning,
 	apiKeyWarning,
 }: CcSwitchImportCardProps) {
+	const t = useT();
 	const { copy: copyToClipboard } = useCopyToClipboard();
 
 	const handleImport = () => {
@@ -64,7 +66,7 @@ export function CcSwitchImportCard({
 						CC Switch
 						<ExternalLink className="size-3.5" />
 					</a>{" "}
-					first.
+					{t("quickStart.ccSwitchFirst")}
 				</CardDescription>
 			</CardHeader>
 			<CardContent className="space-y-4">
@@ -77,15 +79,15 @@ export function CcSwitchImportCard({
 
 				<div className="flex flex-wrap gap-2">
 					<Button onClick={handleImport} data-testid={`${testId}-import`}>
-						Import with CC Switch
+						{t("quickStart.importWithCcSwitch")}
 					</Button>
 					<Button variant="outline" onClick={() => copyToClipboard(importUrl)} data-testid={`${testId}-copy-link`}>
 						<Copy className="size-4" />
-						Copy Deep Link
+						{t("quickStart.copyDeepLink")}
 					</Button>
 					<Button variant="outline" onClick={() => copyToClipboard(manualConfig)} data-testid={`${testId}-copy-config`}>
 						<Copy className="size-4" />
-						Copy manual config
+						{t("quickStart.copyManualConfig")}
 					</Button>
 				</div>
 

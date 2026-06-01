@@ -15,11 +15,16 @@ import { RoutingRuleInfoSheet } from "./routingRuleInfoSheet";
 import { RoutingRuleSheet } from "./routingRuleSheet";
 import { RoutingRulesEmptyState } from "./routingRulesEmptyState";
 import { RoutingRulesTable } from "./routingRulesTable";
+import { useT } from "@/lib/i18n";
+import { useNavDescription, useNavTitle } from "@/lib/i18n/useNavTitle";
 
 const POLLING_INTERVAL = 5000;
 const PAGE_SIZE = 25;
 
 export function RoutingRulesView() {
+	const t = useT();
+	const pageTitle = useNavTitle("routingRules");
+	const pageDescription = useNavDescription("routingRules");
 	const [dialogOpen, setDialogOpen] = useState(false);
 	const [editingRule, setEditingRule] = useState<RoutingRule | null>(null);
 	const [infoSheetOpen, setInfoSheetOpen] = useState(false);
@@ -117,14 +122,14 @@ export function RoutingRulesView() {
 			{/* Header */}
 			<div className="flex items-center justify-between">
 				<div>
-					<h1 className="text-foreground text-lg font-semibold">Routing Rules</h1>
-					<p className="text-muted-foreground text-sm">Manage CEL-based routing rules for intelligent request routing across providers</p>
+					<h1 className="text-foreground text-lg font-semibold">{pageTitle}</h1>
+					<p className="text-muted-foreground text-sm">{pageDescription}</p>
 				</div>
 				<div className="flex items-center gap-2">
 					<Button variant="outline" size="sm" asChild className="gap-2">
 						<Link to="/workspace/routing-rules/tree">
 							<GitBranch className="h-4 w-4" />
-							<span className="hidden sm:inline">View Tree</span>
+							<span className="hidden sm:inline">{t("routing.viewTree")}</span>
 						</Link>
 					</Button>
 					{canCreate && (

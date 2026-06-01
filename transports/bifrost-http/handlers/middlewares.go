@@ -999,6 +999,9 @@ func (m *AuthMiddleware) applyDeviceTemporaryCredential(ctx *fasthttp.RequestCtx
 func applyGlobalAPIKeyAuth(ctx *fasthttp.RequestCtx, _ *tables.GlobalAPIKey) {
 	ctx.SetUserValue(schemas.IsAPIKeyAuthContextKey, true)
 	ctx.SetUserValue(schemas.IsLocalAdminContextKey, true)
+	// Attribute global API key inference usage to the admin user in LLM/MCP logs.
+	ctx.SetUserValue(schemas.BifrostContextKeyUserID, schemas.LocalAdminUserID)
+	ctx.SetUserValue(schemas.BifrostContextKeyUserName, schemas.LocalAdminUserName)
 }
 
 // authenticateGlobalAPIKeyIfPresent validates Bearer bf-ak- credentials when they

@@ -3,6 +3,7 @@ import {
 	CreateUserGroupRequest,
 	GetUserGroupsResponse,
 	GetUserGroupUsageResponse,
+	ResetUserGroupMemberUsageRequest,
 	UpdateUserGroupRequest,
 	UserGroup,
 } from "@/lib/types/userGroups";
@@ -51,6 +52,15 @@ export const userGroupsApi = baseApi.injectEndpoints({
 			query: (id) => ({ url: `/governance/user-groups/${id}/usage`, method: "GET" }),
 			providesTags: (result, error, arg) => [{ type: "UserGroups", id: `usage-${arg}` }],
 		}),
+
+		resetUserGroupMemberUsage: builder.mutation<{ message: string }, { groupId: string; data: ResetUserGroupMemberUsageRequest }>({
+			query: ({ groupId, data }) => ({
+				url: `/governance/user-groups/${groupId}/usage/reset`,
+				method: "POST",
+				body: data,
+			}),
+			invalidatesTags: (result, error, arg) => [{ type: "UserGroups", id: `usage-${arg.groupId}` }],
+		}),
 	}),
 });
 
@@ -62,4 +72,5 @@ export const {
 	useSetUserGroupMembersMutation,
 	useDeleteUserGroupMutation,
 	useGetUserGroupUsageQuery,
+	useResetUserGroupMemberUsageMutation,
 } = userGroupsApi;

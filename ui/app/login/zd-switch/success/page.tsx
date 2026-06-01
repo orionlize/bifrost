@@ -1,5 +1,6 @@
 import { Button } from "@/components/ui/button";
 import { LoginBrandHeader } from "@/components/loginBrandHeader";
+import { useT } from "@/lib/i18n";
 import {
 	copyAccessTokenToClipboard,
 	openZdSwitchDeeplink,
@@ -10,6 +11,7 @@ import { CheckCircle2 } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
 
 export default function ZdSwitchSuccessPage() {
+	const t = useT();
 	const { accessToken, baseUrl } = useMemo(() => {
 		if (typeof window === "undefined") {
 			return { accessToken: "", baseUrl: null };
@@ -67,12 +69,14 @@ export default function ZdSwitchSuccessPage() {
 								<CheckCircle2 className="text-primary h-12 w-12" />
 							</div>
 							<div className="space-y-2">
-								<h1 className="text-lg font-semibold">登录成功</h1>
-								<p className="text-muted-foreground text-sm">正在打开 ZD Switch 应用。如果没有自动跳转，请点击下方按钮。</p>
-								{baseUrl ? <p className="text-muted-foreground text-xs break-all">服务地址：{baseUrl}</p> : null}
+								<h1 className="text-lg font-semibold">{t("auth.zdSwitch.loginSuccess")}</h1>
+								<p className="text-muted-foreground text-sm">{t("auth.zdSwitch.openingApp")}</p>
+								{baseUrl ? (
+									<p className="text-muted-foreground text-xs break-all">{t("auth.zdSwitch.serviceUrl", { url: baseUrl })}</p>
+								) : null}
 							</div>
 							<Button type="button" className="h-9 w-full text-sm" onClick={handleOpenApp} data-testid="zd-switch-open-deeplink-button">
-								打开 ZD Switch
+								{t("auth.zdSwitch.openApp")}
 							</Button>
 							<Button
 								type="button"
@@ -81,13 +85,13 @@ export default function ZdSwitchSuccessPage() {
 								onClick={() => void handleCopyToken()}
 								data-testid="zd-switch-copy-token-button"
 							>
-								{copied ? "已复制 Access Token" : "复制 Access Token"}
+								{copied ? t("auth.zdSwitch.tokenCopied") : t("auth.zdSwitch.copyToken")}
 							</Button>
 						</div>
 					) : (
 						<div className="space-y-2 text-center">
-							<h1 className="text-lg font-semibold">登录未完成</h1>
-							<p className="text-muted-foreground text-sm">缺少 access_token，请返回登录页重新授权。</p>
+							<h1 className="text-lg font-semibold">{t("auth.zdSwitch.loginIncomplete")}</h1>
+							<p className="text-muted-foreground text-sm">{t("auth.zdSwitch.missingToken")}</p>
 							<Button
 								type="button"
 								variant="outline"
@@ -97,7 +101,7 @@ export default function ZdSwitchSuccessPage() {
 								}}
 								data-testid="zd-switch-retry-login-button"
 							>
-								返回登录
+								{t("auth.zdSwitch.backToLogin")}
 							</Button>
 						</div>
 					)}

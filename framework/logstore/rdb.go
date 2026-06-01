@@ -2171,7 +2171,7 @@ func (s *RDBLogStore) queryVirtualKeyUsageRankings(ctx context.Context, filters 
 	}
 	var results []row
 
-	if s.db.Dialector.Name() == "postgres" && s.canUseMatView(filters) {
+	if s.db.Dialector.Name() == "postgres" && s.canUseMatViewForFreshAggregate(filters) {
 		q := s.ScopedDB(ctx).Table("mv_logs_hourly")
 		q = s.applyMatViewFilters(q, filters)
 		q = q.Where("virtual_key_id IN ?", virtualKeyIDs)

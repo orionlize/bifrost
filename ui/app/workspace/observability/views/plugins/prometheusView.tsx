@@ -1,3 +1,4 @@
+import { useT } from "@/lib/i18n";
 import { getErrorMessage, useAppSelector, useUpdatePluginMutation } from "@/lib/store";
 import { type EnvVar, PrometheusFormSchema } from "@/lib/types/schemas";
 import { toOptionalEnvVarPayload } from "@/lib/utils/envVarForm";
@@ -28,6 +29,7 @@ interface PrometheusViewProps {
 }
 
 export default function PrometheusView({ onDelete, isDeleting }: PrometheusViewProps) {
+	const t = useT();
 	const selectedPlugin = useAppSelector((state) => state.plugin.selectedPlugin);
 	const currentConfig = useMemo(() => {
 		const telemetryConfig = (selectedPlugin?.config as TelemetryConfig) ?? {};
@@ -75,10 +77,10 @@ export default function PrometheusView({ onDelete, isDeleting }: PrometheusViewP
 				.unwrap()
 				.then(() => {
 					resolve();
-					toast.success("Prometheus configuration updated successfully");
+					toast.success(t("observabilityConnectors.toast.prometheusUpdated"));
 				})
 				.catch((err) => {
-					toast.error("Failed to update Prometheus configuration", {
+					toast.error(t("observabilityConnectors.toast.prometheusFailed"), {
 						description: getErrorMessage(err),
 					});
 					reject(err);

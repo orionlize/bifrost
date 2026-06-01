@@ -65,6 +65,9 @@ func (pricingOverrideTestGovernanceManager) ReloadUserGroups(context.Context) er
 func (pricingOverrideTestGovernanceManager) GetUserGroupUsage(context.Context, string) ([]governance.UserGroupMemberUsage, error) {
 	return nil, nil
 }
+func (pricingOverrideTestGovernanceManager) ResetUserGroupMemberUsage(context.Context, string, string) error {
+	return nil
+}
 func (pricingOverrideTestGovernanceManager) UpsertPricingOverride(context.Context, *configstoreTables.TablePricingOverride) error {
 	return nil
 }

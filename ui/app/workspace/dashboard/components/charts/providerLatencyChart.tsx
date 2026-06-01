@@ -4,6 +4,7 @@ import { Area, AreaChart, Bar, BarChart, CartesianGrid, ResponsiveContainer, Too
 import { formatFullTimestamp, formatLatency, formatTimestamp, getModelColor, LATENCY_COLORS, pickTopSeries } from "../../utils/chartUtils";
 import { ChartErrorBoundary } from "./chartErrorBoundary";
 import type { ChartType } from "./chartTypeToggle";
+import { useT } from "@/lib/i18n";
 
 interface ProviderLatencyChartProps {
 	data: ProviderLatencyHistogramResponse | null;
@@ -14,6 +15,7 @@ interface ProviderLatencyChartProps {
 }
 
 function AllProvidersTooltip({ active, payload, displayProviders: providers }: any) {
+	const t = useT();
 	if (!active || !payload || !payload.length) return null;
 
 	const data = payload[0]?.payload;
@@ -42,6 +44,7 @@ function AllProvidersTooltip({ active, payload, displayProviders: providers }: a
 }
 
 function SingleProviderTooltip({ active, payload }: any) {
+	const t = useT();
 	if (!active || !payload || !payload.length) return null;
 
 	const data = payload[0]?.payload;
@@ -54,33 +57,33 @@ function SingleProviderTooltip({ active, payload }: any) {
 				<div className="flex items-center justify-between gap-4">
 					<span className="flex items-center gap-1.5">
 						<span className="h-2 w-2 rounded-full" style={{ backgroundColor: LATENCY_COLORS.avg }} />
-						<span className="text-zinc-600 dark:text-zinc-400">Avg</span>
+						<span className="text-zinc-600 dark:text-zinc-400">{t("dashboardCharts.legends.avg")}</span>
 					</span>
 					<span className="font-medium">{formatLatency(data.avg_latency)}</span>
 				</div>
 				<div className="flex items-center justify-between gap-4">
 					<span className="flex items-center gap-1.5">
 						<span className="h-2 w-2 rounded-full" style={{ backgroundColor: LATENCY_COLORS.p90 }} />
-						<span className="text-zinc-600 dark:text-zinc-400">P90</span>
+						<span className="text-zinc-600 dark:text-zinc-400">{t("dashboardCharts.legends.p90")}</span>
 					</span>
 					<span className="font-medium">{formatLatency(data.p90_latency)}</span>
 				</div>
 				<div className="flex items-center justify-between gap-4">
 					<span className="flex items-center gap-1.5">
 						<span className="h-2 w-2 rounded-full" style={{ backgroundColor: LATENCY_COLORS.p95 }} />
-						<span className="text-zinc-600 dark:text-zinc-400">P95</span>
+						<span className="text-zinc-600 dark:text-zinc-400">{t("dashboardCharts.legends.p95")}</span>
 					</span>
 					<span className="font-medium">{formatLatency(data.p95_latency)}</span>
 				</div>
 				<div className="flex items-center justify-between gap-4">
 					<span className="flex items-center gap-1.5">
 						<span className="h-2 w-2 rounded-full" style={{ backgroundColor: LATENCY_COLORS.p99 }} />
-						<span className="text-zinc-600 dark:text-zinc-400">P99</span>
+						<span className="text-zinc-600 dark:text-zinc-400">{t("dashboardCharts.legends.p99")}</span>
 					</span>
 					<span className="font-medium">{formatLatency(data.p99_latency)}</span>
 				</div>
 				<div className="flex items-center justify-between gap-4 border-t border-zinc-200 pt-1 dark:border-zinc-700">
-					<span className="text-zinc-600 dark:text-zinc-400">Requests</span>
+					<span className="text-zinc-600 dark:text-zinc-400">{t("dashboardCharts.legends.requests")}</span>
 					<span className="font-medium">{data.total_requests?.toLocaleString() || 0}</span>
 				</div>
 			</div>
@@ -89,6 +92,7 @@ function SingleProviderTooltip({ active, payload }: any) {
 }
 
 function ProviderLatencyChartImpl({ data, chartType, startTime, endTime, selectedProvider }: ProviderLatencyChartProps) {
+	const t = useT();
 	const { chartData, mode, displayProviders } = useMemo(() => {
 		if (!data?.buckets || !data.bucket_size_seconds) {
 			return { chartData: [], mode: "all" as const, displayProviders: [] };
@@ -128,7 +132,7 @@ function ProviderLatencyChartImpl({ data, chartType, startTime, endTime, selecte
 	}, [data, selectedProvider]);
 
 	if (!data?.buckets || chartData.length === 0) {
-		return <div className="text-muted-foreground flex h-full items-center justify-center text-sm">No data available</div>;
+		return <div className="text-muted-foreground flex h-full items-center justify-center text-sm">{t("dashboardCharts.noData")}</div>;
 	}
 
 	const commonProps = {

@@ -11,6 +11,7 @@ import { Check, Copy, Loader2 } from "lucide-react";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { Field, QueryBuilder, RuleGroupType } from "react-querybuilder";
 import "react-querybuilder/dist/query-builder.css";
+import { useT } from "@/lib/i18n";
 import { normalizeRoutingRuleGroupQuery } from "@/lib/utils/routingRuleGroupQuery";
 import { ActionButton } from "./actionButton";
 import { CombinatorSelector } from "./combinatorSelector";
@@ -76,6 +77,7 @@ export function CELRuleBuilder({
 		hideCELExpression: false,
 	},
 }: CELRuleBuilderProps) {
+	const t = useT();
 	const normalizedInitial = normalizeRoutingRuleGroupQuery(initialQuery ?? defaultQuery);
 	const [query, setQuery] = useState<RuleGroupType>(normalizedInitial);
 	const [celExpression, setCelExpression] = useState("");
@@ -116,7 +118,7 @@ export function CELRuleBuilder({
 		return (
 			<div className="flex items-center justify-center space-x-2 rounded-md border p-8">
 				<Loader2 className="h-5 w-5 animate-spin" />
-				<span className="text-muted-foreground text-sm">Loading CEL builder...</span>
+				<span className="text-muted-foreground text-sm">{t("routing.sheet.loadingCelBuilder")}</span>
 			</div>
 		);
 	}
@@ -152,8 +154,8 @@ export function CELRuleBuilder({
 								combinatorSelector: CombinatorSelector,
 							}}
 							translations={{
-								addRule: { label: "Add Rule" },
-								addGroup: { label: "Add Rule Group" },
+								addRule: { label: t("routing.celBuilder.addRule") },
+								addGroup: { label: t("routing.celBuilder.addRuleGroup") },
 							}}
 						/>
 					</QueryBuilderWrapper>
@@ -163,7 +165,7 @@ export function CELRuleBuilder({
 			{!options.hideCELExpression && (
 				<div className="space-y-2">
 					<div className="flex items-center justify-between">
-						<Label>CEL Expression Preview</Label>
+						<Label>{t("routing.celBuilder.celPreview")}</Label>
 						<Button
 							variant="outline"
 							size="sm"
@@ -180,12 +182,17 @@ export function CELRuleBuilder({
 							) : (
 								<>
 									<Copy className="h-4 w-4" />
-									Copy
+									{t("routing.celBuilder.copy")}
 								</>
 							)}
 						</Button>
 					</div>
-					<Textarea value={celExpression || "No rules defined yet"} readOnly className="font-mono text-sm" rows={4} />
+					<Textarea
+						value={celExpression || t("routing.celBuilder.noRulesDefined")}
+						readOnly
+						className="font-mono text-sm"
+						rows={4}
+					/>
 				</div>
 			)}
 		</div>

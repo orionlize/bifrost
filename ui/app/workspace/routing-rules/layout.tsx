@@ -1,13 +1,15 @@
 import { createFileRoute, Outlet, useChildMatches } from "@tanstack/react-router";
 import { NoPermissionView } from "@/components/noPermissionView";
+import { useT } from "@/lib/i18n";
 import { RbacOperation, RbacResource, useRbac } from "@enterprise/lib";
 import RoutingRulesPage from "./page";
 
 function RouteComponent() {
+	const t = useT();
 	const hasRoutingRulesAccess = useRbac(RbacResource.RoutingRules, RbacOperation.View);
 	const childMatches = useChildMatches();
 	if (!hasRoutingRulesAccess) {
-		return <NoPermissionView entity="routing rules" />;
+		return <NoPermissionView entity={t("routing.permission")} />;
 	}
 	return childMatches.length === 0 ? <RoutingRulesPage /> : <Outlet />;
 }

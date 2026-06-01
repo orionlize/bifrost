@@ -13,12 +13,17 @@ import { parseArrayFromText } from "@/lib/utils/array";
 import { validateOrigins } from "@/lib/utils/validation";
 import { RbacOperation, RbacResource, useRbac } from "@enterprise/lib";
 import { useGetAuthTypeQuery } from "@enterprise/lib/store/apis/scimApi";
+import { useT } from "@/lib/i18n";
+import { useNavDescription, useNavTitle } from "@/lib/i18n/useNavTitle";
 import { Link } from "@tanstack/react-router";
 import { AlertTriangle, Info, Loader2 } from "lucide-react";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { toast } from "sonner";
 
 export default function SecurityView() {
+	const t = useT();
+	const pageTitle = useNavTitle("security");
+	const pageDescription = useNavDescription("security");
 	const hasSettingsUpdateAccess = useRbac(RbacResource.Settings, RbacOperation.Update);
 	const { data: bifrostConfig } = useGetCoreConfigQuery({ fromDB: true });
 	const { data: authType, isLoading: authTypeLoading, error: authTypeError } = useGetAuthTypeQuery(undefined, { skip: !IS_ENTERPRISE });
@@ -190,7 +195,9 @@ export default function SecurityView() {
 
 			if (!validation.isValid && localConfig.allowed_origins.length > 0) {
 				toast.error(
-					`Invalid origins: ${validation.invalidOrigins.join(", ")}. Origins must be valid URLs like https://example.com, wildcard patterns like https://*.example.com, or "*" to allow all origins`,
+					t("configViews.security.invalidOrigins", {
+						invalidOrigins: validation.invalidOrigins.join(", "),
+					}),
 				);
 				return;
 			}
@@ -205,17 +212,17 @@ export default function SecurityView() {
 						}
 					: {}),
 			}).unwrap();
-			toast.success("Security settings updated successfully.");
+			toast.success(t("configViews.security.updated"));
 		} catch (error) {
 			toast.error(getErrorMessage(error));
 		}
-	}, [bifrostConfig, localConfig, authConfig, showPasswordSection, updateCoreConfig]);
+	}, [bifrostConfig, localConfig, authConfig, showPasswordSection, updateCoreConfig, t]);
 
 	return (
 		<div className="mx-auto w-full max-w-4xl space-y-4">
 			<div>
-				<h2 className="text-lg font-semibold tracking-tight">Security Settings</h2>
-				<p className="text-muted-foreground text-sm">Configure security and access control settings.</p>
+				<h2 className="text-lg font-semibold tracking-tight">{pageTitle}</h2>
+				<p className="text-muted-foreground text-sm">{pageDescription}</p>
 			</div>
 
 			<div className="space-y-4">
@@ -223,9 +230,9 @@ export default function SecurityView() {
 					<Alert variant="default" className="border-blue-20">
 						<Info className="h-4 w-4 text-blue-600" />
 						<AlertDescription>
-							You will need to use Basic Auth for all your inference calls (including MCP tool execution). You can disable it below. Check{" "}
+							{t("configViews.security.basicAuthRequired")}{" "}
 							<Link to="/workspace/config/api-keys" className="text-md text-primary underline">
-								API Keys
+								{t("configViews.shared.apiKeys")}
 							</Link>
 						</AlertDescription>
 					</Alert>
@@ -233,24 +240,21 @@ export default function SecurityView() {
 				{authConfig.is_enabled && (authConfig.disable_auth_on_inference ?? true) && (
 					<Alert variant="default" className="border-blue-20">
 						<Info className="h-4 w-4 text-blue-600" />
-						<AlertDescription>
-							Authentication is disabled for inference calls. Only dashboard, admin API and MCP tool execution calls require authentication.
-						</AlertDescription>
+						<AlertDescription>{t("configViews.security.authDisabledForInference")}</AlertDescription>
 					</Alert>
 				)}
 				{/* Password Protect the Dashboard */}
 				{IS_ENTERPRISE && authTypeLoading ? (
 					<div className="flex items-center justify-center rounded-lg border p-8" data-testid="security-auth-type-loading">
 						<Loader2 className="text-muted-foreground h-5 w-5 animate-spin" aria-hidden />
-						<span className="sr-only">Loading authentication settings</span>
+						<span className="sr-only">{t("configPages.loadingAuthSettings")}</span>
 					</div>
 				) : null}
 				{IS_ENTERPRISE && !authTypeLoading && authTypeError ? (
 					<Alert variant="destructive" data-testid="security-auth-type-error">
 						<AlertTriangle className="h-4 w-4" />
 						<AlertDescription>
-							Could not load authentication type. Dashboard password settings are hidden until this request succeeds.{" "}
-							{getErrorMessage(authTypeError)}
+							{t("configViews.security.authTypeLoadFailed")} {getErrorMessage(authTypeError)}
 						</AlertDescription>
 					</Alert>
 				) : null}
@@ -260,33 +264,30 @@ export default function SecurityView() {
 							<div className="flex items-center justify-between">
 								<div className="space-y-0.5">
 									<Label htmlFor="auth-enabled" className="text-sm font-medium">
-										Password protect the dashboard <Badge variant="secondary">BETA</Badge>
+										{t("configViews.security.passwordProtectDashboard")} <Badge variant="secondary">{t("configViews.shared.beta")}</Badge>
 									</Label>
-									<p className="text-muted-foreground text-sm">
-										Set up authentication credentials to protect your Bifrost dashboard. Once configured, use the generated token for all
-										admin API calls.
-									</p>
+									<p className="text-muted-foreground text-sm">{t("configViews.security.passwordProtectDesc")}</p>
 								</div>
 								<Switch id="auth-enabled" checked={authConfig.is_enabled} onCheckedChange={handleAuthToggle} />
 							</div>
 							<div className="space-y-4">
 								<div className="space-y-2">
-									<Label htmlFor="admin-username">Username</Label>
+									<Label htmlFor="admin-username">{t("configViews.security.username")}</Label>
 									<EnvVarInput
 										id="admin-username"
 										type="text"
-										placeholder="Enter admin username or env.VAR_NAME"
+										placeholder={t("configViews.security.usernamePlaceholder")}
 										value={authConfig.admin_username}
 										disabled={!authConfig.is_enabled}
 										onChange={(value) => handleAuthFieldChange("admin_username", value)}
 									/>
 								</div>
 								<div className="space-y-2">
-									<Label htmlFor="admin-password">Password</Label>
+									<Label htmlFor="admin-password">{t("configViews.security.password")}</Label>
 									<EnvVarInput
 										id="admin-password"
 										type="password"
-										placeholder="Enter admin password or env.VAR_NAME"
+										placeholder={t("configViews.security.passwordPlaceholder")}
 										value={authConfig.admin_password}
 										disabled={!authConfig.is_enabled}
 										onChange={(value) => handleAuthFieldChange("admin_password", value)}
@@ -296,12 +297,10 @@ export default function SecurityView() {
 									<div className="flex items-center justify-between">
 										<div className="space-y-0.5">
 											<Label htmlFor="disable-auth-inference" className="text-sm font-medium">
-												Disable authentication on inference calls <Badge variant="secondary">Deprecating soon</Badge>
+												{t("configViews.security.disableAuthOnInference")}{" "}
+												<Badge variant="secondary">{t("configViews.shared.deprecatingSoon")}</Badge>
 											</Label>
-											<p className="text-muted-foreground text-sm">
-												When enabled, inference API calls (chat completions, embeddings, etc.) will not require authentication. Dashboard
-												and admin API calls will still require authentication.
-											</p>
+											<p className="text-muted-foreground text-sm">{t("configViews.security.disableAuthOnInferenceDesc")}</p>
 										</div>
 										<Switch
 											id="disable-auth-inference"
@@ -322,12 +321,9 @@ export default function SecurityView() {
 							<div className="flex items-center justify-between">
 								<div className="space-y-0.5">
 									<Label htmlFor="aone-oauth-enabled" className="text-sm font-medium">
-										Aone OAuth2 login
+										{t("configViews.security.aoneOAuthLogin")}
 									</Label>
-									<p className="text-muted-foreground text-sm">
-										Allow users to sign in to the dashboard via an external Aone OAuth2 provider. Register the callback URL{" "}
-										<code className="text-xs">/api/aone/oauth/callback</code> with Aone.
-									</p>
+									<p className="text-muted-foreground text-sm">{t("configViews.security.aoneOAuthDesc")}</p>
 								</div>
 								<Switch
 									id="aone-oauth-enabled"
@@ -339,44 +335,44 @@ export default function SecurityView() {
 							{authConfig.aone_oauth?.enabled && (
 								<div className="space-y-4">
 									<div className="space-y-2">
-										<Label htmlFor="aone-base-url">Base URL</Label>
+										<Label htmlFor="aone-base-url">{t("configViews.security.baseUrl")}</Label>
 										<EnvVarInput
 											id="aone-base-url"
 											type="text"
-											placeholder="https://aone.example.com/aone"
+											placeholder={t("configViews.security.aoneBaseUrlPlaceholder")}
 											value={authConfig.aone_oauth.base_url}
 											disabled={!authConfig.is_enabled}
 											onChange={(value) => handleAoneOAuthFieldChange("base_url", value)}
 										/>
 									</div>
 									<div className="space-y-2">
-										<Label htmlFor="aone-client-id">Client ID</Label>
+										<Label htmlFor="aone-client-id">{t("configViews.security.clientId")}</Label>
 										<EnvVarInput
 											id="aone-client-id"
 											type="text"
-											placeholder="YOUR_CLIENT_ID or env.VAR_NAME"
+											placeholder={t("configViews.security.aoneClientIdPlaceholder")}
 											value={authConfig.aone_oauth.client_id}
 											disabled={!authConfig.is_enabled}
 											onChange={(value) => handleAoneOAuthFieldChange("client_id", value)}
 										/>
 									</div>
 									<div className="space-y-2">
-										<Label htmlFor="aone-client-secret">Client Secret</Label>
+										<Label htmlFor="aone-client-secret">{t("configViews.security.clientSecret")}</Label>
 										<EnvVarInput
 											id="aone-client-secret"
 											type="password"
-											placeholder="YOUR_CLIENT_SECRET or env.VAR_NAME"
+											placeholder={t("configViews.security.aoneClientSecretPlaceholder")}
 											value={authConfig.aone_oauth.client_secret}
 											disabled={!authConfig.is_enabled}
 											onChange={(value) => handleAoneOAuthFieldChange("client_secret", value)}
 										/>
 									</div>
 									<div className="space-y-2">
-										<Label htmlFor="aone-redirect-uri">Redirect URI</Label>
+										<Label htmlFor="aone-redirect-uri">{t("configViews.security.redirectUri")}</Label>
 										<EnvVarInput
 											id="aone-redirect-uri"
 											type="text"
-											placeholder="https://bifrost.example.com/api/aone/oauth/callback"
+											placeholder={t("configViews.security.aoneRedirectUriPlaceholder")}
 											value={authConfig.aone_oauth.redirect_uri}
 											disabled={!authConfig.is_enabled}
 											onChange={(value) => handleAoneOAuthFieldChange("redirect_uri", value)}
@@ -391,13 +387,11 @@ export default function SecurityView() {
 				<div className="flex items-center justify-between space-x-2 rounded-lg border p-4">
 					<div className="space-y-0.5">
 						<label htmlFor="enforce-auth-on-inference" className="text-sm font-medium">
-							{IS_ENTERPRISE ? "Enable Auth on Inference" : "Enforce Users on Inference"}
+							{IS_ENTERPRISE ? t("configViews.security.enableAuthOnInference") : t("configViews.security.enforceUsersOnInference")}
 						</label>
 						<p className="text-muted-foreground text-sm">
-							{IS_ENTERPRISE
-								? "Require authentication (user credentials, API key, or user token) for all inference endpoints."
-								: "Require a user for all inference requests."}{" "}
-							See{" "}
+							{IS_ENTERPRISE ? t("configViews.security.enableAuthOnInferenceDesc") : t("configViews.security.enforceUsersOnInferenceDesc")}{" "}
+							{t("configViews.shared.see")}{" "}
 							<a
 								href="https://docs.getbifrost.ai/features/governance/virtual-keys"
 								target="_blank"
@@ -405,9 +399,9 @@ export default function SecurityView() {
 								className="text-primary underline"
 								data-testid="security-virtual-keys-docs-link"
 							>
-								documentation
+								{t("configViews.shared.documentation")}
 							</a>{" "}
-							for details.
+							{t("configViews.shared.forDetails")}
 						</p>
 					</div>
 					<Switch
@@ -423,18 +417,14 @@ export default function SecurityView() {
 					<div className="space-y-2 rounded-lg border p-4">
 						<div className="space-y-0.5">
 							<label htmlFor="allowed-origins" className="text-sm font-medium">
-								Allowed Origins
+								{t("configViews.security.allowedOrigins")}
 							</label>
-							<p className="text-muted-foreground text-sm">
-								Comma-separated list of allowed origins for CORS and WebSocket connections. Localhost origins are always allowed. Each
-								origin must be a complete URL with protocol (e.g., https://app.example.com, http://localhost:8080). Wildcards are supported
-								for subdomains (e.g., https://*.example.com) or use "*" to allow all origins.
-							</p>
+							<p className="text-muted-foreground text-sm">{t("configViews.security.allowedOriginsDesc")}</p>
 						</div>
 						<Textarea
 							id="allowed-origins"
 							className="h-24"
-							placeholder="https://app.example.com, https://*.example.com, *"
+							placeholder={t("configViews.security.allowedOriginsPlaceholder")}
 							value={localValues.allowed_origins}
 							onChange={(e) => handleAllowedOriginsChange(e.target.value)}
 						/>
@@ -445,14 +435,14 @@ export default function SecurityView() {
 					<div className="space-y-2 rounded-lg border p-4">
 						<div className="space-y-0.5">
 							<label htmlFor="allowed-headers" className="text-sm font-medium">
-								Allowed Headers
+								{t("configViews.security.allowedHeaders")}
 							</label>
-							<p className="text-muted-foreground text-sm">Comma-separated list of allowed headers for CORS.</p>
+							<p className="text-muted-foreground text-sm">{t("configViews.security.allowedHeadersDesc")}</p>
 						</div>
 						<Textarea
 							id="allowed-headers"
 							className="h-24"
-							placeholder="X-Stainless-Timeout"
+							placeholder={t("configViews.security.allowedHeadersPlaceholder")}
 							value={localValues.allowed_headers}
 							onChange={(e) => handleAllowedHeadersChange(e.target.value)}
 						/>
@@ -463,18 +453,15 @@ export default function SecurityView() {
 					<div className="space-y-2 rounded-lg border p-4">
 						<div className="space-y-0.5">
 							<label htmlFor="required-headers" className="text-sm font-medium">
-								Required Headers
+								{t("configViews.security.requiredHeaders")}
 							</label>
-							<p className="text-muted-foreground text-sm">
-								Comma-separated list of headers that must be present on every request. Requests missing any of these headers will be
-								rejected with a 400 error. Header names are case-insensitive.
-							</p>
+							<p className="text-muted-foreground text-sm">{t("configViews.security.requiredHeadersDesc")}</p>
 						</div>
 						<Textarea
 							id="required-headers"
 							data-testid="required-headers-textarea"
 							className="h-24"
-							placeholder="X-Tenant-ID, X-Custom-Header"
+							placeholder={t("configViews.security.requiredHeadersPlaceholder")}
 							value={localValues.required_headers}
 							onChange={(e) => handleRequiredHeadersChange(e.target.value)}
 						/>
@@ -485,19 +472,15 @@ export default function SecurityView() {
 					<div className="space-y-2 rounded-lg border p-4">
 						<div className="space-y-0.5">
 							<label htmlFor="whitelisted-routes" className="text-sm font-medium">
-								Whitelisted Routes
+								{t("configViews.security.whitelistedRoutes")}
 							</label>
-							<p className="text-muted-foreground text-sm">
-								Comma-separated list of routes that bypass the auth middleware. Requests to these routes will not require authentication.
-								System routes like <b>/health</b>, <b>/api/session/login</b>, and <b>/api/session/is-auth-enabled</b> are always whitelisted
-								regardless of this setting.
-							</p>
+							<p className="text-muted-foreground text-sm">{t("configViews.security.whitelistedRoutesDesc")}</p>
 						</div>
 						<Textarea
 							id="whitelisted-routes"
 							data-testid="whitelisted-routes-textarea"
 							className="h-24"
-							placeholder="/api/custom-webhook, /api/public-endpoint"
+							placeholder={t("configViews.security.whitelistedRoutesPlaceholder")}
 							value={localValues.whitelisted_routes}
 							onChange={(e) => handleWhitelistedRoutesChange(e.target.value)}
 						/>
@@ -506,7 +489,7 @@ export default function SecurityView() {
 			</div>
 			<div className="flex justify-end pt-2">
 				<Button onClick={handleSave} disabled={!hasChanges || isLoading || !hasSettingsUpdateAccess}>
-					{isLoading ? "Saving..." : "Save Changes"}
+					{isLoading ? t("common.actions.saving") : t("common.actions.saveChanges")}
 				</Button>
 			</div>
 		</div>
@@ -514,10 +497,11 @@ export default function SecurityView() {
 }
 
 const RestartWarning = () => {
+	const t = useT();
 	return (
 		<Alert variant="destructive" className="mt-2">
 			<AlertTriangle className="h-4 w-4" />
-			<AlertDescription>Need to restart Bifrost to apply changes.</AlertDescription>
+			<AlertDescription>{t("configCommon.restartHint")}</AlertDescription>
 		</Alert>
 	);
 };

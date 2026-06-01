@@ -1,6 +1,7 @@
 import { Button } from "@/components/ui/button";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import type { ShortcutKey } from "@/hooks/useSheetNavigation";
+import { useT } from "@/lib/i18n";
 import { ChevronDown, ChevronUp } from "lucide-react";
 import React from "react";
 
@@ -17,11 +18,12 @@ interface SheetNavigationButtonsProps {
 }
 
 function ShortcutKeys({ keys }: { keys: ShortcutKey[] }) {
+	const t = useT();
 	return (
 		<span className="inline-flex items-center gap-1">
 			{keys.map((k, i) => (
 				<React.Fragment key={i}>
-					{i > 0 && "or"}
+					{i > 0 && t("shared.sheetNav.or")}
 					<kbd className={kbdClass}>{k.icon ? <k.icon className="size-2.5" /> : k.label}</kbd>
 				</React.Fragment>
 			))}
@@ -35,8 +37,11 @@ export function SheetNavigationButtons({
 	onNavigate,
 	prevKeys,
 	nextKeys,
-	entityLabel = "item",
+	entityLabel,
 }: SheetNavigationButtonsProps) {
+	const t = useT();
+	const label = entityLabel ?? t("shared.sheetNav.item");
+
 	return (
 		<div className="flex items-center">
 			<Tooltip delayDuration={0}>
@@ -46,14 +51,14 @@ export function SheetNavigationButtons({
 						className="size-8"
 						disabled={!hasPrev}
 						onClick={() => onNavigate("prev")}
-						aria-label={`Previous ${entityLabel}`}
+						aria-label={t("shared.sheetNav.previousEntity", { entity: label })}
 						type="button"
 					>
 						<ChevronUp className="size-4" />
 					</Button>
 				</TooltipTrigger>
 				<TooltipContent className="flex items-center gap-1.5 px-2 py-1 text-xs">
-					Prev {prevKeys && <ShortcutKeys keys={prevKeys} />}
+					{t("shared.sheetNav.prev")} {prevKeys && <ShortcutKeys keys={prevKeys} />}
 				</TooltipContent>
 			</Tooltip>
 			<Tooltip delayDuration={0}>
@@ -63,14 +68,14 @@ export function SheetNavigationButtons({
 						className="size-8"
 						disabled={!hasNext}
 						onClick={() => onNavigate("next")}
-						aria-label={`Next ${entityLabel}`}
+						aria-label={t("shared.sheetNav.nextEntity", { entity: label })}
 						type="button"
 					>
 						<ChevronDown className="size-4" />
 					</Button>
 				</TooltipTrigger>
 				<TooltipContent className="flex items-center gap-1.5 px-2 py-1 text-xs">
-					Next {nextKeys && <ShortcutKeys keys={nextKeys} />}
+					{t("shared.sheetNav.next")} {nextKeys && <ShortcutKeys keys={nextKeys} />}
 				</TooltipContent>
 			</Tooltip>
 		</div>

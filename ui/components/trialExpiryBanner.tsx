@@ -1,9 +1,12 @@
 import { TRIAL_EXPIRY } from "@/lib/constants/config";
+import { useT } from "@/lib/i18n";
 import { cn } from "@/lib/utils";
 import { differenceInDays } from "date-fns";
 import { AlertTriangle } from "lucide-react";
 
 export default function TrialExpiryBanner() {
+	const t = useT();
+
 	if (!TRIAL_EXPIRY) return null;
 
 	const daysRemaining = differenceInDays(TRIAL_EXPIRY, new Date());
@@ -11,7 +14,7 @@ export default function TrialExpiryBanner() {
 	if (!expired && daysRemaining > 7) return null;
 	const critical = !expired && daysRemaining <= 3;
 
-	const subject = expired ? "I need help with my expired enterprise trial" : "I need help extending my enterprise trial";
+	const subject = expired ? t("shared.trial.subjectExpired") : t("shared.trial.subjectExtend");
 	const supportHref = `mailto:contact@getmaxim.ai?subject=${encodeURIComponent(subject)}`;
 
 	return (
@@ -26,19 +29,22 @@ export default function TrialExpiryBanner() {
 			<AlertTriangle className="h-3.5 w-3.5" strokeWidth={2} />
 			{expired ? (
 				<span>
-					Your Bifrost Enterprise Trial has expired.{" "}
+					{t("shared.trial.expired")}{" "}
 					<a href={supportHref} className="font-semibold underline underline-offset-2">
-						Contact us
+						{t("shared.trial.contactUs")}
 					</a>{" "}
-					if you need any assistance.
+					{t("shared.trial.assistance")}
 				</span>
 			) : (
 				<span>
-					Your Bifrost Enterprise Trial expires in {daysRemaining} {daysRemaining === 1 ? "day" : "days"}.{" "}
+					{t("shared.trial.expiresIn", {
+						days: daysRemaining,
+						dayLabel: daysRemaining === 1 ? t("shared.trial.day") : t("shared.trial.days"),
+					})}{" "}
 					<a href={supportHref} className="font-semibold underline underline-offset-2">
-						Contact us
+						{t("shared.trial.contactUs")}
 					</a>{" "}
-					if you need any assistance.
+					{t("shared.trial.assistance")}
 				</span>
 			)}
 		</div>

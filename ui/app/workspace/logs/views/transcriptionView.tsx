@@ -4,6 +4,7 @@ import { BifrostTranscribe, TranscriptionInput } from "@/lib/types/logs";
 import { isLogBinaryPlaceholder } from "@/lib/utils/logBinaryPlaceholder";
 import { Clock, FileAudio, Mic } from "lucide-react";
 import AudioPlayer from "./audioPlayer";
+import { useT } from "@/lib/i18n";
 
 interface TranscriptionViewProps {
 	transcriptionInput?: TranscriptionInput;
@@ -11,7 +12,8 @@ interface TranscriptionViewProps {
 	isStreaming?: boolean;
 }
 
-export default function TranscriptionView({ transcriptionInput, transcriptionOutput, isStreaming }: TranscriptionViewProps) {
+function TranscriptionView({ transcriptionInput, transcriptionOutput, isStreaming }: TranscriptionViewProps) {
+	const t = useT();
 	const formatTime = (seconds: number) => {
 		const mins = Math.floor(seconds / 60);
 		const secs = (seconds % 60).toFixed(1);
@@ -20,35 +22,35 @@ export default function TranscriptionView({ transcriptionInput, transcriptionOut
 
 	return (
 		<div className="space-y-4">
-			{/* Transcription Input */}
+			{/* {t("logsMedia.input")} */}
 			{transcriptionInput && (
 				<div className="w-full rounded-sm border">
 					<div className="flex items-center gap-2 border-b px-6 py-2 text-sm font-medium">
 						<FileAudio className="h-4 w-4" />
-						Transcription Input
+						{t("logsMedia.input")}
 					</div>
 					<div className="space-y-4 p-6">
-						<div className="text-muted-foreground mb-2 text-xs font-medium">AUDIO FILE</div>
+						<div className="text-muted-foreground mb-2 text-xs font-medium">{t("logsMedia.audioFile")}</div>
 						{transcriptionInput.file && !isLogBinaryPlaceholder(transcriptionInput.file) ? (
 							<AudioPlayer src={transcriptionInput.file} />
 						) : (
-							<div className="text-muted-foreground font-mono text-xs">[audio]</div>
+							<div className="text-muted-foreground font-mono text-xs">{t("logsMedia.audioPlaceholder")}</div>
 						)}
 					</div>
 				</div>
 			)}
 
-			{/* Transcription Output */}
+			{/* {t("logsMedia.outputLabel")} */}
 			{(transcriptionOutput || isStreaming) && (
 				<div className="w-full rounded-sm border">
 					<div className="flex items-center gap-2 border-b px-6 py-2 text-sm font-medium">
 						<Mic className="h-4 w-4" />
-						Transcription Output
+						{t("logsMedia.outputLabel")}
 					</div>
 
 					<div className="space-y-4 p-6">
 						{!transcriptionOutput && isStreaming ? (
-							<div className="font-mono text-xs">Output was streamed and is not available.</div>
+							<div className="font-mono text-xs">{t("logsMedia.streamedOutputUnavailable")}</div>
 						) : (
 							<>
 								{/* Main Transcription Text */}
@@ -61,21 +63,21 @@ export default function TranscriptionView({ transcriptionInput, transcriptionOut
 									<div className="grid grid-cols-3 gap-4">
 										{transcriptionOutput?.task && (
 											<div>
-												<div className="text-muted-foreground mb-2 text-xs font-medium">TASK</div>
+												<div className="text-muted-foreground mb-2 text-xs font-medium">{t("logsMedia.task")}</div>
 												<div className="font-mono text-xs">{transcriptionOutput.task}</div>
 											</div>
 										)}
 
 										{transcriptionOutput?.language && (
 											<div>
-												<div className="text-muted-foreground mb-2 text-xs font-medium">DETECTED LANGUAGE</div>
+												<div className="text-muted-foreground mb-2 text-xs font-medium">{t("logsMedia.detectedLanguage")}</div>
 												<div className="font-mono text-xs">{transcriptionOutput.language}</div>
 											</div>
 										)}
 
 										{transcriptionOutput?.duration && (
 											<div>
-												<div className="text-muted-foreground mb-2 text-xs font-medium">DURATION</div>
+												<div className="text-muted-foreground mb-2 text-xs font-medium">{t("logsMedia.duration")}</div>
 												<div className="font-mono text-xs">{transcriptionOutput.duration.toFixed(1)}s</div>
 											</div>
 										)}
@@ -85,7 +87,7 @@ export default function TranscriptionView({ transcriptionInput, transcriptionOut
 								{/* Words with Timing */}
 								{transcriptionOutput?.words && transcriptionOutput.words.length > 0 && (
 									<div>
-										<div className="text-muted-foreground mb-2 text-xs font-medium">WORD-LEVEL TIMING</div>
+										<div className="text-muted-foreground mb-2 text-xs font-medium">{t("logsMedia.wordLevelTiming")}</div>
 										<div className="max-h-40 overflow-y-auto">
 											<div className="flex flex-wrap gap-2">
 												{transcriptionOutput.words.map((word, index) => (
@@ -106,7 +108,7 @@ export default function TranscriptionView({ transcriptionInput, transcriptionOut
 								{/* Segments */}
 								{transcriptionOutput?.segments && transcriptionOutput.segments.length > 0 && (
 									<div>
-										<div className="text-muted-foreground mb-2 text-xs font-medium">SEGMENTS</div>
+										<div className="text-muted-foreground mb-2 text-xs font-medium">{t("logsMedia.segments")}</div>
 										<div className="max-h-60 space-y-2 overflow-y-auto">
 											{transcriptionOutput.segments.map((segment) => (
 												<div key={segment.id} className="rounded border p-3">
@@ -121,9 +123,9 @@ export default function TranscriptionView({ transcriptionInput, transcriptionOut
 													</div>
 													<div className="text-sm">{segment.text}</div>
 													<div className="text-muted-foreground mt-2 flex gap-4 text-xs">
-														<span>Avg LogProb: {segment.avg_logprob.toFixed(3)}</span>
-														<span>No Speech: {(segment.no_speech_prob * 100).toFixed(1)}%</span>
-														<span>Temp: {segment.temperature.toFixed(1)}</span>
+														<span>{t("logsMedia.avgLogProb")}: {segment.avg_logprob.toFixed(3)}</span>
+														<span>{t("logsMedia.noSpeech")}: {(segment.no_speech_prob * 100).toFixed(1)}%</span>
+														<span>{t("logsMedia.temp")}: {segment.temperature.toFixed(1)}</span>
 													</div>
 												</div>
 											))}
@@ -134,7 +136,7 @@ export default function TranscriptionView({ transcriptionInput, transcriptionOut
 								{/* Log Probabilities */}
 								{transcriptionOutput?.logprobs && transcriptionOutput.logprobs.length > 0 && (
 									<div>
-										<div className="text-muted-foreground mb-2 text-xs font-medium">LOG PROBABILITIES</div>
+										<div className="text-muted-foreground mb-2 text-xs font-medium">{t("logsMedia.logProbabilitiesLabel")}</div>
 										<CodeEditor
 											className="z-0 w-full"
 											shouldAdjustInitialHeight={true}
@@ -160,3 +162,4 @@ export default function TranscriptionView({ transcriptionInput, transcriptionOut
 		</div>
 	);
 }
+export default TranscriptionView;

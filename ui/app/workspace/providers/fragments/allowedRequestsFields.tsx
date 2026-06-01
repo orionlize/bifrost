@@ -3,6 +3,7 @@ import { Input } from "@/components/ui/input";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Switch } from "@/components/ui/switch";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
+import { useT } from "@/lib/i18n";
 import { BaseProvider, RequestType } from "@/lib/types/config";
 import { isRequestTypeDisabled } from "@/lib/utils/validation";
 import { Settings2 } from "lucide-react";
@@ -17,7 +18,6 @@ interface AllowedRequestsFieldsProps {
 	disabled?: boolean;
 }
 
-// Provider-specific endpoint paths
 const ProviderEndpoints: Partial<Record<BaseProvider, Partial<Record<RequestType, string>>>> = {
 	openai: {
 		list_models: "/v1/models",
@@ -54,34 +54,12 @@ const ProviderEndpoints: Partial<Record<BaseProvider, Partial<Record<RequestType
 	},
 };
 
-// Helper function to get the appropriate placeholder
 const getPlaceholder = (providerType: BaseProvider | undefined, requestKey: RequestType): string => {
 	if (providerType && ProviderEndpoints[providerType]?.[requestKey]) {
 		return ProviderEndpoints[providerType][requestKey]!;
 	}
 	return ProviderEndpoints["openai"]?.[requestKey] ?? "";
 };
-
-const RequestTypes: Array<{ key: RequestType; label: string }> = [
-	{ key: "list_models", label: "List Models" },
-	{ key: "text_completion", label: "Text Completion" },
-	{ key: "text_completion_stream", label: "Text Completion Stream" },
-	{ key: "chat_completion", label: "Chat Completion" },
-	{ key: "chat_completion_stream", label: "Chat Completion Stream" },
-	{ key: "responses", label: "Responses" },
-	{ key: "responses_stream", label: "Responses Stream" },
-	{ key: "embedding", label: "Embedding" },
-	{ key: "speech", label: "Speech" },
-	{ key: "speech_stream", label: "Speech Stream" },
-	{ key: "transcription", label: "Transcription" },
-	{ key: "transcription_stream", label: "Transcription Stream" },
-	{ key: "image_generation", label: "Image Generation" },
-	{ key: "image_generation_stream", label: "Image Generation Stream" },
-	{ key: "image_edit", label: "Image Edit" },
-	{ key: "image_edit_stream", label: "Image Edit Stream" },
-	{ key: "image_variation", label: "Image Variation" },
-	{ key: "count_tokens", label: "Count Tokens" },
-];
 
 export function AllowedRequestsFields({
 	control,
@@ -90,19 +68,44 @@ export function AllowedRequestsFields({
 	providerType,
 	disabled = false,
 }: AllowedRequestsFieldsProps) {
-	const leftColumn = RequestTypes.slice(0, RequestTypes.length / 2);
-	const rightColumn = RequestTypes.slice(RequestTypes.length / 2);
+	const t = useT();
 	const { getValues, setValue } = useFormContext();
 
-	// Reset disabled fields when providerType changes
+	const requestTypes: Array<{ key: RequestType; label: string }> = useMemo(
+		() => [
+			{ key: "list_models", label: t("providers.allowedRequests.listModels") },
+			{ key: "text_completion", label: t("providers.allowedRequests.textCompletion") },
+			{ key: "text_completion_stream", label: t("providers.allowedRequests.textCompletionStream") },
+			{ key: "chat_completion", label: t("providers.allowedRequests.chatCompletion") },
+			{ key: "chat_completion_stream", label: t("providers.allowedRequests.chatCompletionStream") },
+			{ key: "responses", label: t("providers.allowedRequests.responses") },
+			{ key: "responses_stream", label: t("providers.allowedRequests.responsesStream") },
+			{ key: "embedding", label: t("providers.allowedRequests.embedding") },
+			{ key: "speech", label: t("providers.allowedRequests.speech") },
+			{ key: "speech_stream", label: t("providers.allowedRequests.speechStream") },
+			{ key: "transcription", label: t("providers.allowedRequestsFields.transcription") },
+			{ key: "transcription_stream", label: t("providers.allowedRequestsFields.transcriptionStream") },
+			{ key: "image_generation", label: t("providers.allowedRequestsFields.imageGeneration") },
+			{ key: "image_generation_stream", label: t("providers.allowedRequestsFields.imageGenerationStream") },
+			{ key: "image_edit", label: t("providers.allowedRequestsFields.imageEdit") },
+			{ key: "image_edit_stream", label: t("providers.allowedRequestsFields.imageEditStream") },
+			{ key: "image_variation", label: t("providers.allowedRequestsFields.imageVariation") },
+			{ key: "count_tokens", label: t("providers.allowedRequestsFields.countTokens") },
+		],
+		[t],
+	);
+
 	useEffect(() => {
-		RequestTypes.forEach(({ key }) => {
+		requestTypes.forEach(({ key }) => {
 			const fieldName = `${namePrefix}.${key}`;
 			setValue(fieldName, !isRequestTypeDisabled(providerType, key), { shouldDirty: true });
 		});
-	}, [providerType, namePrefix, setValue, getValues]);
+	}, [providerType, namePrefix, setValue, getValues, requestTypes]);
 
 	const isPathOverrideDisabled = useMemo(() => providerType === "gemini" || providerType === "bedrock", [providerType]);
+
+	const leftColumn = requestTypes.slice(0, requestTypes.length / 2);
+	const rightColumn = requestTypes.slice(requestTypes.length / 2);
 
 	const renderRequestField = (requestType: { key: RequestType; label: string }) => {
 		const isDisabled = isRequestTypeDisabled(providerType, requestType.key);
@@ -121,7 +124,6 @@ export function AllowedRequestsFields({
 							<FormLabel className={isDisabled ? "cursor-not-allowed" : ""}>{requestType.label}</FormLabel>
 						</div>
 						<div className="flex items-center gap-2">
-							{/* Settings icon for path override - only show when enabled */}
 							{allowedField.value && !isDisabled && !isPathOverrideDisabled && !disabled && (
 								<FormField
 									control={control}
@@ -132,17 +134,15 @@ export function AllowedRequestsFields({
 												<button
 													type="button"
 													className="text-muted-foreground hover:text-foreground transition-colors"
-													aria-label="Customize endpoint path"
+													aria-label={t("providers.allowedRequestsFields.customizePathAria")}
 												>
 													<Settings2 className="h-4 w-4" />
 												</button>
 											</PopoverTrigger>
 											<PopoverContent className="w-80" align="end" onOpenAutoFocus={(e) => e.preventDefault()}>
 												<div className="space-y-2">
-													<h4 className="text-sm font-medium">Custom Path or URL</h4>
-													<p className="text-muted-foreground text-xs">
-														Override with a path (e.g., /v1/chat) or a full URL (e.g., https://api.example.com/chat) to bypass base_url
-													</p>
+													<h4 className="text-sm font-medium">{t("providers.allowedRequestsFields.customPathTitle")}</h4>
+													<p className="text-muted-foreground text-xs">{t("providers.allowedRequestsFields.customPathDesc")}</p>
 													<Input placeholder={placeholder} {...pathField} value={pathField.value || ""} className="h-9" />
 												</div>
 											</PopoverContent>
@@ -161,7 +161,7 @@ export function AllowedRequestsFields({
 												</div>
 											</TooltipTrigger>
 											<TooltipContent>
-												<p>Not supported by {providerType}</p>
+												<p>{t("providers.allowedRequestsFields.notSupported", { provider: providerType ?? "" })}</p>
 											</TooltipContent>
 										</Tooltip>
 									</TooltipProvider>
@@ -179,10 +179,10 @@ export function AllowedRequestsFields({
 	return (
 		<div className="space-y-4">
 			<div>
-				<div className="text-sm font-medium">Allowed Request Types</div>
+				<div className="text-sm font-medium">{t("providers.allowedRequestsFields.title")}</div>
 				<p className="text-muted-foreground text-xs">
-					Select which request types this custom provider can handle.{" "}
-					{!isPathOverrideDisabled ? "Click the settings icon to customize endpoint paths or use full URLs." : ""}
+					{t("providers.allowedRequestsFields.description")}{" "}
+					{!isPathOverrideDisabled ? t("providers.allowedRequestsFields.pathHint") : ""}
 				</p>
 			</div>
 

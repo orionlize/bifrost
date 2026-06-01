@@ -23,6 +23,24 @@ import (
 	"golang.org/x/sync/errgroup"
 )
 
+// SumVirtualKeyTokens returns the sum of total_tokens from request logs for one virtual key
+// in [start, end]. Implements VirtualKeyTokenSummarizer for user-group usage display.
+func (h *LoggingHandler) SumVirtualKeyTokens(ctx context.Context, virtualKeyID string, start, end time.Time) (int64, error) {
+	if h == nil || h.logManager == nil || virtualKeyID == "" {
+		return 0, nil
+	}
+	filters := &logstore.SearchFilters{
+		StartTime:     &start,
+		EndTime:       &end,
+		VirtualKeyIDs: []string{virtualKeyID},
+	}
+	current, _, err := h.logManager.GetVirtualKeyUsageRankings(ctx, filters, []string{virtualKeyID})
+	if err != nil {
+		return 0, err
+	}
+	return current[virtualKeyID].TotalTokens, nil
+}
+
 // LoggingHandler manages HTTP requests for logging operations
 type LoggingHandler struct {
 	logManager          logging.LogManager

@@ -7,6 +7,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import MessageRoleSwitcher from "./messageRoleSwitcher";
 import { isJson } from "@/lib/utils/validation";
 import { CodeEditor } from "@/components/ui/codeEditor";
+import { useT } from "@/lib/i18n";
 
 /**
  * Renders the assistant message UI including role switcher, usage tooltip, edit/delete controls, and editable or view-only content.
@@ -33,6 +34,7 @@ export function AssistantMessageView({
 	onChange: (serialized: SerializedMessage) => void;
 	onRemove?: () => void;
 }) {
+	const t = useT();
 	const [editMode, setEditMode] = useState(false);
 	const containerRef = useRef<HTMLDivElement>(null);
 	const content = message.content;
@@ -105,7 +107,7 @@ export function AssistantMessageView({
 					{!disabled && !isStreaming && (
 						<button
 							type="button"
-							aria-label="Edit message"
+							aria-label={t("prompts.editMessage")}
 							data-testid="assistant-msg-edit"
 							onClick={() => setEditMode(true)}
 							className="hover:bg-muted focus:bg-muted rounded-sm p-1 opacity-0 transition-opacity group-focus-within:opacity-100 group-hover:opacity-100 focus:opacity-100"
@@ -116,7 +118,7 @@ export function AssistantMessageView({
 					{!disabled && onRemove && (
 						<button
 							type="button"
-							aria-label="Delete message"
+							aria-label={t("prompts.deleteMessage")}
 							data-testid="assistant-msg-delete"
 							onClick={onRemove}
 							className="hover:bg-muted focus:bg-muted rounded-sm p-1 opacity-0 transition-opacity group-focus-within:opacity-100 group-hover:opacity-100 focus:opacity-100"

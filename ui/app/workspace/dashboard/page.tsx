@@ -6,7 +6,8 @@ import { useGetMCPAvailableFilterDataQuery, useIsAuthEnabledQuery } from "@/lib/
 import { IS_ENTERPRISE } from "@/lib/constants/config";
 import type { LogFilters, MCPToolLogFilters } from "@/lib/types/logs";
 import { dateUtils } from "@/lib/types/logs";
-import { getRangeForPeriod, TIME_PERIODS } from "@/lib/utils/timeRange";
+import { getLocalizedTimePeriods } from "@/lib/i18n/timePeriods";
+import { getRangeForPeriod } from "@/lib/utils/timeRange";
 import { useLocation } from "@tanstack/react-router";
 import { parseAsInteger, parseAsString, useQueryStates } from "nuqs";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
@@ -19,6 +20,8 @@ import { type ModelRankingsTabViewHandle, ModelRankingsTabView } from "./compone
 import { type OverviewTabViewHandle, OverviewTabView } from "./components/tabViews/overviewTabView";
 import { type ProviderUsageTabViewHandle, ProviderUsageTabView } from "./components/tabViews/providerUsageTabView";
 import type { DashboardData } from "./utils/exportUtils";
+import { useT } from "@/lib/i18n";
+import { useNavTitle } from "@/lib/i18n/useNavTitle";
 
 const toChartType = (value: string): ChartType => (value === "line" ? "line" : "bar");
 
@@ -27,6 +30,9 @@ const parseCsvParam = (value: string): string[] => (value ? value.split(",").fil
 const DASHBOARD_HIDDEN_FILTER_SECTIONS = ["virtual_keys", "metadata", "routing_engines"] as const satisfies readonly LogsFilterSection[];
 
 export default function DashboardPage() {
+	const t = useT();
+	const timePeriods = useMemo(() => getLocalizedTimePeriods(t), [t]);
+	const pageTitle = useNavTitle("dashboard");
 	const { data: authStatus } = useIsAuthEnabledQuery();
 	const hideGovernanceRankingsTabs = !IS_ENTERPRISE && authStatus?.aone_oauth_enabled === true;
 
@@ -387,7 +393,7 @@ export default function DashboardPage() {
 				{/* Header */}
 				<div className="flex items-center justify-between p-4">
 					<div className="flex items-center gap-2">
-						<h1 className="text-lg font-semibold">Dashboard</h1>
+						<h1 className="text-lg font-semibold">{pageTitle}</h1>
 					</div>
 					<div className="flex items-center gap-2">
 						<ExportPopover
@@ -409,7 +415,7 @@ export default function DashboardPage() {
 												setUrlState({ mcp_tool_names: value });
 											}
 										}}
-										placeholder="All Tools"
+										placeholder={t("dashboard.filters.allTools")}
 										data-testid="dashboard-mcp-tool-filter"
 									/>
 								)}
@@ -424,7 +430,7 @@ export default function DashboardPage() {
 												setUrlState({ mcp_server_labels: value });
 											}
 										}}
-										placeholder="All Servers"
+										placeholder={t("dashboard.filters.allServers")}
 										data-testid="dashboard-mcp-server-filter"
 									/>
 								)}
@@ -433,7 +439,7 @@ export default function DashboardPage() {
 						<DateTimePickerWithRange
 							dateTime={dateRange}
 							onDateTimeUpdate={handleDateRangeChange}
-							preDefinedPeriods={TIME_PERIODS}
+							preDefinedPeriods={timePeriods}
 							predefinedPeriod={urlState.period || undefined}
 							onPredefinedPeriodChange={handlePeriodChange}
 							triggerTestId="dashboard-filter-daterange"
@@ -447,32 +453,32 @@ export default function DashboardPage() {
 					<Tabs value={activeTab} onValueChange={handleTabChange}>
 						<TabsList className="mb-2">
 							<TabsTrigger value="overview" data-testid="dashboard-tab-overview">
-								Overview
+								{t("dashboard.tabs.overview")}
 							</TabsTrigger>
 							<TabsTrigger value="provider-usage" data-testid="dashboard-tab-provider-usage">
-								Provider Usage
+								{t("dashboard.tabs.providerUsage")}
 							</TabsTrigger>
 							<TabsTrigger value="rankings" data-testid="dashboard-tab-rankings">
-								Model Rankings
+								{t("dashboard.tabs.rankings")}
 							</TabsTrigger>
 							<TabsTrigger value="mcp" data-testid="dashboard-tab-mcp">
-								MCP usage
+								{t("dashboard.tabs.mcp")}
 							</TabsTrigger>
 							{!hideGovernanceRankingsTabs && (
 								<TabsTrigger value="team-rankings" data-testid="dashboard-tab-team-rankings">
-									Team Rankings
+									{t("dashboard.tabs.teamRankings")}
 								</TabsTrigger>
 							)}
 							<TabsTrigger value="user-rankings" data-testid="dashboard-tab-user-rankings">
-								User Rankings
+								{t("dashboard.tabs.userRankings")}
 							</TabsTrigger>
 							{!hideGovernanceRankingsTabs && (
 								<>
 									<TabsTrigger value="customer-rankings" data-testid="dashboard-tab-customer-rankings">
-										Customer Rankings
+										{t("dashboard.tabs.customerRankings")}
 									</TabsTrigger>
 									<TabsTrigger value="bu-rankings" data-testid="dashboard-tab-bu-rankings">
-										BU Rankings
+										{t("dashboard.tabs.buRankings")}
 									</TabsTrigger>
 								</>
 							)}
@@ -569,7 +575,7 @@ export default function DashboardPage() {
 										filters={filters}
 										active={activeTab === "team-rankings" || pdfMode}
 										dimension="team"
-										dimensionLabel="Team"
+										dimensionLabel={t("dashboardCharts.dimensions.team")}
 										testIdPrefix="dashboard-team-rankings"
 										dataKey="teamRankingsData"
 									/>
@@ -586,7 +592,7 @@ export default function DashboardPage() {
 										filters={filters}
 										active={activeTab === "customer-rankings" || pdfMode}
 										dimension="customer"
-										dimensionLabel="Customer"
+										dimensionLabel={t("dashboardCharts.dimensions.customer")}
 										testIdPrefix="dashboard-customer-rankings"
 										dataKey="customerRankingsData"
 									/>
@@ -603,7 +609,7 @@ export default function DashboardPage() {
 										filters={filters}
 										active={activeTab === "bu-rankings" || pdfMode}
 										dimension="business_unit"
-										dimensionLabel="Business Unit"
+										dimensionLabel={t("dashboardCharts.dimensions.businessUnit")}
 										testIdPrefix="dashboard-bu-rankings"
 										dataKey="buRankingsData"
 									/>
@@ -619,7 +625,7 @@ export default function DashboardPage() {
 									filters={filters}
 									active={activeTab === "user-rankings" || pdfMode}
 									dimension="user"
-									dimensionLabel="User"
+									dimensionLabel={t("dashboardCharts.dimensions.user")}
 									testIdPrefix="dashboard-user-rankings"
 									dataKey="userRankingsData"
 								/>

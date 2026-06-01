@@ -22,6 +22,7 @@ import { Customer, Team, VirtualKey } from "@/lib/types/governance";
 import { cn } from "@/lib/utils";
 import { formatCurrency } from "@/lib/utils/governance";
 import { RbacOperation, RbacResource, useRbac } from "@enterprise/lib";
+import { useT } from "@/lib/i18n";
 import { ChevronLeft, ChevronRight, Edit, MoreHorizontal, Plus, Search, Trash2 } from "lucide-react";
 import { useState } from "react";
 import { toast } from "sonner";
@@ -44,6 +45,7 @@ interface CustomerActionsMenuProps {
 }
 
 function CustomerActionsMenu({ customer, canUpdate, canDelete, onEdit, onDelete }: CustomerActionsMenuProps) {
+	const t = useT();
 	const [isOpen, setIsOpen] = useState(false);
 
 	return (
@@ -72,7 +74,7 @@ function CustomerActionsMenu({ customer, canUpdate, canDelete, onEdit, onDelete 
 					}}
 				>
 					<Edit className="h-4 w-4" />
-					Edit
+					{t("governanceShared.edit")}
 				</DropdownMenuItem>
 				<DropdownMenuItem
 					variant="destructive"
@@ -85,7 +87,7 @@ function CustomerActionsMenu({ customer, canUpdate, canDelete, onEdit, onDelete 
 					}}
 				>
 					<Trash2 className="h-4 w-4" />
-					Delete
+					{t("governanceShared.delete")}
 				</DropdownMenuItem>
 			</DropdownMenuContent>
 		</DropdownMenu>
@@ -119,6 +121,7 @@ export default function CustomersTable({
 	onOffsetChange,
 	isFetching,
 }: CustomersTableProps) {
+	const t = useT();
 	const [showCustomerSheet, setShowCustomerSheet] = useState(false);
 	const [editingCustomer, setEditingCustomer] = useState<Customer | null>(null);
 	const [confirmDeleteCustomer, setConfirmDeleteCustomer] = useState<Customer | null>(null);
@@ -132,7 +135,7 @@ export default function CustomersTable({
 	const handleDelete = async (customerId: string) => {
 		try {
 			await deleteCustomer(customerId).unwrap();
-			toast.success("Customer deleted successfully");
+			toast.success(t("customers.deleted"));
 		} catch (error) {
 			toast.error(getErrorMessage(error));
 		} finally {
@@ -201,12 +204,12 @@ export default function CustomersTable({
 				<div className="flex grow flex-col">
 					<div className="mb-4 flex items-center justify-between">
 						<div>
-							<h2 className="text-lg font-semibold">Customers</h2>
-							<p className="text-muted-foreground text-sm">Manage customer accounts with their own teams, budgets, and access controls.</p>
+							<h2 className="text-lg font-semibold">{t("governancePages.customers")}</h2>
+							<p className="text-muted-foreground text-sm">{t("customers.description")}</p>
 						</div>
 						<Button data-testid="customer-button-create" onClick={handleAddCustomer} disabled={!hasCreateAccess}>
 							<Plus className="h-4 w-4" />
-							Add Customer
+							{t("customers.addCustomer")}
 						</Button>
 					</div>
 
@@ -214,8 +217,8 @@ export default function CustomersTable({
 						<div className="relative max-w-sm flex-1">
 							<Search className="text-muted-foreground absolute top-1/2 left-3 h-4 w-4 -translate-y-1/2" />
 							<Input
-								aria-label="Search customers by name"
-								placeholder="Search by name..."
+								aria-label={t("governanceShared.searchCustomersAria")}
+								placeholder={t("governanceShared.searchByName")}
 								value={search}
 								onChange={(e) => onSearchChange(e.target.value)}
 								className="pl-9"
@@ -228,11 +231,11 @@ export default function CustomersTable({
 						<Table className="min-w-[1100px]">
 							<TableHeader>
 								<TableRow>
-									<TableHead>Name</TableHead>
-									<TableHead>Teams</TableHead>
-									<TableHead>Budget</TableHead>
-									<TableHead>Rate Limit</TableHead>
-									<TableHead>Users</TableHead>
+									<TableHead>{t("tables.name")}</TableHead>
+									<TableHead>{t("governanceShared.teams")}</TableHead>
+									<TableHead>{t("governanceShared.budget")}</TableHead>
+									<TableHead>{t("governanceShared.rateLimit")}</TableHead>
+									<TableHead>{t("governanceShared.users")}</TableHead>
 									<TableHead className={`bg-muted ${ACTIONS_COLUMN_CLASS}`}></TableHead>
 								</TableRow>
 							</TableHeader>
@@ -240,7 +243,7 @@ export default function CustomersTable({
 								{customers.length === 0 ? (
 									<TableRow>
 										<TableCell colSpan={6} className="h-24 text-center">
-											<span className="text-muted-foreground text-sm">No matching customers found.</span>
+											<span className="text-muted-foreground text-sm">{t("governanceShared.noMatchingCustomers")}</span>
 										</TableCell>
 									</TableRow>
 								) : (
@@ -290,7 +293,7 @@ export default function CustomersTable({
 														<span className="truncate font-medium">{customer.name}</span>
 														{isExhausted && (
 															<Badge variant="destructive" className="w-fit text-xs">
-																Limit Reached
+																{t("governanceShared.limitReached")}
 															</Badge>
 														)}
 													</div>
@@ -301,7 +304,8 @@ export default function CustomersTable({
 															<Tooltip>
 																<TooltipTrigger>
 																	<Badge variant="outline" className="text-xs">
-																		{customerTeams.length} {customerTeams.length === 1 ? "team" : "teams"}
+																		{customerTeams.length}{" "}
+																		{customerTeams.length === 1 ? t("governanceShared.team") : t("governanceShared.teamsCount")}
 																	</Badge>
 																</TooltipTrigger>
 																<TooltipContent>{customerTeams.map((team) => team.name).join(", ")}</TooltipContent>
@@ -340,7 +344,9 @@ export default function CustomersTable({
 																	{formatCurrency(customer.budget.current_usage)} / {formatCurrency(customer.budget.max_limit)}
 																</p>
 																<p className="text-primary-foreground/80 text-xs">
-																	Resets {formatResetDuration(customer.budget.reset_duration)}
+																	{t("governanceShared.resets", {
+																		duration: formatResetDuration(customer.budget.reset_duration),
+																	})}
 																</p>
 															</TooltipContent>
 														</Tooltip>
@@ -356,7 +362,9 @@ export default function CustomersTable({
 																	<TooltipTrigger asChild>
 																		<div className="space-y-1.5">
 																			<div className="flex items-center justify-between gap-4 text-xs">
-																				<span className="font-medium">{customer.rate_limit.token_max_limit.toLocaleString()} tokens</span>
+																				<span className="font-medium">
+																					{customer.rate_limit.token_max_limit.toLocaleString()} {t("governanceShared.tokens")}
+																				</span>
 																				<span className="text-muted-foreground">
 																					{formatResetDuration(customer.rate_limit.token_reset_duration || "1h")}
 																				</span>
@@ -377,10 +385,12 @@ export default function CustomersTable({
 																	<TooltipContent>
 																		<p className="font-medium">
 																			{customer.rate_limit.token_current_usage.toLocaleString()} /{" "}
-																			{customer.rate_limit.token_max_limit.toLocaleString()} tokens
+																			{customer.rate_limit.token_max_limit.toLocaleString()} {t("governanceShared.tokens")}
 																		</p>
 																		<p className="text-primary-foreground/80 text-xs">
-																			Resets {formatResetDuration(customer.rate_limit.token_reset_duration || "1h")}
+																			{t("governanceShared.resets", {
+																				duration: formatResetDuration(customer.rate_limit.token_reset_duration || "1h"),
+																			})}
 																		</p>
 																	</TooltipContent>
 																</Tooltip>
@@ -390,7 +400,9 @@ export default function CustomersTable({
 																	<TooltipTrigger asChild>
 																		<div className="space-y-1.5">
 																			<div className="flex items-center justify-between gap-4 text-xs">
-																				<span className="font-medium">{customer.rate_limit.request_max_limit.toLocaleString()} req</span>
+																				<span className="font-medium">
+																					{customer.rate_limit.request_max_limit.toLocaleString()} {t("governanceShared.req")}
+																				</span>
 																				<span className="text-muted-foreground">
 																					{formatResetDuration(customer.rate_limit.request_reset_duration || "1h")}
 																				</span>
@@ -411,10 +423,12 @@ export default function CustomersTable({
 																	<TooltipContent>
 																		<p className="font-medium">
 																			{customer.rate_limit.request_current_usage.toLocaleString()} /{" "}
-																			{customer.rate_limit.request_max_limit.toLocaleString()} requests
+																			{customer.rate_limit.request_max_limit.toLocaleString()} {t("governanceShared.requests")}
 																		</p>
 																		<p className="text-primary-foreground/80 text-xs">
-																			Resets {formatResetDuration(customer.rate_limit.request_reset_duration || "1h")}
+																			{t("governanceShared.resets", {
+																				duration: formatResetDuration(customer.rate_limit.request_reset_duration || "1h"),
+																			})}
 																		</p>
 																	</TooltipContent>
 																</Tooltip>
@@ -430,7 +444,7 @@ export default function CustomersTable({
 															<Tooltip>
 																<TooltipTrigger>
 																	<Badge variant="outline" className="text-xs">
-																		{vks.length} {vks.length === 1 ? "key" : "keys"}
+																		{vks.length} {vks.length === 1 ? t("governanceShared.key") : t("governanceShared.keys")}
 																	</Badge>
 																</TooltipTrigger>
 																<TooltipContent>{vks.map((vk) => vk.name).join(", ")}</TooltipContent>
@@ -467,8 +481,11 @@ export default function CustomersTable({
 					{totalCount > 0 && (
 						<div className="flex shrink-0 items-center justify-between text-xs" data-testid="pagination">
 							<div className="text-muted-foreground flex items-center gap-2">
-								{(offset + 1).toLocaleString()}-{Math.min(offset + limit, totalCount).toLocaleString()} of {totalCount.toLocaleString()}{" "}
-								entries
+								{t("governanceShared.entriesRange", {
+									from: (offset + 1).toLocaleString(),
+									to: Math.min(offset + limit, totalCount).toLocaleString(),
+									total: totalCount.toLocaleString(),
+								})}
 							</div>
 
 							<div className="flex items-center gap-2">
@@ -478,15 +495,17 @@ export default function CustomersTable({
 									onClick={() => onOffsetChange(Math.max(0, offset - limit))}
 									disabled={offset === 0}
 									data-testid="customers-pagination-prev-btn"
-									aria-label="Previous page"
+									aria-label={t("governanceShared.prevPageAria")}
 								>
 									<ChevronLeft className="size-3" />
 								</Button>
 
 								<div className="flex items-center gap-1">
-									<span>Page</span>
+									<span>{t("governanceShared.page")}</span>
 									<span>{Math.floor(offset / limit) + 1}</span>
-									<span>of {Math.ceil(totalCount / limit)}</span>
+									<span>
+										{t("governanceShared.of")} {Math.ceil(totalCount / limit)}
+									</span>
 								</div>
 
 								<Button
@@ -495,7 +514,7 @@ export default function CustomersTable({
 									onClick={() => onOffsetChange(offset + limit)}
 									disabled={offset + limit >= totalCount}
 									data-testid="customers-pagination-next-btn"
-									aria-label="Next page"
+									aria-label={t("governanceShared.nextPageAria")}
 								>
 									<ChevronRight className="size-3" />
 								</Button>
@@ -507,21 +526,20 @@ export default function CustomersTable({
 				<AlertDialog open={!!confirmDeleteCustomer} onOpenChange={(open) => !open && setConfirmDeleteCustomer(null)}>
 					<AlertDialogContent>
 						<AlertDialogHeader>
-							<AlertDialogTitle>Delete Customer</AlertDialogTitle>
+							<AlertDialogTitle>{t("customers.deleteTitle")}</AlertDialogTitle>
 							<AlertDialogDescription>
-								Are you sure you want to delete &quot;{confirmDeleteCustomer?.name}&quot;? This will also delete all associated teams and
-								unassign any users. This action cannot be undone.
+								{t("customers.deleteDescription", { name: confirmDeleteCustomer?.name ?? "" })}
 							</AlertDialogDescription>
 						</AlertDialogHeader>
 						<AlertDialogFooter>
-							<AlertDialogCancel data-testid="customer-button-delete-cancel">Cancel</AlertDialogCancel>
+							<AlertDialogCancel data-testid="customer-button-delete-cancel">{t("governanceShared.cancel")}</AlertDialogCancel>
 							<AlertDialogAction
 								data-testid="customer-button-delete-confirm"
 								onClick={() => confirmDeleteCustomer && handleDelete(confirmDeleteCustomer.id)}
 								disabled={isDeleting}
 								className="bg-red-600 hover:bg-red-700"
 							>
-								{isDeleting ? "Deleting..." : "Delete"}
+								{isDeleting ? t("governanceShared.deleting") : t("governanceShared.delete")}
 							</AlertDialogAction>
 						</AlertDialogFooter>
 					</AlertDialogContent>

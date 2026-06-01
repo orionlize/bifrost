@@ -37,7 +37,7 @@ export const Route = createFileRoute("/workspace")({
 		}
 
 		throw redirect({
-			to: isAoneUserSession ? "/workspace/quick-start" : "/workspace/dashboard",
+			to: isAoneUserSession ? "/workspace/prompt-repo" : "/workspace/dashboard",
 			replace: true,
 		});
 	},

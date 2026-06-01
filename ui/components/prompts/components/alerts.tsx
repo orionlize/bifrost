@@ -9,18 +9,19 @@ import {
 	AlertDialogTitle,
 } from "@/components/ui/alertDialog";
 import { usePromptContext } from "../context";
+import { useT } from "@/lib/i18n";
 
 export function DeleteFolderDialog() {
+	const t = useT();
 	const { deleteFolderDialog, setDeleteFolderDialog, isDeletingFolder, handleDeleteFolder } = usePromptContext();
 
 	return (
 		<AlertDialog open={deleteFolderDialog.open}>
 			<AlertDialogContent>
 				<AlertDialogHeader>
-					<AlertDialogTitle>Delete Folder</AlertDialogTitle>
+					<AlertDialogTitle>{t("prompts.deleteFolderDialog.title")}</AlertDialogTitle>
 					<AlertDialogDescription>
-						Are you sure you want to delete &quot;{deleteFolderDialog.folder?.name}&quot;? This will also delete all prompts, versions, and
-						sessions in this folder. This action cannot be undone.
+						{t("prompts.deleteFolderDialog.description", { name: deleteFolderDialog.folder?.name ?? "" })}
 					</AlertDialogDescription>
 				</AlertDialogHeader>
 				<AlertDialogFooter>
@@ -29,10 +30,10 @@ export function DeleteFolderDialog() {
 						onClick={() => setDeleteFolderDialog({ open: false })}
 						disabled={isDeletingFolder}
 					>
-						Cancel
+						{t("common.actions.cancel")}
 					</AlertDialogCancel>
 					<AlertDialogAction data-testid="delete-folder-confirm" onClick={handleDeleteFolder} disabled={isDeletingFolder}>
-						{isDeletingFolder ? "Deleting..." : "Delete"}
+						{isDeletingFolder ? t("common.actions.deleting") : t("common.actions.delete")}
 					</AlertDialogAction>
 				</AlertDialogFooter>
 			</AlertDialogContent>
@@ -41,16 +42,16 @@ export function DeleteFolderDialog() {
 }
 
 export function DeletePromptDialog() {
+	const t = useT();
 	const { deletePromptDialog, setDeletePromptDialog, isDeletingPrompt, handleDeletePrompt } = usePromptContext();
 
 	return (
 		<AlertDialog open={deletePromptDialog.open}>
 			<AlertDialogContent>
 				<AlertDialogHeader>
-					<AlertDialogTitle>Delete Prompt</AlertDialogTitle>
+					<AlertDialogTitle>{t("prompts.deletePromptDialog.title")}</AlertDialogTitle>
 					<AlertDialogDescription>
-						Are you sure you want to delete &quot;{deletePromptDialog.prompt?.name}&quot;? This will also delete all versions and sessions.
-						This action cannot be undone.
+						{t("prompts.deletePromptDialog.description", { name: deletePromptDialog.prompt?.name ?? "" })}
 					</AlertDialogDescription>
 				</AlertDialogHeader>
 				<AlertDialogFooter>
@@ -59,10 +60,10 @@ export function DeletePromptDialog() {
 						onClick={() => setDeletePromptDialog({ open: false })}
 						disabled={isDeletingPrompt}
 					>
-						Cancel
+						{t("common.actions.cancel")}
 					</AlertDialogCancel>
 					<AlertDialogAction data-testid="delete-prompt-confirm" onClick={handleDeletePrompt} disabled={isDeletingPrompt}>
-						{isDeletingPrompt ? "Deleting..." : "Delete"}
+						{isDeletingPrompt ? t("common.actions.deleting") : t("common.actions.delete")}
 					</AlertDialogAction>
 				</AlertDialogFooter>
 			</AlertDialogContent>

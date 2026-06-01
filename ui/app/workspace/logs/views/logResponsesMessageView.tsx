@@ -1,4 +1,5 @@
 import { CodeEditor } from "@/components/ui/codeEditor";
+import { useT, type TranslateFn } from "@/lib/i18n";
 import { ResponsesMessage, ResponsesMessageContentBlock } from "@/lib/types/logs";
 import { isLogBinaryPlaceholder } from "@/lib/utils/logBinaryPlaceholder";
 import { cleanJson, isJson } from "@/lib/utils/validation";
@@ -8,29 +9,70 @@ interface LogResponsesMessageViewProps {
 	messages: ResponsesMessage[];
 }
 
-function ContentBlockView({ block }: { block: ResponsesMessageContentBlock; index: number }) {
-	const getBlockTitle = (type: string) => {
-		switch (type) {
-			case "input_text":
-				return "Input Text";
-			case "input_image":
-				return "Input Image";
-			case "input_file":
-				return "Input File";
-			case "input_audio":
-				return "Input Audio";
-			case "output_text":
-				return "Output Text";
-			case "reasoning_text":
-				return "Reasoning Text";
-			case "refusal":
-				return "Refusal";
-			default:
-				return type.replace(/_/g, " ").replace(/\b\w/g, (l) => l.toUpperCase());
-		}
-	};
+function getBlockTitle(t: TranslateFn, type: string): string {
+	switch (type) {
+		case "input_text":
+			return t("logsMedia.inputText");
+		case "input_image":
+			return t("logsMedia.inputImage");
+		case "input_file":
+			return t("logsMedia.inputFile");
+		case "input_audio":
+			return t("logsMedia.inputAudio");
+		case "output_text":
+			return t("logsMedia.outputText");
+		case "reasoning_text":
+			return t("logsMedia.reasoningText");
+		case "refusal":
+			return t("logsMedia.refusal");
+		default:
+			return type.replace(/_/g, " ").replace(/\b\w/g, (l) => l.toUpperCase());
+	}
+}
 
-	const blockTitle = getBlockTitle(block.type);
+function getMessageTitle(t: TranslateFn, message: ResponsesMessage): string {
+	if (message.type) {
+		switch (message.type) {
+			case "reasoning":
+				return t("logsMedia.reasoning");
+			case "message":
+				return message.role
+					? t("logsMedia.roleMessage", { role: message.role.charAt(0).toUpperCase() + message.role.slice(1) })
+					: t("logsMedia.message");
+			case "function_call":
+				return t("logsMedia.functionCallNamed", { name: message.name || "Unknown" });
+			case "function_call_output":
+				return message.call_id ? t("logsMedia.functionCallOutputId", { id: message.call_id }) : t("logsMedia.functionCallOutput");
+			case "file_search_call":
+				return t("logsMedia.fileSearch");
+			case "web_search_call":
+				return t("logsMedia.webSearch");
+			case "computer_call":
+				return t("logsMedia.computerAction");
+			case "computer_call_output":
+				return t("logsMedia.computerActionOutput");
+			case "code_interpreter_call":
+				return t("logsMedia.codeInterpreter");
+			case "mcp_call":
+				return t("logsMedia.mcpToolCall");
+			case "custom_tool_call":
+				return t("logsMedia.customToolCall");
+			case "custom_tool_call_output":
+				return t("logsMedia.customToolOutput");
+			case "image_generation_call":
+				return t("logsMedia.imageGeneration");
+			case "refusal":
+				return t("logsMedia.refusal");
+			default:
+				return message.type.replace(/_/g, " ").replace(/\b\w/g, (l) => l.toUpperCase());
+		}
+	}
+	return message.role ? message.role.charAt(0).toUpperCase() + message.role.slice(1) : t("logsMedia.message");
+}
+
+function ContentBlockView({ block }: { block: ResponsesMessageContentBlock; index: number }) {
+	const t = useT();
+	const blockTitle = getBlockTitle(t, block.type);
 
 	// Handle text content
 	if (block.text) {
@@ -169,7 +211,7 @@ function ContentBlockView({ block }: { block: ResponsesMessageContentBlock; inde
 	if (block.annotations && block.annotations.length > 0) {
 		const jsonContent = JSON.stringify(block.annotations, null, 2);
 		return (
-			<CollapsibleBox title="Annotations" onCopy={() => jsonContent} collapsedHeight={100}>
+			<CollapsibleBox title={t("logsMedia.annotations")} onCopy={() => jsonContent} collapsedHeight={100}>
 				<CodeEditor
 					className="z-0 w-full"
 					shouldAdjustInitialHeight={true}
@@ -188,7 +230,7 @@ function ContentBlockView({ block }: { block: ResponsesMessageContentBlock; inde
 	if (block.logprobs && block.logprobs.length > 0) {
 		const jsonContent = JSON.stringify(block.logprobs, null, 2);
 		return (
-			<CollapsibleBox title="Log Probabilities" onCopy={() => jsonContent} collapsedHeight={100}>
+			<CollapsibleBox title={t("logsMedia.logProbabilities")} onCopy={() => jsonContent} collapsedHeight={100}>
 				<CodeEditor
 					className="z-0 w-full"
 					shouldAdjustInitialHeight={true}
@@ -207,49 +249,13 @@ function ContentBlockView({ block }: { block: ResponsesMessageContentBlock; inde
 }
 
 function MessageView({ message, index }: { message: ResponsesMessage; index: number }) {
-	const getMessageTitle = () => {
-		if (message.type) {
-			switch (message.type) {
-				case "reasoning":
-					return "Reasoning";
-				case "message":
-					return message.role ? `${message.role.charAt(0).toUpperCase() + message.role.slice(1)} Message` : "Message";
-				case "function_call":
-					return `Function Call: ${message.name || "Unknown"}`;
-				case "function_call_output":
-					return `Function Call Output${message.call_id ? `: ${message.call_id}` : ""}`;
-				case "file_search_call":
-					return "File Search";
-				case "web_search_call":
-					return "Web Search";
-				case "computer_call":
-					return "Computer Action";
-				case "computer_call_output":
-					return "Computer Action Output";
-				case "code_interpreter_call":
-					return "Code Interpreter";
-				case "mcp_call":
-					return "MCP Tool Call";
-				case "custom_tool_call":
-					return "Custom Tool Call";
-				case "custom_tool_call_output":
-					return "Custom Tool Output";
-				case "image_generation_call":
-					return "Image Generation";
-				case "refusal":
-					return "Refusal";
-				default:
-					return message.type.replace(/_/g, " ").replace(/\b\w/g, (l) => l.toUpperCase());
-			}
-		}
-		return message.role ? `${message.role.charAt(0).toUpperCase() + message.role.slice(1)}` : "Message";
-	};
+	const t = useT();
 
 	if (message.type == "reasoning" && (!message.summary || message.summary.length === 0) && !message.encrypted_content && !message.content) {
 		return null;
 	}
 
-	const messageTitle = getMessageTitle();
+	const messageTitle = getMessageTitle(t, message);
 
 	return (
 		<div key={`message-${index}`} className="flex w-full flex-col gap-2">
@@ -262,7 +268,7 @@ function MessageView({ message, index }: { message: ResponsesMessage; index: num
 					{message.summary.every((item) => item.type === "summary_text") ? (
 						// Display as readable text when all items are summary_text
 						message.summary.map((reasoningContent, idx) => (
-							<CollapsibleBox key={idx} title={`Summary #${idx + 1}`} onCopy={() => reasoningContent.text || ""} collapsedHeight={100}>
+							<CollapsibleBox key={idx} title={t("logDetail.summaryN", { n: idx + 1 })} onCopy={() => reasoningContent.text || ""} collapsedHeight={100}>
 								<div className="custom-scrollbar max-h-[400px] overflow-y-auto px-6 py-2 font-mono text-xs whitespace-pre-wrap">
 									{reasoningContent.text}
 								</div>
@@ -270,7 +276,7 @@ function MessageView({ message, index }: { message: ResponsesMessage; index: num
 						))
 					) : (
 						// Fallback to JSON display for mixed or non-text types
-						<CollapsibleBox title="Summary" onCopy={() => JSON.stringify(message.summary, null, 2)} collapsedHeight={100}>
+						<CollapsibleBox title={t("logsMedia.summaryHeading")} onCopy={() => JSON.stringify(message.summary, null, 2)} collapsedHeight={100}>
 							<CodeEditor
 								className="z-0 w-full"
 								shouldAdjustInitialHeight={true}
@@ -288,7 +294,7 @@ function MessageView({ message, index }: { message: ResponsesMessage; index: num
 
 			{/* Handle encrypted reasoning content */}
 			{message.type === "reasoning" && message.encrypted_content && (
-				<CollapsibleBox title="Encrypted Reasoning Content" onCopy={() => message.encrypted_content || ""} collapsedHeight={100}>
+				<CollapsibleBox title={t("logsMedia.encryptedReasoningContent")} onCopy={() => message.encrypted_content || ""} collapsedHeight={100}>
 					<div className="custom-scrollbar max-h-[400px] overflow-y-auto px-6 py-2 font-mono text-xs break-words whitespace-pre-wrap">
 						{message.encrypted_content}
 					</div>
@@ -302,7 +308,7 @@ function MessageView({ message, index }: { message: ResponsesMessage; index: num
 						<>
 							{isJson(message.content) ? (
 								<CollapsibleBox
-									title="Content"
+									title={t("logsMedia.content")}
 									onCopy={() => JSON.stringify(cleanJson(message.content as string), null, 2)}
 									collapsedHeight={100}
 								>
@@ -318,7 +324,7 @@ function MessageView({ message, index }: { message: ResponsesMessage; index: num
 									/>
 								</CollapsibleBox>
 							) : (
-								<CollapsibleBox title="Content" onCopy={() => (message.content as string) || ""} collapsedHeight={100}>
+								<CollapsibleBox title={t("logsMedia.content")} onCopy={() => (message.content as string) || ""} collapsedHeight={100}>
 									<div className="custom-scrollbar max-h-[400px] overflow-y-auto px-6 py-2 font-mono text-xs break-words whitespace-pre-wrap">
 										{message.content}
 									</div>
@@ -335,7 +341,7 @@ function MessageView({ message, index }: { message: ResponsesMessage; index: num
 			{/* Handle tool call specific fields */}
 			{(message.call_id || message.name || message.arguments) && (
 				<CollapsibleBox
-					title="Tool Details"
+					title={t("logsMedia.toolDetails")}
 					onCopy={() =>
 						JSON.stringify(
 							{
@@ -373,7 +379,7 @@ function MessageView({ message, index }: { message: ResponsesMessage; index: num
 			{/* Handle function call output */}
 			{message.output !== undefined && (
 				<CollapsibleBox
-					title="Output"
+					title={t("logsMedia.output")}
 					onCopy={() => (typeof message.output === "string" ? message.output : JSON.stringify(message.output, null, 2))}
 					collapsedHeight={100}
 				>
@@ -417,7 +423,7 @@ function MessageView({ message, index }: { message: ResponsesMessage; index: num
 					),
 			) && (
 				<CollapsibleBox
-					title="Additional Fields"
+					title={t("logsMedia.additionalFields")}
 					onCopy={() =>
 						JSON.stringify(
 							Object.fromEntries(
@@ -482,10 +488,11 @@ function MessageView({ message, index }: { message: ResponsesMessage; index: num
 }
 
 export default function LogResponsesMessageView({ messages }: LogResponsesMessageViewProps) {
+	const t = useT();
 	if (!messages || messages.length === 0) {
 		return (
 			<div className="w-full rounded-sm border">
-				<div className="text-muted-foreground px-6 py-4 text-center text-sm">No responses messages available</div>
+				<div className="text-muted-foreground px-6 py-4 text-center text-sm">{t("logsMedia.noResponsesMessages")}</div>
 			</div>
 		);
 	}

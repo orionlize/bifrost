@@ -15,11 +15,13 @@ import { Command, CommandItem, CommandList } from "@/components/ui/command";
 import { DateTimePickerWithRange } from "@/components/ui/datePickerWithRange";
 import { Input } from "@/components/ui/input";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import { useT } from "@/lib/i18n";
 import { getErrorMessage, useClearLogsMutation, useRecalculateLogCostsMutation } from "@/lib/store";
 import type { LogFilters as LogFiltersType } from "@/lib/types/logs";
-import { getRangeForPeriod, TIME_PERIODS } from "@/lib/utils/timeRange";
+import { getLocalizedTimePeriods } from "@/lib/i18n/timePeriods";
+import { getRangeForPeriod } from "@/lib/utils/timeRange";
 import { Calculator, MoreVertical, Radio, RefreshCw, Search, Trash2 } from "lucide-react";
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { toast } from "sonner";
 
 interface LogsHeaderViewProps {
@@ -58,6 +60,8 @@ export function LogsHeaderView({
 	onToggleColumnVisibility,
 	onResetColumns,
 }: LogsHeaderViewProps) {
+	const t = useT();
+	const timePeriods = useMemo(() => getLocalizedTimePeriods(t), [t]);
 	const [openMoreActionsPopover, setOpenMoreActionsPopover] = useState(false);
 	const [showClearLogsDialog, setShowClearLogsDialog] = useState(false);
 	const [clearAllLogs, setClearAllLogs] = useState(false);
@@ -95,14 +99,18 @@ export function LogsHeaderView({
 			await fetchLogs();
 			await fetchStats();
 			setOpenMoreActionsPopover(false);
-			toast.success(`Recalculated costs for ${response.updated} logs`, {
-				description: `${response.updated} logs updated, ${response.skipped} logs skipped, ${response.remaining} logs remaining`,
+			toast.success(t("logs.recalculatedToast", { count: response.updated }), {
+				description: t("logs.recalculatedDesc", {
+					updated: response.updated,
+					skipped: response.skipped,
+					remaining: response.remaining,
+				}),
 				duration: 5000,
 			});
 		} catch (err) {
 			toast.error(getErrorMessage(err));
 		}
-	}, [filters, recalculateCosts, fetchLogs, fetchStats]);
+	}, [filters, recalculateCosts, fetchLogs, fetchStats, t]);
 
 	const handleClearLogs = useCallback(async () => {
 		try {
@@ -124,16 +132,14 @@ export function LogsHeaderView({
 			setShowClearLogsDialog(false);
 			setClearAllLogs(false);
 			setOpenMoreActionsPopover(false);
-			toast.success(`Deleted ${totalDeleted} logs`, {
-				description: clearAllLogs
-					? "All LLM logs were removed and the database was compacted."
-					: "Logs matching the current filters were removed.",
+			toast.success(t("logs.deletedToast", { count: totalDeleted }), {
+				description: clearAllLogs ? t("logs.deletedAllDesc") : t("logs.deletedFilteredDesc"),
 				duration: 5000,
 			});
 		} catch (err) {
 			toast.error(getErrorMessage(err));
 		}
-	}, [clearAllLogs, clearLogs, fetchHistogram, fetchLogs, fetchStats, filters]);
+	}, [clearAllLogs, clearLogs, fetchHistogram, fetchLogs, fetchStats, filters, t]);
 
 	const handleSearchChange = useCallback(
 		(value: string) => {
@@ -162,7 +168,7 @@ export function LogsHeaderView({
 					disabled={loading}
 				>
 					<RefreshCw className={`h-4 w-4 ${loading ? "animate-spin" : ""}`} />
-					Refresh
+					{t("logs.refresh")}
 				</Button>
 				<Button
 					data-testid="logs-live-btn"
@@ -172,14 +178,14 @@ export function LogsHeaderView({
 					onClick={() => onPollToggle(!polling)}
 				>
 					{polling ? <Radio className="h-4 w-4 animate-pulse" /> : <Radio className="h-4 w-4" />}
-					Live
+					{t("logs.live")}
 				</Button>
 				<div className="border-input flex h-7.5 flex-1 items-center gap-2 rounded-sm border">
 					<Search className="mr-0.5 ml-2 size-4" />
 					<Input
 						type="text"
 						className="!h-7 rounded-tl-none rounded-tr-sm rounded-br-sm rounded-bl-none border-none bg-slate-50 shadow-none outline-none focus-visible:ring-0"
-						placeholder="Search logs"
+						placeholder={t("logs.searchLlm")}
 						value={localSearch}
 						onChange={(e) => handleSearchChange(e.target.value)}
 					/>
@@ -194,7 +200,7 @@ export function LogsHeaderView({
 						setEndTime(p.to);
 						onPeriodChange(undefined, p.from, p.to);
 					}}
-					preDefinedPeriods={TIME_PERIODS}
+					preDefinedPeriods={timePeriods}
 					onPredefinedPeriodChange={(periodValue) => {
 						if (!periodValue) return;
 						const { from, to } = getRangeForPeriod(periodValue);
@@ -215,8 +221,8 @@ export function LogsHeaderView({
 								<CommandItem className="hover:bg-accent/50 cursor-pointer" onSelect={handleRecalculateCosts}>
 									<Calculator className="text-muted-foreground size-4" />
 									<div className="flex flex-col">
-										<span className="text-sm">Recalculate costs</span>
-										<span className="text-muted-foreground text-xs">For all logs that don't have a cost</span>
+										<span className="text-sm">{t("logs.recalculateCosts")}</span>
+										<span className="text-muted-foreground text-xs">{t("logs.recalculateCostsHint")}</span>
 									</div>
 								</CommandItem>
 								{hasDeleteAccess && (
@@ -230,8 +236,8 @@ export function LogsHeaderView({
 									>
 										<Trash2 className="text-muted-foreground size-4" />
 										<div className="flex flex-col">
-											<span className="text-sm">Clear logs</span>
-											<span className="text-muted-foreground text-xs">Delete logs matching current filters</span>
+											<span className="text-sm">{t("logs.clearLogs")}</span>
+											<span className="text-muted-foreground text-xs">{t("logs.clearLogsHint")}</span>
 										</div>
 									</CommandItem>
 								)}
@@ -258,12 +264,8 @@ export function LogsHeaderView({
 			>
 				<AlertDialogContent>
 					<AlertDialogHeader>
-						<AlertDialogTitle>{clearAllLogs ? "Clear all LLM logs?" : "Clear logs matching current filters?"}</AlertDialogTitle>
-						<AlertDialogDescription>
-							{clearAllLogs
-								? "This permanently deletes every LLM log in the database and compacts logs.db to reclaim disk space. This action cannot be undone."
-								: "This permanently deletes all LLM logs that match your current time range, sidebar filters, and search query. This action cannot be undone."}
-						</AlertDialogDescription>
+						<AlertDialogTitle>{clearAllLogs ? t("logs.clearAllTitle") : t("logs.clearFilteredTitle")}</AlertDialogTitle>
+						<AlertDialogDescription>{clearAllLogs ? t("logs.clearAllDesc") : t("logs.clearFilteredDesc")}</AlertDialogDescription>
 					</AlertDialogHeader>
 					<label className="flex cursor-pointer items-start gap-3 px-1 py-2">
 						<Checkbox
@@ -272,19 +274,19 @@ export function LogsHeaderView({
 							data-testid="logs-clear-all-checkbox"
 						/>
 						<div className="space-y-1">
-							<p className="text-sm leading-none font-medium">Delete all logs</p>
-							<p className="text-muted-foreground text-xs">Ignore current filters and remove every LLM log.</p>
+							<p className="text-sm leading-none font-medium">{t("logs.deleteAllLogs")}</p>
+							<p className="text-muted-foreground text-xs">{t("logs.deleteAllLogsHint")}</p>
 						</div>
 					</label>
 					<AlertDialogFooter>
-						<AlertDialogCancel disabled={isClearingLogs}>Cancel</AlertDialogCancel>
+						<AlertDialogCancel disabled={isClearingLogs}>{t("common.actions.cancel")}</AlertDialogCancel>
 						<AlertDialogAction
 							data-testid="logs-clear-confirm-btn"
 							onClick={handleClearLogs}
 							disabled={isClearingLogs}
 							className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
 						>
-							{isClearingLogs ? "Clearing..." : "Clear logs"}
+							{isClearingLogs ? t("logs.clearing") : t("logs.clearLogs")}
 						</AlertDialogAction>
 					</AlertDialogFooter>
 				</AlertDialogContent>

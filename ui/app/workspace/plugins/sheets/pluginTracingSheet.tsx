@@ -5,6 +5,7 @@ import { Switch } from "@/components/ui/switch";
 import { TriStateCheckbox } from "@/components/ui/tristateCheckbox";
 import { getErrorMessage, useGetBuiltinPluginsQuery, useGetPluginQuery, useGetPluginsQuery, useUpdatePluginMutation } from "@/lib/store";
 import { PluginSpanFilter } from "@/lib/types/config";
+import { useT } from "@/lib/i18n";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { toast } from "sonner";
 
@@ -52,6 +53,7 @@ function PluginRow({ name, checked, onChange }: { name: string; checked: boolean
 }
 
 export default function PluginTracingSheet({ open, onClose }: PluginTracingSheetProps) {
+	const t = useT();
 	const { data: builtinPluginNames = [] } = useGetBuiltinPluginsQuery();
 	const { data: allPluginsData } = useGetPluginsQuery();
 	const customPluginNames = (allPluginsData ?? []).filter((p) => p.isCustom).map((p) => p.name);
@@ -77,7 +79,7 @@ export default function PluginTracingSheet({ open, onClose }: PluginTracingSheet
 
 	const handleSave = useCallback(async () => {
 		if (!otelPlugin) {
-			toast.error("OTEL plugin not found");
+			toast.error(t("plugins.tracingSheet.otelPluginNotFound"));
 			return;
 		}
 		const filter = buildFilter(toggles);
@@ -89,29 +91,26 @@ export default function PluginTracingSheet({ open, onClose }: PluginTracingSheet
 					config: { plugin_span_filter: filter },
 				},
 			}).unwrap();
-			toast.success("Plugin tracing configuration saved");
+			toast.success(t("plugins.tracingSaved"));
 			onClose();
 		} catch (error) {
 			toast.error(getErrorMessage(error));
 		}
-	}, [toggles, otelPlugin, updatePlugin, onClose]);
+	}, [t, toggles, otelPlugin, updatePlugin, onClose]);
 
 	return (
 		<Sheet open={open} onOpenChange={onClose}>
 			<SheetContent className="flex w-full flex-col overflow-hidden p-8">
 				<SheetHeader className="flex flex-col items-start p-0">
-					<SheetTitle>Configure Plugin Tracing</SheetTitle>
-					<SheetDescription>
-						Choose which plugin hook spans are exported to the OTEL collector. Disabling a plugin removes its spans from traces without
-						affecting execution.
-					</SheetDescription>
+					<SheetTitle>{t("plugins.configureTracing")}</SheetTitle>
+					<SheetDescription>{t("plugins.tracingSheet.description")}</SheetDescription>
 				</SheetHeader>
 
 				<div className="mt-4 flex-1 overflow-y-auto">
 					<div className="flex flex-col gap-4">
 						<div>
 							<div className="mb-2 flex items-center justify-between">
-								<p className="text-muted-foreground text-xs font-medium tracking-wide uppercase">Built-in Plugins</p>
+								<p className="text-muted-foreground text-xs font-medium tracking-wide uppercase">{t("plugins.builtinPlugins")}</p>
 								<TriStateCheckbox
 									allIds={builtinPluginNames}
 									selectedIds={builtinPluginNames.filter((n) => toggles[n] ?? true)}
@@ -123,7 +122,7 @@ export default function PluginTracingSheet({ open, onClose }: PluginTracingSheet
 											return updated;
 										});
 									}}
-									ariaLabel="Toggle all built-in plugin tracing"
+									ariaLabel={t("plugins.tracingSheet.toggleAllBuiltinAria")}
 									data-testid="plugin-tracing-select-all-builtins"
 								/>
 							</div>
@@ -137,7 +136,9 @@ export default function PluginTracingSheet({ open, onClose }: PluginTracingSheet
 						{customPluginNames.length > 0 && (
 							<div>
 								<div className="mb-2 flex items-center justify-between">
-									<p className="text-muted-foreground text-xs font-medium tracking-wide uppercase">Custom Plugins</p>
+									<p className="text-muted-foreground text-xs font-medium tracking-wide uppercase">
+										{t("plugins.tracingSheet.customPlugins")}
+									</p>
 									<TriStateCheckbox
 										allIds={customPluginNames}
 										selectedIds={customPluginNames.filter((n) => toggles[n] ?? true)}
@@ -149,7 +150,7 @@ export default function PluginTracingSheet({ open, onClose }: PluginTracingSheet
 												return updated;
 											});
 										}}
-										ariaLabel="Toggle all custom plugin tracing"
+										ariaLabel={t("plugins.tracingSheet.toggleAllCustomAria")}
 										data-testid="plugin-tracing-select-all-custom"
 									/>
 								</div>
@@ -167,17 +168,18 @@ export default function PluginTracingSheet({ open, onClose }: PluginTracingSheet
 					<Alert variant="info">
 						<AlertDescription>
 							<span>
-								If <strong className="inline">plugin_span_filter</strong> is set inside the OTEL plugin config in config.json, it takes
-								precedence over these settings after restarting Bifrost.
+								{t("plugins.tracingSheet.configPrecedenceBefore")}
+								<strong className="inline">{t("plugins.tracingSheet.configPrecedenceField")}</strong>
+								{t("plugins.tracingSheet.configPrecedenceAfter")}
 							</span>
 						</AlertDescription>
 					</Alert>
 					<div className="flex justify-end gap-2 pt-2">
 						<Button type="button" variant="outline" onClick={onClose} disabled={isLoading} data-testid="plugin-tracing-cancel-button">
-							Cancel
+							{t("common.actions.cancel")}
 						</Button>
 						<Button onClick={handleSave} disabled={isLoading} isLoading={isLoading} data-testid="plugin-tracing-save-button" type="button">
-							Save
+							{t("common.actions.save")}
 						</Button>
 					</div>
 				</div>

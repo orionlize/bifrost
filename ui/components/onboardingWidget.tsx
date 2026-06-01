@@ -8,6 +8,7 @@ import { useGetAllKeysQuery } from "@/lib/store/apis/providersApi";
 import { useGetSCIMProvidersQuery } from "@enterprise/lib/store/apis/scimApi";
 import { cn } from "@/lib/utils";
 import { useNavigate } from "@tanstack/react-router";
+import { useT } from "@/lib/i18n";
 import type confetti from "canvas-confetti";
 import { ChevronRight, X } from "lucide-react";
 import { useEffect, useMemo, useRef, useState } from "react";
@@ -18,14 +19,14 @@ const ONBOARDING_DISMISSED_COOKIE = "bifrost_onboarding_dismissed";
 const METADATA_DISMISSED_KEY = "onboarding_dismissed";
 const METADATA_SKIPPED_KEY = "onboarding_skipped";
 
-type Section = "Security" | "Provider Setup" | "Everything Else";
+type SectionKey = "security" | "providerSetup" | "everythingElse";
 
 interface Step {
 	id: string;
-	title: string;
+	titleKey: string;
 	route: string;
 	complete: boolean;
-	section: Section;
+	sectionKey: SectionKey;
 }
 
 let confettiFn: typeof confetti | null = null;
@@ -51,6 +52,7 @@ async function fireConfettiFrom(el: HTMLElement) {
 const parseSkippedIds = (raw: unknown) => (Array.isArray(raw) ? raw.filter((id): id is string => typeof id === "string") : []);
 
 export default function OnboardingWidget() {
+	const t = useT();
 	const navigate = useNavigate();
 	const [closedForSession, setClosedForSession] = useState(false);
 	// When non-null, the user picked this step and is now configuring it on
@@ -104,30 +106,30 @@ export default function OnboardingWidget() {
 		const common: Step[] = [
 			{
 				id: "cors",
-				title: "Restrict CORS origins",
+				titleKey: "onboarding.steps.cors",
 				route: "/workspace/config/security",
-				section: "Security",
+				sectionKey: "security",
 				complete: (clientConfig?.allowed_origins?.length ?? 0) > 0,
 			},
 			{
 				id: "dashboard-auth",
-				title: "Set up dashboard auth",
+				titleKey: "onboarding.steps.dashboardAuth",
 				route: "/workspace/config/security",
-				section: "Security",
+				sectionKey: "security",
 				complete: !!authConfig?.is_enabled && authValueSet(authConfig?.admin_username) && authValueSet(authConfig?.admin_password),
 			},
 			{
 				id: "enforce-inference-auth",
-				title: "Enforce auth on inference",
+				titleKey: "onboarding.steps.enforceInferenceAuth",
 				route: "/workspace/config/security",
-				section: "Security",
+				sectionKey: "security",
 				complete: !!clientConfig?.enforce_auth_on_inference,
 			},
 			{
 				id: "provider-key",
-				title: "Add a provider key",
+				titleKey: "onboarding.steps.providerKey",
 				route: "/workspace/providers",
-				section: "Provider Setup",
+				sectionKey: "providerSetup",
 				complete: (allKeys?.length ?? 0) > 0,
 			},
 		];
@@ -135,23 +137,23 @@ export default function OnboardingWidget() {
 			? [
 					{
 						id: "scim",
-						title: "Configure SCIM provisioning",
+						titleKey: "onboarding.steps.scim",
 						route: "/workspace/scim",
-						section: "Everything Else",
+						sectionKey: "everythingElse",
 						complete: (scimProviders?.length ?? 0) > 0,
 					},
 					{
 						id: "models",
-						title: "Configure governance model catalog",
+						titleKey: "onboarding.steps.models",
 						route: "/workspace/model-catalog",
-						section: "Everything Else",
+						sectionKey: "everythingElse",
 						complete: (modelConfigsResponse?.total_count ?? 0) > 0,
 					},
 					{
 						id: "virtual-keys",
-						title: "Set up users / access profiles",
+						titleKey: "onboarding.steps.virtualKeys",
 						route: "/workspace/virtual-keys",
-						section: "Everything Else",
+						sectionKey: "everythingElse",
 						complete: (vksResponse?.total_count ?? 0) > 0,
 					},
 				]
@@ -312,14 +314,14 @@ export default function OnboardingWidget() {
 							👋
 						</span>
 						<div className="min-w-0 flex-1">
-							<div className="text-sm font-semibold">Setup checklist</div>
+							<div className="text-sm font-semibold">{t("onboarding.title")}</div>
 							<div className="text-muted-foreground text-xs">
-								{doneCount} of {steps.length} steps complete
+								{t("onboarding.progress", { done: doneCount, total: steps.length })}
 							</div>
 						</div>
 					</div>
 					<button
-						aria-label="Close for now"
+						aria-label={t("onboarding.closeForNow")}
 						type="button"
 						data-testid="onboarding-close"
 						onClick={() => setClosedForSession(true)}
@@ -338,15 +340,19 @@ export default function OnboardingWidget() {
 						// Emit a section label whenever this row's section differs from the
 						// previous one (or it's the first row). Cheap inline grouping that
 						// keeps the flat steps array intact for other lookups.
-						const prevSection = idx === 0 ? null : steps[idx - 1].section;
-						const showSectionHeader = step.section !== prevSection;
+						const prevSection = idx === 0 ? null : steps[idx - 1].sectionKey;
+						const showSectionHeader = step.sectionKey !== prevSection;
 						return (
 							<div key={step.id}>
 								{showSectionHeader && (
 									<div
 										className={cn("text-muted-foreground px-2 pb-1 text-[10px] font-semibold tracking-wider uppercase", idx > 0 && "pt-3")}
 									>
-										{step.section}
+										{step.sectionKey === "security"
+											? t("onboarding.sections.security")
+											: step.sectionKey === "providerSetup"
+												? t("onboarding.sections.providerSetup")
+												: t("onboarding.sections.everythingElse")}
 									</div>
 								)}
 								<div
@@ -377,7 +383,7 @@ export default function OnboardingWidget() {
 												skipped && !step.complete && "text-muted-foreground italic",
 											)}
 										>
-											{step.title}
+											{t(step.titleKey)}
 										</span>
 									</button>
 									{!done && (
@@ -389,12 +395,12 @@ export default function OnboardingWidget() {
 												disabled={writingMetadata}
 												className="text-muted-foreground hover:text-foreground text-xs opacity-0 transition-opacity group-hover:opacity-100 focus:opacity-100 focus-visible:opacity-100 disabled:opacity-50"
 											>
-												Skip
+												{t("onboarding.skip")}
 											</button>
 											<ChevronRight className="text-muted-foreground size-4 transition-transform group-hover:translate-x-0.5" />
 										</>
 									)}
-									{skipped && !step.complete && <span className="text-muted-foreground text-xs">Skipped</span>}
+									{skipped && !step.complete && <span className="text-muted-foreground text-xs">{t("onboarding.skipped")}</span>}
 								</div>
 							</div>
 						);
@@ -407,7 +413,7 @@ export default function OnboardingWidget() {
 						onClick={handleHideForMe}
 						className="text-muted-foreground hover:text-foreground py-2 text-center"
 					>
-						I'll do it later
+						{t("onboarding.doLater")}
 					</button>
 					<button
 						type="button"
@@ -416,7 +422,7 @@ export default function OnboardingWidget() {
 						disabled={writingMetadata}
 						className="text-muted-foreground hover:text-foreground py-2 text-center disabled:opacity-50"
 					>
-						Hide for everyone
+						{t("onboarding.hideForEveryone")}
 					</button>
 				</CardFooter>
 			</Card>

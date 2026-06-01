@@ -5,27 +5,26 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle } from "@/components/ui/sheet";
 import { Switch } from "@/components/ui/switch";
 import { getErrorMessage, useCreateProviderMutation } from "@/lib/store";
+import { useT } from "@/lib/i18n";
 import { BaseProvider, ModelProviderName } from "@/lib/types/config";
 import { allowedRequestsSchema } from "@/lib/types/schemas";
 import { cleanPathOverrides } from "@/lib/utils/validation";
 import { RbacOperation, RbacResource, useRbac } from "@enterprise/lib";
 import { zodResolver } from "@hookform/resolvers/zod";
-import { useEffect } from "react";
+import { useEffect, useMemo } from "react";
 import { useForm } from "react-hook-form";
 import { toast } from "sonner";
 import { z } from "zod";
 import { AllowedRequestsFields } from "../fragments/allowedRequestsFields";
 
-const formSchema = z.object({
-	name: z.string().min(1),
-	baseFormat: z.string().min(1),
-	base_url: z.string().min(1, "Base URL is required").url("Must be a valid URL"),
-	allowed_requests: allowedRequestsSchema,
-	request_path_overrides: z.record(z.string(), z.string().optional()).optional(),
-	is_key_less: z.boolean().optional(),
-});
-
-type FormData = z.infer<typeof formSchema>;
+type FormData = {
+	name: string;
+	baseFormat: string;
+	base_url: string;
+	allowed_requests: z.infer<typeof allowedRequestsSchema>;
+	request_path_overrides?: Record<string, string | undefined>;
+	is_key_less?: boolean;
+};
 
 export interface AddCustomProviderSheetContentProps {
 	show?: boolean;
@@ -38,8 +37,24 @@ interface Props extends AddCustomProviderSheetContentProps {
 }
 
 export function AddCustomProviderSheetContent({ show = true, onClose, onSave }: AddCustomProviderSheetContentProps) {
+	const t = useT();
 	const hasProviderCreateAccess = useRbac(RbacResource.ModelProvider, RbacOperation.Create);
 	const [addProvider, { isLoading: isAddingProvider }] = useCreateProviderMutation();
+	const formSchema = useMemo(
+		() =>
+			z.object({
+				name: z.string().min(1),
+				baseFormat: z.string().min(1),
+				base_url: z
+					.string()
+					.min(1, t("providers.customProviderSheet.validation.baseUrlRequired"))
+					.url(t("providers.customProviderSheet.validation.baseUrlInvalid")),
+				allowed_requests: allowedRequestsSchema,
+				request_path_overrides: z.record(z.string(), z.string().optional()).optional(),
+				is_key_less: z.boolean().optional(),
+			}),
+		[t],
+	);
 	const form = useForm<FormData>({
 		resolver: zodResolver(formSchema),
 		defaultValues: {
@@ -113,7 +128,7 @@ export function AddCustomProviderSheetContent({ show = true, onClose, onSave }: 
 				form.reset();
 			})
 			.catch((err) => {
-				toast.error("Failed to add provider", {
+				toast.error(t("providers.failedToAdd"), {
 					description: getErrorMessage(err),
 				});
 			});
@@ -125,8 +140,8 @@ export function AddCustomProviderSheetContent({ show = true, onClose, onSave }: 
 	return (
 		<>
 			<SheetHeader className="flex shrink-0 flex-col items-start px-8 py-4" headerClassName="mb-0 sticky -top-4 bg-card z-10">
-				<SheetTitle>Add Custom Provider</SheetTitle>
-				<SheetDescription>Enter the details of your custom provider.</SheetDescription>
+				<SheetTitle>{t("providers.customProviderSheet.title")}</SheetTitle>
+				<SheetDescription>{t("providers.customProviderSheet.description")}</SheetDescription>
 			</SheetHeader>
 			<Form {...form}>
 				<form onSubmit={form.handleSubmit(onSubmit)} className="flex flex-col">
@@ -136,10 +151,10 @@ export function AddCustomProviderSheetContent({ show = true, onClose, onSave }: 
 							name="name"
 							render={({ field }) => (
 								<FormItem className="flex flex-col gap-3">
-									<FormLabel className="text-right">Name</FormLabel>
+									<FormLabel className="text-right">{t("providers.customProviderSheet.name")}</FormLabel>
 									<div className="col-span-3">
 										<FormControl>
-											<Input placeholder="Name" data-testid="custom-provider-name" disabled={!hasProviderCreateAccess} {...field} />
+											<Input placeholder={t("providers.customProviderSheet.name")} data-testid="custom-provider-name" disabled={!hasProviderCreateAccess} {...field} />
 										</FormControl>
 										<FormMessage />
 									</div>
@@ -151,12 +166,12 @@ export function AddCustomProviderSheetContent({ show = true, onClose, onSave }: 
 							name="baseFormat"
 							render={({ field }) => (
 								<FormItem className="flex flex-col gap-3">
-									<FormLabel>Base Format</FormLabel>
+									<FormLabel>{t("providers.customProviderSheet.baseFormat")}</FormLabel>
 									<div>
 										<FormControl>
 											<Select onValueChange={field.onChange} value={field.value} disabled={!hasProviderCreateAccess}>
 												<SelectTrigger className="w-full" data-testid="base-provider-select">
-													<SelectValue placeholder="Select base format" />
+													<SelectValue placeholder={t("providers.customProviderSheet.selectBaseFormat")} />
 												</SelectTrigger>
 												<SelectContent>
 													<SelectItem value="openai">OpenAI</SelectItem>
@@ -178,11 +193,11 @@ export function AddCustomProviderSheetContent({ show = true, onClose, onSave }: 
 							name="base_url"
 							render={({ field }) => (
 								<FormItem className="flex flex-col gap-3">
-									<FormLabel>Base URL</FormLabel>
+									<FormLabel>{t("providers.customProviderSheet.baseUrl")}</FormLabel>
 									<div>
 										<FormControl>
 											<Input
-												placeholder={"https://api.your-provider.com"}
+												placeholder={t("providers.customProviderSheet.baseUrlPlaceholder")}
 												data-testid="base-url-input"
 												disabled={!hasProviderCreateAccess}
 												{...field}
@@ -203,9 +218,9 @@ export function AddCustomProviderSheetContent({ show = true, onClose, onSave }: 
 										<div className="flex items-center justify-between space-x-2 rounded-lg border p-3">
 											<div className="space-y-0.5">
 												<label htmlFor="drop-excess-requests" className="text-sm font-medium">
-													Is Keyless?
+													{t("providers.customProviderSheet.isKeyless")}
 												</label>
-												<p className="text-muted-foreground text-sm">Whether the custom provider requires a key</p>
+												<p className="text-muted-foreground text-sm">{t("providers.customProviderSheet.isKeylessDesc")}</p>
 											</div>
 											<Switch
 												id="drop-excess-requests"
@@ -229,10 +244,10 @@ export function AddCustomProviderSheetContent({ show = true, onClose, onSave }: 
 					</div>
 					<div className="bg-card sticky bottom-0 ml-auto flex w-full flex-row gap-2 border-t px-8 py-4">
 						<Button type="button" variant="outline" onClick={onClose} className="ml-auto" data-testid="custom-provider-cancel-btn">
-							Cancel
+							{t("common.actions.cancel")}
 						</Button>
 						<Button type="submit" isLoading={isAddingProvider} disabled={!hasProviderCreateAccess} data-testid="custom-provider-save-btn">
-							Add
+							{t("providers.customProviderSheet.add")}
 						</Button>
 					</div>
 				</form>

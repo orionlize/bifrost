@@ -4,6 +4,7 @@ import { CodeEditor } from "@/components/ui/codeEditor";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useCopyToClipboard } from "@/hooks/useCopyToClipboard";
+import { useT } from "@/lib/i18n";
 import { getExampleBaseUrl } from "@/lib/utils/port";
 import { AlertTriangle, Copy } from "lucide-react";
 import { useMemo, useState } from "react";
@@ -40,6 +41,7 @@ interface CodeBlockProps {
 }
 
 function CodeBlock({ code, language, onLanguageChange, showLanguageSelect = false, readonly = true }: CodeBlockProps) {
+	const t = useT();
 	const { copy: copyToClipboard } = useCopyToClipboard();
 
 	return (
@@ -52,10 +54,10 @@ function CodeBlock({ code, language, onLanguageChange, showLanguageSelect = fals
 						</SelectTrigger>
 						<SelectContent>
 							<SelectItem className="text-xs" value="python">
-								Python
+								{t("logsEmptyState.python")}
 							</SelectItem>
 							<SelectItem className="text-xs" value="typescript">
-								TypeScript
+								{t("logsEmptyState.typescript")}
 							</SelectItem>
 						</SelectContent>
 					</Select>
@@ -74,6 +76,7 @@ interface EmptyStateProps {
 }
 
 export function EmptyState({ error }: EmptyStateProps) {
+	const t = useT();
 	const [language, setLanguage] = useState<Language>("python");
 
 	// Generate examples dynamically using the port utility
@@ -245,7 +248,7 @@ const result = await chain.invoke({ input: "What is LangChain?" });`,
 				<Alert>
 					<AlertTriangle className="h-4 w-4" />
 					<AlertDescription>
-						{isUnexpectedError ? "Looks like you haven't configured the log store in your config file." : error}
+						{isUnexpectedError ? t("logsEmptyState.logStoreNotConfigured") : error}
 					</AlertDescription>
 				</Alert>
 			)}
@@ -253,19 +256,19 @@ const result = await chain.invoke({ input: "What is LangChain?" });`,
 			<div className="w-full space-y-6 p-4">
 				<div className="flex flex-row items-center gap-2">
 					<div>
-						<h3 className="text-lg font-semibold">Integrate under 60 seconds</h3>
-						<p className="text-muted-foreground text-sm">Send your first request to get started</p>
+						<h3 className="text-lg font-semibold">{t("logsEmptyState.title")}</h3>
+						<p className="text-muted-foreground text-sm">{t("logsEmptyState.subtitle")}</p>
 					</div>
 				</div>
 
 				<Tabs defaultValue="curl" className="w-full rounded-lg border">
 					<TabsList className="grid h-10 w-full grid-cols-6 rounded-t-lg rounded-b-none">
-						<TabsTrigger value="curl">cURL</TabsTrigger>
-						<TabsTrigger value="openai">OpenAI SDK</TabsTrigger>
-						<TabsTrigger value="anthropic">Anthropic SDK</TabsTrigger>
-						<TabsTrigger value="genai">Google GenAI SDK</TabsTrigger>
-						<TabsTrigger value="litellm">LiteLLM SDK</TabsTrigger>
-						<TabsTrigger value="langchain">LangChain SDK</TabsTrigger>
+						<TabsTrigger value="curl">{t("logsEmptyState.tabs.curl")}</TabsTrigger>
+						<TabsTrigger value="openai">{t("logsEmptyState.tabs.openai")}</TabsTrigger>
+						<TabsTrigger value="anthropic">{t("logsEmptyState.tabs.anthropic")}</TabsTrigger>
+						<TabsTrigger value="genai">{t("logsEmptyState.tabs.genai")}</TabsTrigger>
+						<TabsTrigger value="litellm">{t("logsEmptyState.tabs.litellm")}</TabsTrigger>
+						<TabsTrigger value="langchain">{t("logsEmptyState.tabs.langchain")}</TabsTrigger>
 					</TabsList>
 
 					<TabsContent value="curl" className="px-4">

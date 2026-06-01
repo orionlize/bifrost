@@ -162,15 +162,18 @@ func (t *TableUserGroupTier) AfterFind(tx *gorm.DB) error {
 
 // TableUserGroupTierMapping represents a single "source model -> downgraded model"
 // substitution within a tier. A SourceModel of "*" matches any model. SourceProvider
-// (when set) further narrows the match to a specific provider.
+// (when set) further narrows the match to a specific provider. SourceKeyID (when set)
+// further narrows the match to a specific provider API key pinned on the request.
 type TableUserGroupTierMapping struct {
 	ID     string `gorm:"primaryKey;type:varchar(255)" json:"id"`
 	TierID string `gorm:"type:varchar(255);not null;index" json:"tier_id"`
 
 	SourceProvider *string `gorm:"type:varchar(255)" json:"source_provider,omitempty"` // nil = any provider
+	SourceKeyID    *string `gorm:"type:varchar(255)" json:"source_key_id,omitempty"`   // nil = any key
 	SourceModel    string  `gorm:"type:varchar(255);not null" json:"source_model"`     // "*" = any model
 
 	TargetProvider *string `gorm:"type:varchar(255)" json:"target_provider,omitempty"` // nil = keep incoming provider
+	TargetKeyID    *string `gorm:"type:varchar(255)" json:"target_key_id,omitempty"`   // nil = keep incoming key selection
 	TargetModel    string  `gorm:"type:varchar(255);not null" json:"target_model"`
 }
 

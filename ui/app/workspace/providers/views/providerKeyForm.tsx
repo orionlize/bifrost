@@ -4,6 +4,7 @@ import { Form } from "@/components/ui/form";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { getErrorMessage } from "@/lib/store";
 import { useCreateProviderKeyMutation, useGetProviderKeysQuery, useUpdateProviderKeyMutation } from "@/lib/store/apis/providersApi";
+import { useT } from "@/lib/i18n";
 import { ModelProvider } from "@/lib/types/config";
 import { modelProviderKeySchema } from "@/lib/types/schemas";
 import { RbacOperation, RbacResource, useRbac } from "@enterprise/lib";
@@ -22,7 +23,6 @@ interface Props {
 	onSave: () => void;
 }
 
-// Create a simple form schema using only ModelProviderKeySchema
 const providerKeyFormSchema = z.object({
 	key: modelProviderKeySchema,
 });
@@ -30,6 +30,7 @@ const providerKeyFormSchema = z.object({
 type ProviderKeyFormValues = z.infer<typeof modelProviderKeySchema>;
 
 export default function ProviderKeyForm({ provider, keyId, onCancel, onSave }: Props) {
+	const t = useT();
 	const hasUpdateProviderAccess = useRbac(RbacResource.ModelProvider, RbacOperation.Update);
 	const [createProviderKey, { isLoading: isCreatingProviderKey }] = useCreateProviderKeyMutation();
 	const [updateProviderKey, { isLoading: isUpdatingProviderKey }] = useUpdateProviderKeyMutation();
@@ -53,14 +54,11 @@ export default function ProviderKeyForm({ provider, keyId, onCancel, onSave }: P
 		},
 	});
 
-	// Reset form when currentKey arrives (handles late async resolution)
-	// Skip reset if user has unsaved edits to avoid discarding changes during background refetches
 	useEffect(() => {
 		if (!isEditing || !currentKey || form.formState.isDirty) return;
 		form.reset({ key: currentKey as ProviderKeyFormValues });
 	}, [isEditing, currentKey, form]);
 
-	// Trigger validation on mount when editing existing data
 	useEffect(() => {
 		if (isEditing) {
 			form.trigger();
@@ -69,20 +67,19 @@ export default function ProviderKeyForm({ provider, keyId, onCancel, onSave }: P
 
 	const getTooltipContent = useCallback(() => {
 		if (!hasUpdateProviderAccess) {
-			return "You do not have permission to modify provider keys";
+			return t("providers.keys.noPermission");
 		}
 		if (!form.formState.isValid && form.formState.errors.root?.message) {
 			return form.formState.errors.root?.message;
 		}
 		if (!form.formState.isDirty) {
-			return "No changes made";
+			return t("providers.keys.noChanges");
 		}
 		return null;
-	}, [form?.formState.errors, form?.formState.isValid, form?.formState.isDirty, hasUpdateProviderAccess]);
+	}, [form?.formState.errors, form?.formState.isValid, form?.formState.isDirty, hasUpdateProviderAccess, t]);
 
 	const onSubmit = (value: any) => {
 		if (isEditing && !currentKey) return;
-		// Strip internal _auth_type fields before sending to API
 		const key = { ...value.key };
 		if (key.azure_key_config) {
 			const { _auth_type, ...rest } = key.azure_key_config;
@@ -113,7 +110,7 @@ export default function ProviderKeyForm({ provider, keyId, onCancel, onSave }: P
 				onSave();
 			})
 			.catch((err) => {
-				toast.error(isEditing ? "Error updating key" : "Error creating key", {
+				toast.error(isEditing ? t("providers.keys.errorUpdating") : t("providers.keys.errorCreating"), {
 					description: getErrorMessage(err),
 				});
 			});
@@ -129,7 +126,7 @@ export default function ProviderKeyForm({ provider, keyId, onCancel, onSave }: P
 				<div className="bg-card sticky bottom-0 border-t px-8 py-4">
 					<div className="flex justify-end space-x-3">
 						<Button type="button" variant="outline" onClick={onCancel} data-testid="key-cancel-btn">
-							Cancel
+							{t("common.actions.cancel")}
 						</Button>
 						<TooltipProvider>
 							<Tooltip>
@@ -142,7 +139,7 @@ export default function ProviderKeyForm({ provider, keyId, onCancel, onSave }: P
 											data-testid="key-save-btn"
 										>
 											<Save className="h-4 w-4 shrink-0" />
-											Save
+											{t("common.actions.save")}
 										</Button>
 									</span>
 								</TooltipTrigger>

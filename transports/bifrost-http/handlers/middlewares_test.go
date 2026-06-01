@@ -16,6 +16,7 @@ import (
 	"github.com/klauspost/compress/zstd"
 	"github.com/maximhq/bifrost/core/schemas"
 	"github.com/maximhq/bifrost/framework/configstore"
+	"github.com/maximhq/bifrost/framework/configstore/tables"
 	"github.com/maximhq/bifrost/framework/tracing"
 	"github.com/maximhq/bifrost/transports/bifrost-http/lib"
 	"github.com/valyala/fasthttp"
@@ -2121,5 +2122,26 @@ func TestTracingMiddleware_StreamingRootSpanEndsAfterLLMSpan(t *testing.T) {
 	}
 	if !plugin.rootEnd.After(plugin.rootStart) {
 		t.Fatalf("root span has non-positive duration: start=%v, end=%v", plugin.rootStart, plugin.rootEnd)
+	}
+}
+
+func TestApplyGlobalAPIKeyAuth_SetsAdminUserForLogging(t *testing.T) {
+	ctx := &fasthttp.RequestCtx{}
+	applyGlobalAPIKeyAuth(ctx, &tables.GlobalAPIKey{ID: "key-1", Name: "ci"})
+
+	if userID, ok := ctx.UserValue(schemas.BifrostContextKeyUserID).(string); !ok || userID != schemas.LocalAdminUserID {
+		t.Fatalf("expected user_id %q, got %#v", schemas.LocalAdminUserID, ctx.UserValue(schemas.BifrostContextKeyUserID))
+	}
+	if userName, ok := ctx.UserValue(schemas.BifrostContextKeyUserName).(string); !ok || userName != schemas.LocalAdminUserName {
+		t.Fatalf("expected user_name %q, got %#v", schemas.LocalAdminUserName, ctx.UserValue(schemas.BifrostContextKeyUserName))
+	}
+
+	bifrostCtx, cancel := lib.ConvertToBifrostContext(ctx, nil)
+	defer cancel()
+	if got := bifrostCtx.Value(schemas.BifrostContextKeyUserID); got != schemas.LocalAdminUserID {
+		t.Fatalf("expected bifrost context user_id %q, got %#v", schemas.LocalAdminUserID, got)
+	}
+	if got := bifrostCtx.Value(schemas.BifrostContextKeyUserName); got != schemas.LocalAdminUserName {
+		t.Fatalf("expected bifrost context user_name %q, got %#v", schemas.LocalAdminUserName, got)
 	}
 }

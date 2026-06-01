@@ -1,6 +1,7 @@
 import { Button } from "@/components/ui/button";
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
 import { Switch } from "@/components/ui/switch";
+import { useT } from "@/lib/i18n";
 import { getErrorMessage, setProviderFormDirtyState, useAppDispatch } from "@/lib/store";
 import { useUpdateProviderMutation } from "@/lib/store/apis/providersApi";
 import type { ModelProvider } from "@/lib/types/config";
@@ -23,6 +24,7 @@ function toOpenAIConfigFormValues(provider: ModelProvider): OpenAIConfigFormSche
 }
 
 export function OpenAIConfigFormFragment({ provider }: OpenAIConfigFormFragmentProps) {
+	const t = useT();
 	const dispatch = useAppDispatch();
 	const hasUpdateProviderAccess = useRbac(RbacResource.ModelProvider, RbacOperation.Update);
 	const [updateProvider, { isLoading: isUpdatingProvider }] = useUpdateProviderMutation();
@@ -52,11 +54,11 @@ export function OpenAIConfigFormFragment({ provider }: OpenAIConfigFormFragmentP
 		)
 			.unwrap()
 			.then((updatedProvider) => {
-				toast.success("OpenAI configuration updated successfully");
+				toast.success(t("providers.toast.openaiUpdated"));
 				form.reset(toOpenAIConfigFormValues(updatedProvider));
 			})
 			.catch((err) => {
-				toast.error("Failed to update OpenAI configuration", {
+				toast.error(t("providers.toast.openaiUpdateFailed"), {
 					description: getErrorMessage(err),
 				});
 			});
@@ -73,12 +75,8 @@ export function OpenAIConfigFormFragment({ provider }: OpenAIConfigFormFragmentP
 							<FormItem>
 								<div className="flex items-center justify-between space-x-2">
 									<div className="space-y-0.5">
-										<FormLabel>Disable Store</FormLabel>
-										<p className="text-muted-foreground text-xs">
-											With the Responses API, store defaults to true, and when it is on, the generated response is stored for later
-											retrieval via API. OpenAI exposes endpoints to retrieve and delete stored responses, so your response IDs become
-											durable server-side objects instead of one-shot IDs.
-										</p>
+										<FormLabel>{t("providers.openaiConfig.disableStore")}</FormLabel>
+										<p className="text-muted-foreground text-xs">{t("providers.openaiConfig.disableStoreDesc")}</p>
 									</div>
 									<FormControl>
 										<Switch
@@ -107,7 +105,7 @@ export function OpenAIConfigFormFragment({ provider }: OpenAIConfigFormFragmentP
 						disabled={!form.formState.isDirty || !form.formState.isValid || !hasUpdateProviderAccess || isUpdatingProvider}
 						isLoading={isUpdatingProvider}
 					>
-						Save OpenAI Configuration
+						{t("providers.openaiConfig.save")}
 					</Button>
 				</div>
 			</form>

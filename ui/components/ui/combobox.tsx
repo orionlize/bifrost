@@ -5,6 +5,7 @@ import * as React from "react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import { useT } from "@/lib/i18n";
 import { cn } from "@/lib/utils";
 
 interface ComboboxContextValue {
@@ -120,6 +121,7 @@ function ComboboxInput({
 	readOnly?: boolean;
 	autoFocus?: boolean;
 }) {
+	const t = useT();
 	const { value, itemToStringLabel, onValueChange } = useComboboxContext();
 
 	const displayValue = React.useMemo(() => {
@@ -141,12 +143,12 @@ function ComboboxInput({
 					className,
 				)}
 			>
-				<span className="truncate">{displayValue || placeholder || "Select..."}</span>
+				<span className="truncate">{displayValue || placeholder || t("shared.combobox.select")}</span>
 				<div className="ml-2 flex shrink-0 items-center gap-1">
 					{showClear && value && (
 						<button
 							type="button"
-							aria-label="Clear selection"
+							aria-label={t("shared.combobox.clearAria")}
 							data-testid="combobox-clear-button"
 							className="rounded-sm opacity-50 hover:opacity-100"
 							onClick={(e) => {
@@ -205,13 +207,14 @@ function ComboboxContent({
 }
 
 function ComboboxList({ className, ...props }: React.ComponentProps<typeof CommandPrimitive.List>) {
+	const t = useT();
 	const { inputValue, setInputValue } = useComboboxContext();
 
 	return (
 		<>
 			<div className="flex items-center border-b px-3">
 				<CommandPrimitive.Input
-					placeholder="Search..."
+					placeholder={t("shared.combobox.search")}
 					className="placeholder:text-muted-foreground flex h-8 w-full bg-transparent py-3 text-sm outline-none disabled:cursor-not-allowed disabled:opacity-50"
 					value={inputValue}
 					autoFocus
@@ -312,13 +315,14 @@ interface ComboboxSelectMultiProps extends ComboboxSelectBaseProps {
 type ComboboxSelectProps = (ComboboxSelectSingleProps | ComboboxSelectMultiProps) & { noPortal?: boolean };
 
 function ComboboxSelect(props: ComboboxSelectProps) {
+	const t = useT();
 	const {
 		options,
-		placeholder = "Select…",
+		placeholder = t("shared.combobox.select"),
 		disabled = false,
 		disableSearch = false,
 		className,
-		emptyMessage = "No results found.",
+		emptyMessage = t("shared.combobox.empty"),
 		noPortal,
 	} = props;
 
@@ -388,7 +392,7 @@ function ComboboxSelect(props: ComboboxSelectProps) {
 						{!disableSearch && (
 							<div className="flex items-center border-b px-3">
 								<CommandPrimitive.Input
-									placeholder="Search..."
+									placeholder={t("shared.combobox.search")}
 									className="placeholder:text-muted-foreground flex h-8 w-full bg-transparent py-3 text-sm outline-none"
 									value={query}
 									onValueChange={setQuery}
@@ -453,7 +457,7 @@ function ComboboxSelect(props: ComboboxSelectProps) {
 						{!props.hideClear && props.value && (
 							<button
 								type="button"
-								aria-label="Clear selection"
+								aria-label={t("shared.combobox.clearAria")}
 								data-testid="combobox-select-clear-button"
 								className="rounded-sm opacity-50 hover:opacity-100"
 								onClick={(e) => {
@@ -474,7 +478,7 @@ function ComboboxSelect(props: ComboboxSelectProps) {
 					{!disableSearch && (
 						<div className="flex items-center border-b px-3">
 							<CommandPrimitive.Input
-								placeholder="Search..."
+								placeholder={t("shared.combobox.search")}
 								className="placeholder:text-muted-foreground flex h-8 w-full bg-transparent py-3 text-sm outline-none"
 								value={query}
 								onValueChange={setQuery}

@@ -1,6 +1,7 @@
 import FullPageLoader from "@/components/fullPageLoader";
 import { NoPermissionView } from "@/components/noPermissionView";
 import { ProviderNames } from "@/lib/constants/logs";
+import { useT } from "@/lib/i18n";
 import { useGetModelsQuery, useGetProvidersQuery, useLazyGetLogsModelHistogramQuery, useLazyGetLogsStatsQuery } from "@/lib/store";
 import { KnownProvider } from "@/lib/types/config";
 import { LogStats } from "@/lib/types/logs";
@@ -10,6 +11,7 @@ import { ModelCatalogEmptyState } from "./modelCatalogEmptyState";
 import ModelCatalogTable, { ModelCatalogRow } from "./modelCatalogTable";
 
 export default function ModelCatalogView() {
+	const t = useT();
 	const hasAccess = useRbac(RbacResource.ModelProvider, RbacOperation.View);
 
 	const [providerFilter, setProviderFilter] = useState("");
@@ -134,15 +136,15 @@ export default function ModelCatalogView() {
 	}
 
 	if (!hasAccess) {
-		return <NoPermissionView entity="model catalog" />;
+		return <NoPermissionView entity={t("modelCatalog.permission")} />;
 	}
 
 	if (providersError) {
 		return (
 			<div className="flex h-full flex-col items-center justify-center gap-4 text-center">
-				<p className="text-muted-foreground text-sm">Failed to load providers</p>
+				<p className="text-muted-foreground text-sm">{t("modelCatalog.loadFailed")}</p>
 				<button type="button" data-testid="model-catalog-retry-btn" onClick={refetchProviders} className="text-sm underline">
-					Retry
+					{t("common.actions.retry")}
 				</button>
 			</div>
 		);

@@ -49,6 +49,12 @@ type UsageTracker struct {
 	resetTicker   *time.Ticker
 	done          chan struct{}
 	wg            sync.WaitGroup
+
+	// ugRequestSeen deduplicates user-group token accounting per request ID so a
+	// duplicate final post-hook (e.g. stream teardown + completed event) cannot
+	// inflate window counters.
+	ugRequestMu   sync.Mutex
+	ugRequestSeen map[string]time.Time
 }
 
 const (
@@ -96,7 +102,7 @@ func (t *UsageTracker) UpdateUsage(ctx context.Context, update *UsageUpdate) {
 	// for temp-credential / user-authenticated requests, where VirtualKey is blanked
 	// to avoid double-counting VK budgets. The counter is keyed by the VK ID so it
 	// stays consistent with the transport pre-hook's degradation lookup.
-	if t.userGroups != nil && shouldUpdateTokens && update.TokensUsed > 0 && update.RawVirtualKey != "" {
+	if t.userGroups != nil && shouldUpdateTokens && update.TokensUsed > 0 && update.RawVirtualKey != "" && t.shouldRecordUserGroupUsage(update.RequestID) {
 		if vk, ok := t.store.GetVirtualKey(ctx, update.RawVirtualKey); ok && vk != nil {
 			t.userGroups.RecordUsage(vk.ID, vk.ID, update.TokensUsed)
 		}
@@ -212,7 +218,41 @@ func (t *UsageTracker) resetExpiredCounters(ctx context.Context) {
 
 	// ==== PART 4: Reset expired user-group windows + persist usage ====
 	if t.userGroups != nil {
+		t.cleanupUserGroupRequestSeen()
 		t.userGroups.Tick(ctx)
+	}
+}
+
+const userGroupRequestSeenTTL = time.Hour
+
+func (t *UsageTracker) shouldRecordUserGroupUsage(requestID string) bool {
+	if requestID == "" {
+		return true
+	}
+	now := time.Now()
+	t.ugRequestMu.Lock()
+	defer t.ugRequestMu.Unlock()
+	if t.ugRequestSeen == nil {
+		t.ugRequestSeen = make(map[string]time.Time)
+	}
+	if seenAt, ok := t.ugRequestSeen[requestID]; ok && now.Sub(seenAt) < userGroupRequestSeenTTL {
+		return false
+	}
+	t.ugRequestSeen[requestID] = now
+	return true
+}
+
+func (t *UsageTracker) cleanupUserGroupRequestSeen() {
+	t.ugRequestMu.Lock()
+	defer t.ugRequestMu.Unlock()
+	if len(t.ugRequestSeen) == 0 {
+		return
+	}
+	cutoff := time.Now().Add(-userGroupRequestSeenTTL)
+	for id, at := range t.ugRequestSeen {
+		if at.Before(cutoff) {
+			delete(t.ugRequestSeen, id)
+		}
 	}
 }
 

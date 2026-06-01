@@ -55,12 +55,20 @@ type GovernanceManager interface {
 	DeletePricingOverride(ctx context.Context, id string) error
 	ReloadUserGroups(ctx context.Context) error
 	GetUserGroupUsage(ctx context.Context, groupID string) ([]governance.UserGroupMemberUsage, error)
+	ResetUserGroupMemberUsage(ctx context.Context, groupID, identity string) error
+}
+
+// VirtualKeyTokenSummarizer aggregates logged total_tokens for a virtual key in a time range.
+// Used to align user-group usage display with the Logs/Dashboard time window.
+type VirtualKeyTokenSummarizer interface {
+	SumVirtualKeyTokens(ctx context.Context, virtualKeyID string, start, end time.Time) (int64, error)
 }
 
 // GovernanceHandler manages HTTP requests for governance operations
 type GovernanceHandler struct {
-	configStore       configstore.ConfigStore
-	governanceManager GovernanceManager
+	configStore          configstore.ConfigStore
+	governanceManager    GovernanceManager
+	tokenUsageSummarizer VirtualKeyTokenSummarizer // optional; when set, usage API reconciles with logs
 }
 
 // NewGovernanceHandler creates a new governance handler instance
@@ -75,6 +83,13 @@ func NewGovernanceHandler(manager GovernanceManager, configStore configstore.Con
 		governanceManager: manager,
 		configStore:       configStore,
 	}, nil
+}
+
+// SetVirtualKeyTokenSummarizer wires log-based token aggregation for user-group usage display.
+func (h *GovernanceHandler) SetVirtualKeyTokenSummarizer(summarizer VirtualKeyTokenSummarizer) {
+	if h != nil {
+		h.tokenUsageSummarizer = summarizer
+	}
 }
 
 // CreateVirtualKeyRequest represents the request body for creating a virtual key
@@ -439,6 +454,7 @@ func (h *GovernanceHandler) RegisterRoutes(r *router.Router, middlewares ...sche
 	r.DELETE("/api/governance/user-groups/{group_id}", lib.ChainMiddlewares(h.deleteUserGroup, middlewares...))
 	r.PUT("/api/governance/user-groups/{group_id}/members", lib.ChainMiddlewares(h.setUserGroupMembers, middlewares...))
 	r.GET("/api/governance/user-groups/{group_id}/usage", lib.ChainMiddlewares(h.getUserGroupUsage, middlewares...))
+	r.POST("/api/governance/user-groups/{group_id}/usage/reset", lib.ChainMiddlewares(h.resetUserGroupMemberUsage, middlewares...))
 
 	// Pricing override operations
 	r.GET("/api/governance/pricing-overrides", lib.ChainMiddlewares(h.getPricingOverrides, middlewares...))

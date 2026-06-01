@@ -155,7 +155,7 @@ func (h *LoggingHandler) getAoneUsersFilterPairs(ctx context.Context, limit int,
 	if len(pairs) > limit {
 		pairs = pairs[:limit]
 	}
-	return pairs, nil
+	return logging.EnsureLocalAdminUserPair(pairs, query), nil
 }
 
 func pctChange(old, new float64) float64 {

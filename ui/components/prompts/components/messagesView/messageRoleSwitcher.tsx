@@ -1,13 +1,12 @@
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdownMenu";
+import { useT } from "@/lib/i18n";
 import { cn } from "@/lib/utils";
 import { ChevronDown } from "lucide-react";
+import { useMemo } from "react";
 
-const AVAILABLE_ROLES = [
-	{ value: "system", label: "System" },
-	{ value: "user", label: "User" },
-	{ value: "assistant", label: "Assistant" },
-	{ value: "tool", label: "Tool" },
-] as const;
+const ROLE_VALUES = ["system", "user", "assistant", "tool"] as const;
+
+type RoleValue = (typeof ROLE_VALUES)[number];
 
 /**
  * Render a dropdown that lets the user switch the current message role.
@@ -27,8 +26,19 @@ export default function MessageRoleSwitcher({
 	role: string;
 	disabled?: boolean;
 	onRoleChange: (role: string) => void;
-	restrictedRoles?: (typeof AVAILABLE_ROLES)[number]["value"][];
+	restrictedRoles?: RoleValue[];
 }) {
+	const t = useT();
+	const roles = useMemo(
+		() =>
+			ROLE_VALUES.map((value) => ({
+				value,
+				label: t(`prompts.roles.${value}`),
+			})),
+		[t],
+	);
+	const currentLabel = roles.find((r) => r.value === role)?.label ?? role;
+
 	return (
 		<DropdownMenu>
 			<DropdownMenuTrigger asChild disabled={disabled}>
@@ -38,16 +48,18 @@ export default function MessageRoleSwitcher({
 						!disabled && "hover:bg-muted cursor-pointer",
 					)}
 				>
-					{role}
+					{currentLabel}
 					<ChevronDown className="size-3 opacity-0 transition-opacity group-focus-within:opacity-100 group-hover:opacity-100" />
 				</button>
 			</DropdownMenuTrigger>
 			<DropdownMenuContent align="start">
-				{AVAILABLE_ROLES.filter((r) => r.value !== role && (!restrictedRoles || !restrictedRoles.includes(r.value))).map((option) => (
-					<DropdownMenuItem key={option.value} onSelect={() => onRoleChange(option.value)}>
-						{option.label.toUpperCase()}
-					</DropdownMenuItem>
-				))}
+				{roles
+					.filter((r) => r.value !== role && (!restrictedRoles || !restrictedRoles.includes(r.value)))
+					.map((option) => (
+						<DropdownMenuItem key={option.value} onSelect={() => onRoleChange(option.value)}>
+							{option.label}
+						</DropdownMenuItem>
+					))}
 			</DropdownMenuContent>
 		</DropdownMenu>
 	);

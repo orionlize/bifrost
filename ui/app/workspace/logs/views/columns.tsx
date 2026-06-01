@@ -1,4 +1,6 @@
 import { formatCost, formatLatency } from "@/app/workspace/dashboard/utils/chartUtils";
+import type { TranslateFn } from "@/lib/i18n";
+import { useT } from "@/lib/i18n";
 import { formatCompactNumber } from "@/lib/utils/numbers";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -13,13 +15,13 @@ import { format, formatDistanceToNow } from "date-fns";
 import { ArrowUpDown, MoreHorizontal, Trash2 } from "lucide-react";
 import { useState } from "react";
 
-function LogActionsMenu({ log, onDelete }: { log: LogEntry; onDelete: (log: LogEntry) => void }) {
+function LogActionsMenu({ log, onDelete, t }: { log: LogEntry; onDelete: (log: LogEntry) => void; t: TranslateFn }) {
 	const [isOpen, setIsOpen] = useState(false);
 
 	return (
 		<DropdownMenu open={isOpen} onOpenChange={setIsOpen}>
 			<DropdownMenuTrigger asChild onClick={(event) => event.stopPropagation()}>
-				<Button variant="ghost" size="icon" data-testid="log-actions-btn" aria-label="Log actions" className="h-7 w-7">
+				<Button variant="ghost" size="icon" data-testid="log-actions-btn" aria-label={t("logsColumns.logActions")} className="h-7 w-7">
 					<MoreHorizontal className="h-4 w-4" />
 				</Button>
 			</DropdownMenuTrigger>
@@ -35,7 +37,7 @@ function LogActionsMenu({ log, onDelete }: { log: LogEntry; onDelete: (log: LogE
 					}}
 				>
 					<Trash2 className="h-4 w-4" />
-					Delete
+					{t("logsColumns.delete")}
 				</DropdownMenuItem>
 			</DropdownMenuContent>
 		</DropdownMenu>
@@ -107,17 +109,17 @@ export function getRealtimeTurnMessages(log?: LogEntry): {
 	};
 }
 
-export function getMessage(log?: LogEntry) {
+export function getMessage(log: LogEntry | undefined, t: TranslateFn) {
 	if (log?.object === "list_models") {
-		return "N/A";
+		return t("logsColumns.na");
 	}
 	if (log?.object === "realtime.turn") {
 		const messages = getRealtimeTurnMessages(log);
 		const parts = [
-			messages.tool ? `Tool Result: ${messages.tool}` : "",
-			messages.user ? `User: ${messages.user}` : "",
-			messages.assistantToolCall ? `Assistant Tool Call: ${messages.assistantToolCall}` : "",
-			messages.assistant ? `Assistant: ${messages.assistant}` : "",
+			messages.tool ? `${t("logsColumns.toolResult")} ${messages.tool}` : "",
+			messages.user ? `${t("logsColumns.user")} ${messages.user}` : "",
+			messages.assistantToolCall ? `${t("logsColumns.assistantToolCall")} ${messages.assistantToolCall}` : "",
+			messages.assistant ? `${t("logsColumns.assistant")} ${messages.assistant}` : "",
 		].filter(Boolean);
 		if (parts.length > 0) {
 			return parts.join("\n");
@@ -159,13 +161,13 @@ export function getMessage(log?: LogEntry) {
 	} else if (log?.speech_input) {
 		return log.speech_input.input;
 	} else if (log?.transcription_input) {
-		return "Audio file";
+		return t("logsColumns.audioFile");
 	} else if (log?.image_generation_input?.prompt) {
 		return log.image_generation_input.prompt;
 	}
 	const obj = log?.object as string | undefined;
 	if (obj === "image_edit" || obj === "image_edit_stream" || obj === "image_variation") {
-		return "Image file";
+		return t("logsColumns.imageFile");
 	}
 	if (log?.content_summary) {
 		return log.content_summary;
@@ -174,7 +176,8 @@ export function getMessage(log?: LogEntry) {
 }
 
 export function LogMessageCell({ log, contentClassName = "max-w-full" }: { log: LogEntry; contentClassName?: string }) {
-	const input = getMessage(log);
+	const t = useT();
+	const input = getMessage(log, t);
 	const isLargePayload = log.is_large_payload_request || log.is_large_payload_response;
 	const realtimeMessages = log.object === "realtime.turn" ? getRealtimeTurnMessages(log) : null;
 
@@ -183,7 +186,7 @@ export function LogMessageCell({ log, contentClassName = "max-w-full" }: { log: 
 			{isLargePayload && (
 				<span
 					className="shrink-0 rounded bg-amber-100 px-1.5 py-0.5 text-[10px] font-medium text-amber-700 dark:bg-amber-900/50 dark:text-amber-400"
-					title="Large payload - streamed directly to provider"
+					title={t("logsColumns.largePayloadTitle")}
 				>
 					LP
 				</span>
@@ -191,18 +194,36 @@ export function LogMessageCell({ log, contentClassName = "max-w-full" }: { log: 
 			{realtimeMessages &&
 			(realtimeMessages.tool || realtimeMessages.user || realtimeMessages.assistantToolCall || realtimeMessages.assistant) ? (
 				<div className={cn(contentClassName, "font-mono text-sm font-normal leading-5")}>
-					{realtimeMessages.tool ? <div className="truncate">Tool Result: {realtimeMessages.tool}</div> : null}
-					{realtimeMessages.user ? <div className="truncate">User: {realtimeMessages.user}</div> : null}
-					{realtimeMessages.assistantToolCall ? (
-						<div className="truncate">Assistant Tool Call: {realtimeMessages.assistantToolCall}</div>
+					{realtimeMessages.tool ? (
+						<div className="truncate">
+							{t("logsColumns.toolResult")} {realtimeMessages.tool}
+						</div>
 					) : null}
-					{realtimeMessages.assistant ? <div className="truncate">Assistant: {realtimeMessages.assistant}</div> : null}
+					{realtimeMessages.user ? (
+						<div className="truncate">
+							{t("logsColumns.user")} {realtimeMessages.user}
+						</div>
+					) : null}
+					{realtimeMessages.assistantToolCall ? (
+						<div className="truncate">
+							{t("logsColumns.assistantToolCall")} {realtimeMessages.assistantToolCall}
+						</div>
+					) : null}
+					{realtimeMessages.assistant ? (
+						<div className="truncate">
+							{t("logsColumns.assistant")} {realtimeMessages.assistant}
+						</div>
+					) : null}
 				</div>
 			) : (
 				<div className={cn(contentClassName, "truncate font-mono text-[12px] font-normal")}>
 					{input ||
 						(isLargePayload
-							? `Large payload ${log.is_large_payload_request && log.is_large_payload_response ? "request & response" : log.is_large_payload_request ? "request" : "response"}`
+							? log.is_large_payload_request && log.is_large_payload_response
+								? t("logsColumns.largePayloadBoth")
+								: log.is_large_payload_request
+									? t("logsColumns.largePayloadRequest")
+									: t("logsColumns.largePayloadResponse")
 							: "-")}
 				</div>
 			)}
@@ -214,6 +235,7 @@ export const createColumns = (
 	onDelete: (log: LogEntry) => void,
 	hasDeleteAccess = true,
 	metadataKeys: string[] = [],
+	t: TranslateFn,
 ): ColumnDef<LogEntry>[] => {
 	const baseColumns: ColumnDef<LogEntry>[] = [
 		{
@@ -230,7 +252,7 @@ export const createColumns = (
 			accessorKey: "timestamp",
 			header: ({ column }) => (
 				<Button variant="ghost" data-testid="logs-time-sort-btn" onClick={() => column.toggleSorting(column.getIsSorted() === "asc")}>
-					Time
+					{t("logsColumns.time")}
 					<ArrowUpDown className="ml-2 h-4 w-4" />
 				</Button>
 			),
@@ -240,7 +262,7 @@ export const createColumns = (
 				const date = timestamp ? new Date(timestamp) : null;
 				const isValid = date && date.toString() !== "Invalid Date";
 				if (!isValid) {
-					return <div className="truncate text-xs">N/A</div>;
+					return <div className="truncate text-xs">{t("logsColumns.na")}</div>;
 				}
 				return (
 					<div className="flex flex-col leading-tight">
@@ -252,7 +274,7 @@ export const createColumns = (
 		},
 		{
 			id: "request_type",
-			header: "Type",
+			header: t("logsColumns.type"),
 			size: 150,
 			cell: ({ row }) => {
 				return (
@@ -270,13 +292,13 @@ export const createColumns = (
 		},
 		{
 			accessorKey: "input",
-			header: "Message",
+			header: t("logsColumns.message"),
 			size: 350,
 			cell: ({ row }) => <LogMessageCell log={row.original} />,
 		},
 		{
 			accessorKey: "model",
-			header: "Model",
+			header: t("logsColumns.model"),
 			size: 190,
 			cell: ({ row }) => {
 				const provider = row.original.provider as ProviderName | undefined;
@@ -285,8 +307,8 @@ export const createColumns = (
 					<div className="flex min-w-0 items-center gap-2">
 						{provider ? <RenderProviderIcon provider={provider as ProviderIconType} size="xs" /> : null}
 						<div className="flex min-w-0 flex-col leading-tight">
-							<span className="truncate font-mono text-[12px]">{model || "N/A"}</span>
-							<span className="text-muted-foreground truncate text-[10.5px]">{provider ? getProviderLabel(provider) : "N/A"}</span>
+							<span className="truncate font-mono text-[12px]">{model || t("logsColumns.na")}</span>
+							<span className="text-muted-foreground truncate text-[10.5px]">{provider ? getProviderLabel(provider) : t("logsColumns.na")}</span>
 						</div>
 					</div>
 				);
@@ -296,7 +318,7 @@ export const createColumns = (
 			accessorKey: "latency",
 			header: ({ column }) => (
 				<Button variant="ghost" data-testid="logs-latency-sort-btn" onClick={() => column.toggleSorting(column.getIsSorted() === "asc")}>
-					Latency
+					{t("logsColumns.latency")}
 					<ArrowUpDown className="ml-2 h-4 w-4" />
 				</Button>
 			),
@@ -304,7 +326,7 @@ export const createColumns = (
 			cell: ({ row }) => {
 				const latency = row.original.latency;
 				if (latency === undefined || latency === null) {
-					return <div className="pl-4 font-mono text-xs">N/A</div>;
+					return <div className="pl-4 font-mono text-xs">{t("logsColumns.na")}</div>;
 				}
 				const tone = latency >= 5000 ? "bg-red-500" : latency >= 2000 ? "bg-amber-500" : "bg-emerald-500";
 				const pct = Math.min(100, (latency / 5000) * 100);
@@ -322,7 +344,7 @@ export const createColumns = (
 			accessorKey: "tokens",
 			header: ({ column }) => (
 				<Button variant="ghost" data-testid="logs-tokens-sort-btn" onClick={() => column.toggleSorting(column.getIsSorted() === "asc")}>
-					Tokens
+					{t("logsColumns.tokens")}
 					<ArrowUpDown className="ml-2 h-4 w-4" />
 				</Button>
 			),
@@ -330,7 +352,7 @@ export const createColumns = (
 			cell: ({ row }) => {
 				const tokenUsage = row.original.token_usage;
 				if (!tokenUsage) {
-					return <div className="pl-4 font-mono text-xs">N/A</div>;
+					return <div className="pl-4 font-mono text-xs">{t("logsColumns.na")}</div>;
 				}
 				const prompt = tokenUsage.prompt_tokens ?? 0;
 				const completion = tokenUsage.completion_tokens ?? 0;
@@ -364,14 +386,14 @@ export const createColumns = (
 			accessorKey: "cost",
 			header: ({ column }) => (
 				<Button variant="ghost" data-testid="logs-cost-sort-btn" onClick={() => column.toggleSorting(column.getIsSorted() === "asc")}>
-					Cost
+					{t("logsColumns.cost")}
 					<ArrowUpDown className="ml-2 h-4 w-4" />
 				</Button>
 			),
 			size: 120,
 			cell: ({ row }) => {
 				if (row.original.cost == null) {
-					return <div className="pl-4 font-mono text-[12px]">N/A</div>;
+					return <div className="pl-4 font-mono text-[12px]">{t("logsColumns.na")}</div>;
 				}
 				return <div className="pl-4 font-mono text-sm tabular-nums">{formatCost(row.original.cost)}</div>;
 			},
@@ -398,7 +420,7 @@ export const createColumns = (
 						const log = row.original;
 						return (
 							<div className="flex justify-center">
-								<LogActionsMenu log={log} onDelete={onDelete} />
+								<LogActionsMenu log={log} onDelete={onDelete} t={t} />
 							</div>
 						);
 					},

@@ -10,6 +10,7 @@ import { Option } from "@/components/ui/multiselectUtils";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
 import { ProviderIconType, RenderProviderIcon } from "@/lib/constants/icons";
+import { useT } from "@/lib/i18n";
 import { getProviderLabel } from "@/lib/constants/logs";
 import { useEffect, useState } from "react";
 import { ValueEditorProps, ValueEditorType } from "react-querybuilder";
@@ -28,6 +29,7 @@ export function ValueEditor({
 	type,
 	context,
 }: ValueEditorProps & { context?: CELValueEditorContext }) {
+	const t = useT();
 	// Compute all conditions upfront before any early returns
 	const isArrayOperator = operator === "in" || operator === "notIn";
 	const isRegexOperator = operator === "matches";
@@ -123,7 +125,7 @@ export function ValueEditor({
 				<ModelMultiselect
 					value={selectedModels}
 					onChange={handleMultiModelChange}
-					placeholder="Select models..."
+					placeholder={t("routing.celBuilder.selectModels")}
 					loadModelsOnEmptyProvider
 					className="!min-h-9 w-[360px]"
 					menuPosition={menuPosition}
@@ -150,7 +152,7 @@ export function ValueEditor({
 			<ModelMultiselect
 				value={valueToUse || ""}
 				onChange={handleOnChange}
-				placeholder="Search for a model..."
+				placeholder={t("routing.celBuilder.searchModel")}
 				isSingleSelect
 				clearable={true}
 				loadModelsOnEmptyProvider
@@ -207,7 +209,7 @@ export function ValueEditor({
 					defaultOptions={allOptions}
 					isNonAsync={true}
 					isClearable={false}
-					placeholder="Select providers..."
+					placeholder={t("routing.celBuilder.selectProviders")}
 					className="w-[360px]"
 					triggerClassName="!shadow-none !border-border h-10"
 					menuClassName="!z-[100] w-full cursor-pointer"
@@ -227,7 +229,7 @@ export function ValueEditor({
 							<span>{getProviderLabel(value)}</span>
 						</div>
 					) : (
-						<SelectValue placeholder={fieldData.placeholder || "Select..."} />
+						<SelectValue placeholder={fieldData.placeholder || t("routing.celBuilder.select")} />
 					)}
 				</SelectTrigger>
 				<SelectContent>
@@ -265,7 +267,7 @@ export function ValueEditor({
 				type="text"
 				value={keyValuePair.value}
 				onChange={(e) => handleKeyValueValueChange(e.target.value)}
-				placeholder="Value"
+				placeholder={t("routing.celBuilder.value")}
 				className="w-[180px]"
 				data-testid="cel-builder-keyvalue-value-input"
 			/>
@@ -273,10 +275,10 @@ export function ValueEditor({
 	}
 
 	const placeholder = isArrayOperator
-		? "Enter comma-separated values or JSON array"
+		? t("routing.celBuilder.enterValuesCommaOrJson")
 		: isRegexOperator
-			? "e.g., .* (any), openai|anthropic (multiple), ^gpt.* (prefix)"
-			: fieldData?.placeholder || "Enter value...";
+			? t("routing.celBuilder.regexValuePlaceholder")
+			: fieldData?.placeholder || t("routing.celBuilder.enterValue");
 
 	// Use textarea for array inputs
 	if (isArrayOperator) {

@@ -22,6 +22,8 @@ import { getErrorMessage, useDeleteModelConfigMutation } from "@/lib/store";
 import { ModelConfig } from "@/lib/types/governance";
 import { cn } from "@/lib/utils";
 import { formatCurrency } from "@/lib/utils/governance";
+import { useT } from "@/lib/i18n";
+import { useNavTitle } from "@/lib/i18n/useNavTitle";
 import { RbacOperation, RbacResource, useRbac } from "@enterprise/lib";
 import { ChevronLeft, ChevronRight, Edit, MoreHorizontal, Plus, Search, Trash2 } from "lucide-react";
 import { useMemo, useState } from "react";
@@ -122,6 +124,8 @@ export default function ModelLimitsTable({
 	limit,
 	onOffsetChange,
 }: ModelLimitsTableProps) {
+	const t = useT();
+	const pageTitle = useNavTitle("budgetsLimits");
 	const [showModelLimitSheet, setShowModelLimitSheet] = useState(false);
 	const [editingModelConfigId, setEditingModelConfigId] = useState<string | null>(null);
 	const [deleteModelConfigId, setDeleteModelConfigId] = useState<string | null>(null);
@@ -145,7 +149,7 @@ export default function ModelLimitsTable({
 	const handleDelete = async (id: string) => {
 		try {
 			await deleteModelConfig(id).unwrap();
-			toast.success("Model limit deleted successfully");
+			toast.success(t("modelLimits.deletedSuccess"));
 			setDeleteModelConfigId(null);
 		} catch (error) {
 			toast.error(getErrorMessage(error));
@@ -189,23 +193,24 @@ export default function ModelLimitsTable({
 			<AlertDialog open={!!deletingModelConfig} onOpenChange={(open) => !open && setDeleteModelConfigId(null)}>
 				<AlertDialogContent>
 					<AlertDialogHeader>
-						<AlertDialogTitle>Delete Model Limit</AlertDialogTitle>
+						<AlertDialogTitle>{t("modelLimits.deleteDialog.title")}</AlertDialogTitle>
 						<AlertDialogDescription>
-							Are you sure you want to delete the limit for &quot;
-							{deletingModelConfig?.model_name && deletingModelConfig.model_name.length > 30
-								? `${deletingModelConfig.model_name.slice(0, 30)}...`
-								: deletingModelConfig?.model_name}
-							&quot;? This action cannot be undone.
+							{t("modelLimits.deleteDialog.description", {
+								name:
+									deletingModelConfig?.model_name && deletingModelConfig.model_name.length > 30
+										? `${deletingModelConfig.model_name.slice(0, 30)}...`
+										: (deletingModelConfig?.model_name ?? ""),
+							})}
 						</AlertDialogDescription>
 					</AlertDialogHeader>
 					<AlertDialogFooter>
-						<AlertDialogCancel>Cancel</AlertDialogCancel>
+						<AlertDialogCancel>{t("common.actions.cancel")}</AlertDialogCancel>
 						<AlertDialogAction
 							onClick={() => deletingModelConfig && handleDelete(deletingModelConfig.id)}
 							disabled={isDeleting}
 							className="bg-red-600 hover:bg-red-700"
 						>
-							{isDeleting ? "Deleting..." : "Delete"}
+							{isDeleting ? t("common.actions.deleting") : t("common.actions.delete")}
 						</AlertDialogAction>
 					</AlertDialogFooter>
 				</AlertDialogContent>
@@ -214,14 +219,12 @@ export default function ModelLimitsTable({
 			<div className="space-y-4">
 				<div className="flex items-center justify-between">
 					<div>
-						<h1 className="text-lg font-semibold">Model Limits</h1>
-						<p className="text-muted-foreground text-sm">
-							Configure budgets and rate limits at the model level. For provider-specific limits, visit each provider&apos;s settings.
-						</p>
+						<h1 className="text-lg font-semibold">{pageTitle}</h1>
+						<p className="text-muted-foreground text-sm">{t("modelLimits.description")}</p>
 					</div>
 					<Button onClick={handleAddModelLimit} disabled={!hasCreateAccess} data-testid="model-limits-button-create">
 						<Plus className="h-4 w-4" />
-						Add Model Limit
+						{t("modelLimits.addModelLimit")}
 					</Button>
 				</div>
 
@@ -230,8 +233,8 @@ export default function ModelLimitsTable({
 					<div className="relative max-w-sm flex-1">
 						<Search className="text-muted-foreground absolute top-1/2 left-3 h-4 w-4 -translate-y-1/2" />
 						<Input
-							aria-label="Search model limits by model name"
-							placeholder="Search by model name..."
+							aria-label={t("modelLimits.searchAria")}
+							placeholder={t("modelLimits.searchPlaceholder")}
 							value={search}
 							onChange={(e) => onSearchChange(e.target.value)}
 							className="pl-9"
@@ -244,9 +247,9 @@ export default function ModelLimitsTable({
 					<Table>
 						<TableHeader>
 							<TableRow className="hover:bg-transparent">
-								<TableHead className="font-medium">Model</TableHead>
-								<TableHead className="font-medium">Provider</TableHead>
-								<TableHead className="font-medium">Budget</TableHead>
+								<TableHead className="font-medium">{t("tables.model")}</TableHead>
+								<TableHead className="font-medium">{t("tables.provider")}</TableHead>
+								<TableHead className="font-medium">{t("governanceShared.budget")}</TableHead>
 								<TableHead className="font-medium">Rate Limit</TableHead>
 								<TableHead className="w-[100px]"></TableHead>
 							</TableRow>
@@ -341,7 +344,7 @@ export default function ModelLimitsTable({
 																	{formatCurrency(config.budget.current_usage)} / {formatCurrency(config.budget.max_limit)}
 																</p>
 																<p className="text-primary-foreground/80 text-xs">
-																	Resets {formatResetDuration(config.budget.reset_duration)}
+																	{t("governanceShared.resets", { duration: formatResetDuration(config.budget.reset_duration) })}
 																</p>
 															</TooltipContent>
 														</Tooltip>
@@ -383,7 +386,9 @@ export default function ModelLimitsTable({
 																			{config.rate_limit.token_max_limit.toLocaleString()} tokens
 																		</p>
 																		<p className="text-primary-foreground/80 text-xs">
-																			Resets {formatResetDuration(config.rate_limit.token_reset_duration || "1h")}
+																			{t("governanceShared.resets", {
+																				duration: formatResetDuration(config.rate_limit.token_reset_duration || "1h"),
+																			})}
 																		</p>
 																	</TooltipContent>
 																</Tooltip>
@@ -419,7 +424,9 @@ export default function ModelLimitsTable({
 																			{config.rate_limit.request_max_limit.toLocaleString()} requests
 																		</p>
 																		<p className="text-primary-foreground/80 text-xs">
-																			Resets {formatResetDuration(config.rate_limit.request_reset_duration || "1h")}
+																			{t("governanceShared.resets", {
+																				duration: formatResetDuration(config.rate_limit.request_reset_duration || "1h"),
+																			})}
 																		</p>
 																	</TooltipContent>
 																</Tooltip>

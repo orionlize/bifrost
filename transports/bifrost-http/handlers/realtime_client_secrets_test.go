@@ -343,6 +343,10 @@ func (m *mockRealtimeMintingGovernancePlugin) GetUserGroupUsage(_ context.Contex
 	return nil
 }
 
+func (m *mockRealtimeMintingGovernancePlugin) ResetUserGroupMemberUsage(_ context.Context, _, _ string) error {
+	return nil
+}
+
 func TestRealtimeClientSecretsEvaluateMintingGovernance_RequiresAccess(t *testing.T) {
 	t.Parallel()
 

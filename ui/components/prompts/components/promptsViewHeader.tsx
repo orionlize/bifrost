@@ -16,8 +16,10 @@ import { useCallback, useRef, useState } from "react";
 import { useHotkeys } from "react-hotkeys-hook";
 import { toast } from "sonner";
 import { usePromptContext } from "../context";
+import { useT } from "@/lib/i18n";
 
 export default function PromptsViewHeader() {
+	const t = useT();
 	const {
 		selectedPrompt,
 		messages,
@@ -96,9 +98,9 @@ export default function PromptsViewHeader() {
 				},
 			}).unwrap();
 			setUrlState({ sessionId: result.session.id, versionId: null });
-			toast.success("Session saved");
+			toast.success(t("prompts.sessionSaved"));
 		} catch (err) {
-			toast.error("Failed to save session", { description: getErrorMessage(err) });
+			toast.error(t("prompts.sessionSaveFailed"), { description: getErrorMessage(err) });
 		}
 	}, [selectedPrompt?.id, messages, buildSaveParams, provider, model, variables, createSession, setUrlState, hasChanges, isStreaming]);
 
@@ -138,7 +140,7 @@ export default function PromptsViewHeader() {
 			setUrlState({ sessionId: result.session.id, versionId: null });
 			onSessionSaved(result.session);
 		} catch (err) {
-			toast.error("Failed to save session", { description: getErrorMessage(err) });
+			toast.error(t("prompts.sessionSaveFailed"), { description: getErrorMessage(err) });
 		}
 	}, [selectedPrompt?.id, messages, buildSaveParams, provider, model, variables, createSession, setUrlState, onSessionSaved, hasChanges]);
 
@@ -148,7 +150,7 @@ export default function PromptsViewHeader() {
 			try {
 				await renameSession({ id: sessionId, promptId: selectedPrompt.id, data: { name } }).unwrap();
 			} catch (err) {
-				toast.error("Failed to rename session", { description: getErrorMessage(err) });
+				toast.error(t("prompts.sessionRenameFailed"), { description: getErrorMessage(err) });
 			}
 		},
 		[selectedPrompt?.id, renameSession],
@@ -171,7 +173,7 @@ export default function PromptsViewHeader() {
 		<div className="flex items-center justify-between border-b px-4 py-3">
 			<div className="flex min-w-0 items-center gap-2">
 				<h3 className="truncate font-semibold">
-					{selectedPrompt?.name || "Playground"}
+					{selectedPrompt?.name || t("prompts.playground")}
 					{hasChanges && <span className="text-destructive ml-1">*</span>}
 				</h3>
 				{displayVersion && <Badge variant={"secondary"}>v{displayVersion.version_number}</Badge>}
@@ -194,7 +196,7 @@ export default function PromptsViewHeader() {
 						onOpenChange: setSessionsOpen,
 						children: (
 							<Command>
-								<CommandInput placeholder="Search sessions..." data-testid="header-sessions-search" />
+								<CommandInput placeholder={t("prompts.searchSessions")} data-testid="header-sessions-search" />
 								<CommandList>
 									<CommandEmpty>No sessions found.</CommandEmpty>
 									<CommandGroup>
@@ -251,7 +253,7 @@ export default function PromptsViewHeader() {
 													v{version.version_number}
 													{version.is_latest && <span className="text-primary ml-1.5 text-xs">(latest)</span>}
 												</span>
-												<span className="text-muted-foreground truncate text-xs">{version.commit_message || "No commit message"}</span>
+												<span className="text-muted-foreground truncate text-xs">{version.commit_message || t("prompts.noCommitMessage")}</span>
 												<span className="text-muted-foreground text-xs">{formatSessionDate(version.created_at)}</span>
 											</div>
 											{selectedVersionId === version.id && <Check className="text-primary h-4 w-4 shrink-0" />}
@@ -301,6 +303,7 @@ function SessionItem({
 	onSelect: () => void;
 	onRename: (name: string) => void;
 }) {
+	const t = useT();
 	const [isEditing, setIsEditing] = useState(false);
 	const inputRef = useRef<HTMLInputElement>(null);
 
@@ -322,7 +325,7 @@ function SessionItem({
 				<Input
 					ref={inputRef}
 					defaultValue={session.name}
-					placeholder="Session name"
+					placeholder={t("prompts.sessionNamePlaceholder")}
 					className="h-auto border-none bg-transparent p-0 text-sm shadow-none focus-visible:border-none focus-visible:ring-0"
 					data-testid="session-rename-input"
 					autoFocus
@@ -351,7 +354,7 @@ function SessionItem({
 			<div className="flex shrink-0 items-center gap-1">
 				<button
 					type="button"
-					aria-label="Rename session"
+					aria-label={t("prompts.renameSession")}
 					data-testid="session-rename"
 					onPointerDown={(e) => {
 						e.preventDefault();

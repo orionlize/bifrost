@@ -1,6 +1,8 @@
 import FullPageLoader from "@/components/fullPageLoader";
 import { Badge } from "@/components/ui/badge";
 import { IS_ENTERPRISE } from "@/lib/constants/config";
+import { useT } from "@/lib/i18n";
+import type { TranslateFn } from "@/lib/i18n";
 import { setSelectedPlugin, useAppDispatch, useGetPluginsQuery } from "@/lib/store";
 import { cn } from "@/lib/utils";
 import { useTheme } from "next-themes";
@@ -25,10 +27,10 @@ type SupportedPlatform = {
 
 const ENTERPRISE_CONNECTOR_IDS = new Set(["datadog", "bigquery", "kafka", "pubsub"]);
 
-const supportedPlatformsList = (resolvedTheme: string): SupportedPlatform[] => [
+const supportedPlatformsList = (resolvedTheme: string, t: TranslateFn): SupportedPlatform[] => [
 	{
 		id: "otel",
-		name: "Open Telemetry",
+		name: t("observabilityConnectors.platforms.otel"),
 		icon: (
 			<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 128 128" width={21} height={21}>
 				<path
@@ -44,37 +46,37 @@ const supportedPlatformsList = (resolvedTheme: string): SupportedPlatform[] => [
 	},
 	{
 		id: "prometheus",
-		name: "Prometheus",
+		name: t("observabilityConnectors.platforms.prometheus"),
 		icon: <img alt="Prometheus" src="/images/prometheus-logo.svg" width={21} height={21} className="-ml-0.5" />,
 	},
 	{
 		id: "maxim",
-		name: "Maxim",
+		name: t("observabilityConnectors.platforms.maxim"),
 		icon: <img alt="Maxim" src={`/maxim-logo${resolvedTheme === "dark" ? "-dark" : ""}.webp`} width={19} height={19} />,
 	},
 	{
 		id: "datadog",
-		name: "Datadog",
+		name: t("observabilityConnectors.platforms.datadog"),
 		icon: <img alt="Datadog" src="/images/datadog-logo.webp" width={32} height={32} className="-ml-0.5" />,
 	},
 	{
 		id: "bigquery",
-		name: "BigQuery",
+		name: t("observabilityConnectors.platforms.bigquery"),
 		icon: <img alt="BigQuery" src="/images/bigquery-logo.svg" width={21} height={21} className="-ml-0.5" />,
 	},
 	{
 		id: "kafka",
-		name: "Kafka",
+		name: t("observabilityConnectors.platforms.kafka"),
 		icon: <img alt="Kafka" src="/images/kafka-logo.svg" width={21} height={21} className="-ml-0.5" />,
 	},
 	{
 		id: "pubsub",
-		name: "Pub/Sub",
+		name: t("observabilityConnectors.platforms.pubsub"),
 		icon: <img alt="Pub/Sub" src="/images/pubsub-logo.svg" width={21} height={21} className="-ml-0.5" />,
 	},
 	{
 		id: "newrelic",
-		name: "New Relic",
+		name: t("observabilityConnectors.platforms.newrelic"),
 		icon: (
 			<svg viewBox="0 0 832.8 959.8" xmlns="http://www.w3.org/2000/svg" width="19" height="19">
 				<path d="M672.6 332.3l160.2-92.4v480L416.4 959.8V775.2l256.2-147.6z" fill="#00ac69" />
@@ -87,18 +89,19 @@ const supportedPlatformsList = (resolvedTheme: string): SupportedPlatform[] => [
 ];
 
 export default function ObservabilityView() {
+	const t = useT();
 	const dispatch = useAppDispatch();
 	const { data: plugins, isLoading } = useGetPluginsQuery();
 	const [selectedPluginId, setSelectedPluginId] = useQueryState("plugin");
 	const { resolvedTheme } = useTheme();
 
 	const supportedPlatforms = useMemo(() => {
-		const platforms = supportedPlatformsList(resolvedTheme || "light");
+		const platforms = supportedPlatformsList(resolvedTheme || "light", t);
 		if (IS_ENTERPRISE) {
 			return platforms;
 		}
 		return platforms.filter((platform) => !ENTERPRISE_CONNECTOR_IDS.has(platform.id));
-	}, [resolvedTheme]);
+	}, [resolvedTheme, t]);
 
 	// Map UI tab IDs to actual plugin names (prometheus tab uses telemetry plugin)
 	const getPluginNameForTab = (tabId: string) => (tabId === "prometheus" ? "telemetry" : tabId);
@@ -147,7 +150,7 @@ export default function ObservabilityView() {
 				<div className="flex w-[270px] flex-col gap-2 pb-10">
 					<div className="rounded-md bg-zinc-100/10 p-4 dark:bg-zinc-800/20">
 						<div className="flex flex-col gap-1">
-							<div className="text-muted-foreground mb-2 text-xs font-medium">Providers</div>
+							<div className="text-muted-foreground mb-2 text-xs font-medium">{t("observabilityConnectors.providersLabel")}</div>
 							{supportedPlatforms.map((tab) => (
 								<button
 									type="button"
@@ -180,7 +183,7 @@ export default function ObservabilityView() {
 									)}
 									{tab.disabled && (
 										<Badge variant="secondary" className="text-muted-foreground ml-auto text-[10px] font-medium">
-											{"Coming soon".toUpperCase()}
+											{t("observabilityConnectors.comingSoon").toUpperCase()}
 										</Badge>
 									)}
 								</button>

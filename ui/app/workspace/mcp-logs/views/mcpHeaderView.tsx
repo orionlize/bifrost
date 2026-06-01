@@ -2,10 +2,12 @@ import { ColumnConfigDropdown, type ColumnConfigEntry } from "@/components/table
 import { Button } from "@/components/ui/button";
 import { DateTimePickerWithRange } from "@/components/ui/datePickerWithRange";
 import { Input } from "@/components/ui/input";
+import { useT } from "@/lib/i18n";
 import type { MCPToolLogFilters } from "@/lib/types/logs";
-import { getRangeForPeriod, TIME_PERIODS } from "@/lib/utils/timeRange";
+import { getLocalizedTimePeriods } from "@/lib/i18n/timePeriods";
+import { getRangeForPeriod } from "@/lib/utils/timeRange";
 import { Radio, RefreshCw, Search } from "lucide-react";
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 
 interface McpHeaderViewProps {
 	filters: MCPToolLogFilters;
@@ -37,6 +39,8 @@ export function McpHeaderView({
 	onToggleColumnVisibility,
 	onResetColumns,
 }: McpHeaderViewProps) {
+	const t = useT();
+	const timePeriods = useMemo(() => getLocalizedTimePeriods(t), [t]);
 	const [localSearch, setLocalSearch] = useState(filters.content_search || "");
 	const [startTime, setStartTime] = useState<Date | undefined>(filters.start_time ? new Date(filters.start_time) : undefined);
 	const [endTime, setEndTime] = useState<Date | undefined>(filters.end_time ? new Date(filters.end_time) : undefined);
@@ -81,7 +85,7 @@ export function McpHeaderView({
 				data-testid="mcp-logs-header-refresh-btn"
 			>
 				<RefreshCw className={`h-4 w-4 ${loading ? "animate-spin" : ""}`} />
-				Refresh
+				{t("logs.refresh")}
 			</Button>
 			<Button
 				variant={polling ? "default" : "outline"}
@@ -91,14 +95,14 @@ export function McpHeaderView({
 				data-testid="mcp-logs-header-live-btn"
 			>
 				{polling ? <Radio className="h-4 w-4 animate-pulse" /> : <Radio className="h-4 w-4" />}
-				Live
+				{t("logs.live")}
 			</Button>
 			<div className="border-input flex h-7.5 flex-1 items-center gap-2 rounded-sm border">
 				<Search className="mr-0.5 ml-2 size-4" />
 				<Input
 					type="text"
 					className="!h-7 rounded-tl-none rounded-tr-sm rounded-br-sm rounded-bl-none border-none bg-slate-50 shadow-none outline-none focus-visible:ring-0 dark:bg-zinc-900"
-					placeholder="Search MCP logs"
+					placeholder={t("logs.searchMcp")}
 					value={localSearch}
 					onChange={(e) => handleSearchChange(e.target.value)}
 				/>
@@ -111,7 +115,7 @@ export function McpHeaderView({
 					setEndTime(p.to);
 					onPeriodChange(undefined, p.from, p.to);
 				}}
-				preDefinedPeriods={TIME_PERIODS}
+				preDefinedPeriods={timePeriods}
 				onPredefinedPeriodChange={(periodValue) => {
 					if (!periodValue) return;
 					const { from, to } = getRangeForPeriod(periodValue);

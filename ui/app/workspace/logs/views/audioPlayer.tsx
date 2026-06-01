@@ -1,4 +1,5 @@
 import { Button } from "@/components/ui/button";
+import { useT } from "@/lib/i18n";
 import { Pause, Play, Download } from "lucide-react";
 import { useState } from "react";
 
@@ -8,6 +9,7 @@ interface AudioPlayerProps {
 }
 
 const AudioPlayer = ({ src, format }: AudioPlayerProps) => {
+	const t = useT();
 	const [isPlaying, setIsPlaying] = useState(false);
 	const [audio] = useState<HTMLAudioElement | null>(typeof window !== "undefined" ? new Audio() : null);
 	const [error, setError] = useState<string | null>(null);
@@ -86,7 +88,7 @@ const AudioPlayer = ({ src, format }: AudioPlayerProps) => {
 			});
 		} catch (err) {
 			console.error("Failed to decode audio data:", err);
-			setError("Failed to decode audio data. The audio file may be corrupted.");
+			setError(t("logsMedia.decodeFailed"));
 			return null;
 		}
 	};
@@ -105,7 +107,7 @@ const AudioPlayer = ({ src, format }: AudioPlayerProps) => {
 			audio.src = audioUrl;
 			audio.play().catch((err) => {
 				console.error("Failed to play audio:", err);
-				setError("Failed to play audio. Please try again.");
+				setError(t("logsMedia.playFailed"));
 				setIsPlaying(false);
 			});
 			setIsPlaying(true);
@@ -151,12 +153,12 @@ const AudioPlayer = ({ src, format }: AudioPlayerProps) => {
 			<div className="flex items-center gap-2">
 				<Button onClick={handlePlayPause} variant="outline" size="sm" className="flex items-center gap-2" disabled={!!error}>
 					{isPlaying ? <Pause className="h-4 w-4" /> : <Play className="h-4 w-4" />}
-					{isPlaying ? "Pause" : "Play"}
+					{isPlaying ? t("logsMedia.pause") : t("logsMedia.play")}
 				</Button>
 
 				<Button onClick={handleDownload} variant="outline" size="sm" className="flex items-center gap-2" disabled={!!error}>
 					<Download className="h-4 w-4" />
-					Download
+					{t("logsMedia.download")}
 				</Button>
 			</div>
 			{error && <div className="text-sm text-red-500">{error}</div>}

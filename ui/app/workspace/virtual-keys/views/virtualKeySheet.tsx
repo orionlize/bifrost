@@ -50,10 +50,11 @@ import { RbacOperation, RbacResource, useRbac } from "@enterprise/lib";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useNavigate } from "@tanstack/react-router";
 import { Info, Lock, RotateCcw, Trash2, Users, X } from "lucide-react";
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useForm } from "react-hook-form";
 import { components, MultiValueProps, OptionProps } from "react-select";
 import { toast } from "sonner";
+import { useT, type TranslateFn } from "@/lib/i18n";
 import { z } from "zod";
 
 interface VirtualKeySheetProps {
@@ -68,10 +69,11 @@ interface VirtualKeySheetProps {
 }
 
 // Provider configuration schema
+const createVirtualKeyFormSchema = (t: TranslateFn) => {
 const providerConfigSchema = z.object({
 	id: z.number().optional(),
-	provider: z.string().min(1, "Provider is required"),
-	weight: z.number().min(0, "Weight must be at least 0").max(1, "Weight must be at most 1").optional(),
+	provider: z.string().min(1, t("virtualKeys.validationProviderRequired")),
+	weight: z.number().min(0, t("virtualKeys.validationWeightMin")).max(1, t("virtualKeys.validationWeightMax")).optional(),
 	allowed_models: z.array(z.string()).optional(),
 	blacklisted_models: z.array(z.string()).optional(),
 	key_ids: z.array(z.string()).optional(), // Keys associated with this provider config
@@ -98,14 +100,14 @@ const providerConfigSchema = z.object({
 
 const mcpConfigSchema = z.object({
 	id: z.number().optional(),
-	mcp_client_name: z.string().min(1, "MCP client name is required"),
+	mcp_client_name: z.string().min(1, t("virtualKeys.validationMcpRequired")),
 	tools_to_execute: z.array(z.string()).optional(),
 });
 
 // Main form schema
 const formSchema = z
 	.object({
-		name: z.string().min(1, "User name is required"),
+		name: z.string().min(1, t("virtualKeys.validationNameRequired")),
 		description: z.string().optional(),
 		providerConfigs: z.array(providerConfigSchema).optional(),
 		mcpConfigs: z.array(mcpConfigSchema).optional(),
@@ -144,12 +146,14 @@ const formSchema = z
 			return true;
 		},
 		{
-			message: "Please select a valid team or customer when assignment type is chosen",
+			message: t("virtualKeys.validationEntity"),
 			path: ["entityType"], // This will show the error on the entityType field
 		},
 	);
+return formSchema;
+};
 
-type FormData = z.infer<typeof formSchema>;
+type FormData = z.infer<ReturnType<typeof createVirtualKeyFormSchema>>;
 type BudgetComparisonEntry = {
 	id?: string;
 	max_limit?: number;
@@ -165,6 +169,8 @@ type VirtualKeyType = {
 };
 
 export default function VirtualKeySheet({ virtualKey, teams, customers, defaultTeamId, onSave, onCancel }: VirtualKeySheetProps) {
+	const t = useT();
+	const formSchema = useMemo(() => createVirtualKeyFormSchema(t), [t]);
 	const [isOpen, setIsOpen] = useState(true);
 	const navigate = useNavigate();
 	const isEditing = !!virtualKey;
@@ -180,7 +186,7 @@ export default function VirtualKeySheet({ virtualKey, teams, customers, defaultT
 	// Team attachment: when creating from a team context (defaultTeamId provided), the entity
 	// assignment is pre-set and locked. When editing an existing VK the assignment can be changed.
 	const attachedTeamId = isEditing ? virtualKey?.team_id || "" : defaultTeamId || "";
-	const attachedTeam = attachedTeamId ? teams.find((t) => t.id === attachedTeamId) : undefined;
+	const attachedTeam = attachedTeamId ? teams.find((team) => team.id === attachedTeamId) : undefined;
 	const isTeamLocked = !isEditing && !!defaultTeamId;
 
 	const handleClose = () => {
@@ -260,21 +266,21 @@ export default function VirtualKeySheet({ virtualKey, teams, customers, defaultT
 	// Handle keys loading error
 	useEffect(() => {
 		if (keysError) {
-			toast.error(`Failed to load available keys: ${getErrorMessage(keysError)}`);
+			toast.error(t("virtualKeys.sheet.loadKeysFailed", { message: getErrorMessage(keysError) }));
 		}
 	}, [keysError]);
 
 	// Handle providers loading error
 	useEffect(() => {
 		if (providersError) {
-			toast.error(`Failed to load available providers: ${getErrorMessage(providersError)}`);
+			toast.error(t("virtualKeys.sheet.loadProvidersFailed", { message: getErrorMessage(providersError) }));
 		}
 	}, [providersError]);
 
 	// Handle mcp clients loading error
 	useEffect(() => {
 		if (mcpClientsError) {
-			toast.error(`Failed to load available MCP clients: ${getErrorMessage(mcpClientsError)}`);
+			toast.error(t("virtualKeys.sheet.loadMcpFailed", { message: getErrorMessage(mcpClientsError) }));
 		}
 	}, [mcpClientsError]);
 
@@ -328,7 +334,7 @@ export default function VirtualKeySheet({ virtualKey, teams, customers, defaultT
 	const handleAddProvider = (provider: string) => {
 		const existingConfig = providerConfigs.find((config) => config.provider === provider);
 		if (existingConfig) {
-			toast.error("This provider is already configured");
+			toast.error(t("virtualKeys.providerAlreadyConfigured"));
 			return;
 		}
 
@@ -362,7 +368,7 @@ export default function VirtualKeySheet({ virtualKey, teams, customers, defaultT
 	const handleAddMCPClient = (mcpClientName: string) => {
 		const existingConfig = mcpConfigs.find((config) => config.mcp_client_name === mcpClientName);
 		if (existingConfig) {
-			toast.error("This MCP client is already configured");
+			toast.error(t("virtualKeys.mcpAlreadyConfigured"));
 			return;
 		}
 
@@ -505,7 +511,7 @@ export default function VirtualKeySheet({ virtualKey, teams, customers, defaultT
 				const configChanged = existing.max_limit !== budget.max_limit || existing.reset_duration !== budget.reset_duration;
 				const usage = existing.current_usage ?? 0;
 				if (configChanged && usage >= budget.max_limit) {
-					return `${scopeLabel} ${budget.reset_duration} budget has ${formatBudgetAmount(usage)} usage, which meets or exceeds the new ${formatBudgetAmount(budget.max_limit)} limit.`;
+					return t("virtualKeys.sheet.budgetWarningExceeds", { scopeLabel, duration: budget.reset_duration, usage: formatBudgetAmount(usage), limit: formatBudgetAmount(budget.max_limit) });
 				}
 				reconciled.push({ ...budget, current_usage: usage });
 				continue;
@@ -525,7 +531,7 @@ export default function VirtualKeySheet({ virtualKey, teams, customers, defaultT
 			}, null);
 			const inheritedUsage = closestShorter?.current_usage ?? 0;
 			if (inheritedUsage >= budget.max_limit) {
-				return `${scopeLabel} ${budget.reset_duration} budget will inherit ${formatBudgetAmount(inheritedUsage)} from the ${closestShorter?.reset_duration} budget, which meets or exceeds the new ${formatBudgetAmount(budget.max_limit)} limit.`;
+				return t("virtualKeys.sheet.budgetWarningInherit", { scopeLabel, duration: budget.reset_duration, usage: formatBudgetAmount(inheritedUsage), sourceDuration: closestShorter?.reset_duration ?? "", limit: formatBudgetAmount(budget.max_limit) });
 			}
 			reconciled.push({ ...budget, current_usage: inheritedUsage });
 		}
@@ -538,7 +544,7 @@ export default function VirtualKeySheet({ virtualKey, teams, customers, defaultT
 			return null;
 		}
 
-		const vkWarning = findBudgetUsageWarning(data.budgets, virtualKey.budgets, "User");
+		const vkWarning = findBudgetUsageWarning(data.budgets, virtualKey.budgets, t("virtualKeys.sheet.budgetScopeUser"));
 		if (vkWarning) {
 			return vkWarning;
 		}
@@ -550,7 +556,7 @@ export default function VirtualKeySheet({ virtualKey, teams, customers, defaultT
 		for (const config of data.providerConfigs || []) {
 			const existingConfig = existingProviderConfigs.get(String(config.id ?? config.provider));
 			const providerLabel = ProviderLabels[config.provider as ProviderName] ?? config.provider;
-			const warning = findBudgetUsageWarning(config.budgets, existingConfig?.budgets, `${providerLabel} provider`);
+			const warning = findBudgetUsageWarning(config.budgets, existingConfig?.budgets, t("virtualKeys.sheet.budgetScopeProvider", { provider: providerLabel }));
 			if (warning) {
 				return warning;
 			}
@@ -607,12 +613,12 @@ export default function VirtualKeySheet({ virtualKey, teams, customers, defaultT
 	const handleRotateVirtualKey = async () => {
 		if (!virtualKey) return;
 		if (!hasUpdateAccess) {
-			toast.error("You don't have permission to perform this action");
+			toast.error(t("virtualKeys.noPermission"));
 			return;
 		}
 		try {
 			await rotateVirtualKey(virtualKey.id).unwrap();
-			toast.success("User rotated successfully");
+			toast.success(t("virtualKeys.rotated"));
 			setShowRotateWarning(false);
 			onSave();
 		} catch (error) {
@@ -622,7 +628,7 @@ export default function VirtualKeySheet({ virtualKey, teams, customers, defaultT
 
 	const submitVirtualKeyForm = async (data: FormData, resetBudgetUsage = false) => {
 		if (!canSubmit) {
-			toast.error("You don't have permission to perform this action");
+			toast.error(t("virtualKeys.noPermission"));
 			return;
 		}
 		try {
@@ -635,7 +641,7 @@ export default function VirtualKeySheet({ virtualKey, teams, customers, defaultT
 						description: data.description,
 					},
 				}).unwrap();
-				toast.success("User updated");
+				toast.success(t("virtualKeys.updated"));
 				onSave();
 				return;
 			}
@@ -689,7 +695,7 @@ export default function VirtualKeySheet({ virtualKey, teams, customers, defaultT
 					vkId: virtualKey.id,
 					data: updateData,
 				}).unwrap();
-				toast.success("User updated successfully");
+				toast.success(t("virtualKeys.updatedSuccess"));
 			} else {
 				// Create new virtual key
 				const createData: CreateVirtualKeyRequest = {
@@ -725,7 +731,7 @@ export default function VirtualKeySheet({ virtualKey, teams, customers, defaultT
 				}
 
 				await createVirtualKey(createData).unwrap();
-				toast.success("User created successfully");
+				toast.success(t("virtualKeys.createdSuccess"));
 			}
 
 			onSave();
@@ -764,11 +770,11 @@ export default function VirtualKeySheet({ virtualKey, teams, customers, defaultT
 				onEscapeKeyDown={() => handleClose()}
 			>
 				<SheetHeader className="flex flex-col items-start px-8 py-4" headerClassName="mb-0 sticky -top-4 bg-card z-10">
-					<SheetTitle className="flex items-center gap-2">{isEditing ? virtualKey?.name : "Create User"}</SheetTitle>
+					<SheetTitle className="flex items-center gap-2">{isEditing ? virtualKey?.name : t("virtualKeys.createTitle")}</SheetTitle>
 					<SheetDescription>
 						{isEditing
-							? "Update the user configuration and permissions."
-							: "Create a new user with specific permissions, budgets, and rate limits."}
+							? t("virtualKeys.editDescription")
+							: t("virtualKeys.createDescription")}
 					</SheetDescription>
 				</SheetHeader>
 
@@ -778,10 +784,7 @@ export default function VirtualKeySheet({ virtualKey, teams, customers, defaultT
 							{isManagedByProfile && (
 								<Alert variant="info">
 									<Lock className="h-4 w-4" />
-									<AlertDescription>
-										This user is managed by an access profile. Only the name and description can be modified — providers, budgets, rate
-										limits, and MCP access are controlled by the profile.
-									</AlertDescription>
+									<AlertDescription>{t("virtualKeys.sheet.managedAlert")}</AlertDescription>
 								</Alert>
 							)}
 
@@ -789,8 +792,7 @@ export default function VirtualKeySheet({ virtualKey, teams, customers, defaultT
 								<Alert variant="info">
 									<Users className="h-4 w-4" />
 									<AlertDescription>
-										Creating this user under team <span className="font-medium">{attachedTeam?.name ?? attachedTeamId}</span>. Team
-										assignment is pre-set — all other fields are editable.
+										{t("virtualKeys.sheet.teamLockedAlert", { team: attachedTeam?.name ?? attachedTeamId })}
 									</AlertDescription>
 								</Alert>
 							)}
@@ -798,7 +800,7 @@ export default function VirtualKeySheet({ virtualKey, teams, customers, defaultT
 							{/* Assigned User */}
 							{assignedUsers.length > 0 && (
 								<div className="space-y-1">
-									<Label className="text-sm font-medium">Assigned To</Label>
+									<Label className="text-sm font-medium">{t("virtualKeys.assignedTo")}</Label>
 									<div className="flex items-center gap-2">
 										<Users className="text-muted-foreground h-4 w-4" />
 										<span className="text-sm">{assignedUsers.map((u) => u.name || u.email).join(", ")}</span>
@@ -813,9 +815,9 @@ export default function VirtualKeySheet({ virtualKey, teams, customers, defaultT
 									name="name"
 									render={({ field }) => (
 										<FormItem>
-											<FormLabel>Name *</FormLabel>
+											<FormLabel>{t("virtualKeys.sheet.nameLabel")}</FormLabel>
 											<FormControl>
-												<Input placeholder="e.g., Production API Key" data-testid="vk-name-input" {...field} />
+												<Input placeholder={t("virtualKeys.sheet.namePlaceholder")} data-testid="vk-name-input" {...field} />
 											</FormControl>
 											<FormMessage />
 										</FormItem>
@@ -827,9 +829,9 @@ export default function VirtualKeySheet({ virtualKey, teams, customers, defaultT
 									name="description"
 									render={({ field }) => (
 										<FormItem>
-											<FormLabel>Description</FormLabel>
+											<FormLabel>{t("virtualKeys.sheet.descriptionLabel")}</FormLabel>
 											<FormControl>
-												<Textarea placeholder="This key is used for..." data-testid="vk-description-input" {...field} rows={3} />
+												<Textarea placeholder={t("virtualKeys.sheet.descriptionPlaceholder")} data-testid="vk-description-input" {...field} rows={3} />
 											</FormControl>
 											<FormMessage />
 										</FormItem>
@@ -848,7 +850,7 @@ export default function VirtualKeySheet({ virtualKey, teams, customers, defaultT
 										name="isActive"
 										render={({ field }) => (
 											<FormItem>
-												<Toggle label="Is this key active?" val={field.value} setVal={field.onChange} data-testid="vk-is-active-toggle" />
+												<Toggle label={t("virtualKeys.sheet.isActiveLabel")} val={field.value} setVal={field.onChange} data-testid="vk-is-active-toggle" />
 											</FormItem>
 										)}
 									/>
@@ -856,7 +858,7 @@ export default function VirtualKeySheet({ virtualKey, teams, customers, defaultT
 								{/* Provider Configurations */}
 								<div className="space-y-2">
 									<div className="flex items-center gap-2">
-										<Label className="text-sm font-medium">Provider Configurations</Label>
+										<Label className="text-sm font-medium">{t("virtualKeys.sheet.providerConfigs")}</Label>
 										<TooltipProvider>
 											<Tooltip>
 												<TooltipTrigger asChild>
@@ -865,10 +867,7 @@ export default function VirtualKeySheet({ virtualKey, teams, customers, defaultT
 													</span>
 												</TooltipTrigger>
 												<TooltipContent>
-													<p>
-														Configure which providers this user can use and their specific settings. Leave empty to block all providers. Add
-														providers to allow them.
-													</p>
+													<p>{t("virtualKeys.sheet.providerTooltip")}</p>
 												</TooltipContent>
 											</Tooltip>
 										</TooltipProvider>
@@ -889,7 +888,7 @@ export default function VirtualKeySheet({ virtualKey, teams, customers, defaultT
 											}}
 										>
 											<SelectTrigger className="flex-1" data-testid="vk-provider-select">
-												<SelectValue placeholder="Select a provider to add" />
+												<SelectValue placeholder={t("virtualKeys.sheet.selectProvider")} />
 											</SelectTrigger>
 											<SelectContent>
 												{(() => {
@@ -906,7 +905,8 @@ export default function VirtualKeySheet({ virtualKey, teams, customers, defaultT
 																data-testid="vk-provider-config-link"
 															>
 																<span>
-																	No providers left to configure. <span className="text-primary font-medium underline">Click to add</span>
+																	{t("virtualKeys.sheet.noProvidersLeft")}{" "}
+																	<span className="text-primary font-medium underline">{t("virtualKeys.sheet.clickToAdd")}</span>
 																</span>
 															</SelectItem>
 														);
@@ -974,7 +974,7 @@ export default function VirtualKeySheet({ virtualKey, teams, customers, defaultT
 																		type="button"
 																		variant="ghost"
 																		size="icon"
-																		aria-label={`Remove ${config.provider} provider`}
+																		aria-label={t("virtualKeys.sheet.removeProviderAria", { provider: config.provider })}
 																		className="hover:bg-accent/50 h-8 w-8 rounded-sm p-2"
 																		data-testid={`vk-delete-provider-${index}`}
 																		onClick={(e) => {
@@ -991,9 +991,9 @@ export default function VirtualKeySheet({ virtualKey, teams, customers, defaultT
 																	<div className="w-1/4">
 																		<NumberAndSelect
 																			id={`vk-weight-${index}`}
-																			label="Weight"
+																			label={t("virtualKeys.sheet.weight")}
 																			labelClassName="text-sm font-medium"
-																			placeholder="Exclude from routing"
+																			placeholder={t("virtualKeys.sheet.excludeFromRouting")}
 																			inputClassName="h-[38px] w-full"
 																			dataTestId={`vk-weight-input-${index}`}
 																			value={config.weight}
@@ -1002,7 +1002,8 @@ export default function VirtualKeySheet({ virtualKey, teams, customers, defaultT
 																	</div>
 																	<div className="w-3/4 space-y-2">
 																		<Label className="text-sm font-medium">
-																			Allowed Models <span className="text-muted-foreground ml-auto text-xs italic">type to search</span>
+																			{t("virtualKeys.sheet.allowedModels")}{" "}
+																			<span className="text-muted-foreground ml-auto text-xs italic">{t("virtualKeys.sheet.typeToSearch")}</span>
 																		</Label>
 																		{(() => {
 																			const hasWildcardModels = (config.allowed_models || []).includes("*");
@@ -1036,9 +1037,9 @@ export default function VirtualKeySheet({ virtualKey, teams, customers, defaultT
 																					}}
 																					placeholder={
 																						hasWildcardModels
-																							? "All models allowed"
+																							? t("virtualKeys.sheet.allModelsAllowed")
 																							: (config.allowed_models || []).length === 0
-																								? "No models (deny all)"
+																								? t("virtualKeys.sheet.noModelsDenyAll")
 																								: config.provider
 																									? ModelPlaceholders[config.provider as keyof typeof ModelPlaceholders] ||
 																										ModelPlaceholders.default
@@ -1048,9 +1049,7 @@ export default function VirtualKeySheet({ virtualKey, teams, customers, defaultT
 																				/>
 																			);
 																		})()}
-																		<p className="text-muted-foreground text-xs">
-																			Select specific models or choose “Allow All Models” to allow all. Leave empty to deny all.
-																		</p>
+																		<p className="text-muted-foreground text-xs">{t("virtualKeys.sheet.allowedModelsHint")}</p>
 																	</div>
 																</div>
 
@@ -1059,7 +1058,7 @@ export default function VirtualKeySheet({ virtualKey, teams, customers, defaultT
 																	<div className="w-1/4" />
 																	<div className="w-3/4 space-y-2">
 																		<div className="flex items-center gap-2">
-																			<Label className="text-sm font-medium">Blocked Models</Label>
+																			<Label className="text-sm font-medium">{t("virtualKeys.sheet.blockedModels")}</Label>
 																			<TooltipProvider>
 																				<Tooltip>
 																					<TooltipTrigger asChild>
@@ -1068,10 +1067,7 @@ export default function VirtualKeySheet({ virtualKey, teams, customers, defaultT
 																						</span>
 																					</TooltipTrigger>
 																					<TooltipContent>
-																						<p>
-																							Models this VK must never serve. The denylist wins if a model appears in both Allowed Models
-																							and Blocked Models.
-																						</p>
+																						<p>{t("virtualKeys.sheet.blockedModelsTooltip")}</p>
 																					</TooltipContent>
 																				</Tooltip>
 																			</TooltipProvider>
@@ -1108,10 +1104,10 @@ export default function VirtualKeySheet({ virtualKey, teams, customers, defaultT
 																					}}
 																					placeholder={
 																						hasWildcardBlocked
-																							? "All models blocked"
+																							? t("virtualKeys.sheet.allModelsBlocked")
 																							: (config.blacklisted_models || []).length === 0
-																								? "No models blocked"
-																								: "Search models..."
+																								? t("virtualKeys.sheet.noModelsBlocked")
+																								: t("virtualKeys.sheet.searchModels")
 																					}
 																					className="min-h-10 max-w-[500px] min-w-[200px]"
 																				/>
@@ -1127,9 +1123,9 @@ export default function VirtualKeySheet({ virtualKey, teams, customers, defaultT
 																	const hasWildcard = configKeyIds.includes("*");
 																	const allKeyOptions = [
 																		{
-																			label: "Allow All Keys",
+																			label: t("virtualKeys.sheet.allowAllKeys"),
 																			value: "*",
-																			description: "Allow all current and future keys for this provider",
+																			description: t("virtualKeys.sheet.allowAllKeysDesc"),
 																			provider: "",
 																		},
 																		...providerKeys.map((key) => ({
@@ -1137,8 +1133,8 @@ export default function VirtualKeySheet({ virtualKey, teams, customers, defaultT
 																			value: key.key_id,
 																			description:
 																				key.models == null || key.models.includes("*")
-																					? "All models"
-																					: key.models.filter((m) => m !== "*").join(", ") || "No models (deny all)",
+																					? t("virtualKeys.sheet.allModels")
+																					: key.models.filter((m) => m !== "*").join(", ") || t("virtualKeys.sheet.noModelsDenyAll"),
 																			provider: key.provider,
 																		})),
 																	];
@@ -1151,17 +1147,15 @@ export default function VirtualKeySheet({ virtualKey, teams, customers, defaultT
 																					value: key.key_id,
 																					description:
 																						key.models == null || key.models.includes("*")
-																							? "All models"
-																							: key.models.filter((m) => m !== "*").join(", ") || "No models (deny all)",
+																							? t("virtualKeys.sheet.allModels")
+																							: key.models.filter((m) => m !== "*").join(", ") || t("virtualKeys.sheet.noModelsDenyAll"),
 																					provider: key.provider,
 																				}));
 
 																	return (
 																		<div className="mx-0.5 space-y-2">
-																			<Label className="text-sm font-medium">Allowed Keys</Label>
-																			<p className="text-muted-foreground text-xs">
-																				Select specific keys or allow all. Leave empty to block all keys for this provider.
-																			</p>
+																			<Label className="text-sm font-medium">{t("virtualKeys.allowedKeys")}</Label>
+																			<p className="text-muted-foreground text-xs">{t("virtualKeys.sheet.allowedKeysHint")}</p>
 																			<AsyncMultiSelect
 																				hideSelectedOptions
 																				isNonAsync
@@ -1232,10 +1226,10 @@ export default function VirtualKeySheet({ virtualKey, teams, customers, defaultT
 																				}}
 																				placeholder={
 																					hasWildcard
-																						? "All keys allowed"
+																						? t("virtualKeys.sheet.allKeysAllowed")
 																						: configKeyIds.length === 0
-																							? "No keys selected"
-																							: "Select keys..."
+																							? t("virtualKeys.sheet.noKeysSelected")
+																							: t("virtualKeys.sheet.selectKeys")
 																				}
 																				className="hover:bg-accent w-full"
 																				menuClassName="z-[60] max-h-[300px] overflow-y-auto w-full cursor-pointer custom-scrollbar"
@@ -1249,7 +1243,7 @@ export default function VirtualKeySheet({ virtualKey, teams, customers, defaultT
 																{/* Provider Budget Configuration */}
 																<MultiBudgetLines
 																	data-testid={`vk-provider-budget-${index}`}
-																	label="Provider Budget"
+																	label={t("virtualKeys.sheet.providerBudget")}
 																	lines={
 																		config.budgets && config.budgets.length > 0
 																			? config.budgets.map((b) => ({
@@ -1277,12 +1271,12 @@ export default function VirtualKeySheet({ virtualKey, teams, customers, defaultT
 
 																{/* Provider Rate Limit Configuration */}
 																<div className="space-y-4">
-																	<Label className="text-sm font-medium">Provider Rate Limits</Label>
+																	<Label className="text-sm font-medium">{t("virtualKeys.sheet.providerRateLimits")}</Label>
 
 																	<NumberAndSelect
 																		id={`providerTokenLimit-${index}`}
 																		labelClassName="font-normal"
-																		label="Maximum Tokens"
+																		label={t("virtualKeys.sheet.maxTokens")}
 																		value={config.rate_limit?.token_max_limit}
 																		selectValue={config.rate_limit?.token_reset_duration || "1h"}
 																		onChangeNumber={(value) => {
@@ -1305,7 +1299,7 @@ export default function VirtualKeySheet({ virtualKey, teams, customers, defaultT
 																	<NumberAndSelect
 																		id={`providerRequestLimit-${index}`}
 																		labelClassName="font-normal"
-																		label="Maximum Requests"
+																		label={t("virtualKeys.sheet.maxRequests")}
 																		value={config.rate_limit?.request_max_limit}
 																		selectValue={config.rate_limit?.request_reset_duration || "1h"}
 																		onChangeNumber={(value) => {
@@ -1341,7 +1335,7 @@ export default function VirtualKeySheet({ virtualKey, teams, customers, defaultT
 								{((mcpClientsData && mcpClientsData.length > 0) || (mcpConfigs && mcpConfigs.length > 0)) && (
 									<div className="mt-6 space-y-2">
 										<div className="flex items-center gap-2">
-											<Label className="text-sm font-medium">MCP Client Configurations</Label>
+											<Label className="text-sm font-medium">{t("virtualKeys.sheet.mcpConfigs")}</Label>
 											<TooltipProvider>
 												<Tooltip>
 													<TooltipTrigger asChild>
@@ -1351,9 +1345,9 @@ export default function VirtualKeySheet({ virtualKey, teams, customers, defaultT
 													</TooltipTrigger>
 													<TooltipContent>
 														<p>
-															Configure which MCP clients this user can use and their allowed tools. Leaving this section empty blocks all
-															MCP tools. After adding an MCP client, you must select specific tools or choose{" "}
-															<span className="font-medium">Allow All Tools</span> to grant tool access.
+															{t("virtualKeys.sheet.mcpTooltip")}{" "}
+															<span className="font-medium">{t("virtualKeys.sheet.mcpTooltipAllowAll")}</span>{" "}
+															{t("virtualKeys.sheet.mcpTooltipSuffix")}
 														</p>
 													</TooltipContent>
 												</Tooltip>
@@ -1372,9 +1366,9 @@ export default function VirtualKeySheet({ virtualKey, teams, customers, defaultT
 													<div className="flex items-start gap-1.5">
 														<Info className="mt-0.5 h-3 w-3 shrink-0" />
 														<span>
-															The following MCP servers are available to this key by default with all tools enabled on that client:{" "}
-															<span className="text-foreground font-medium">{defaultMCPClients.map((c) => c.config.name).join(", ")}</span>.
-															Adding an explicit config for any of them below will override the all-tools default for this key.
+															{t("virtualKeys.sheet.defaultMcpServersHint", {
+																names: defaultMCPClients.map((c) => c.config.name).join(", "),
+															})}
 														</span>
 													</div>
 												</div>
@@ -1392,7 +1386,7 @@ export default function VirtualKeySheet({ virtualKey, teams, customers, defaultT
 													}}
 												>
 													<SelectTrigger className="flex-1">
-														<SelectValue placeholder="Select an MCP client to add" />
+														<SelectValue placeholder={t("virtualKeys.sheet.selectMcpClient")} />
 													</SelectTrigger>
 													<SelectContent>
 														{mcpClientsData.filter((client) => !mcpConfigs.some((config) => config.mcp_client_name === client.config.name))
@@ -1412,14 +1406,15 @@ export default function VirtualKeySheet({ virtualKey, teams, customers, defaultT
 																			<div className="flex items-center gap-2">
 																				{client.config.name}
 																				<span className="text-muted-foreground text-xs">
-																					({totalTools} {totalTools === 1 ? "enabled tool" : "enabled tools"})
+																					({totalTools}{" "}
+																					{totalTools === 1 ? t("virtualKeys.sheet.enabledTool") : t("virtualKeys.sheet.enabledTools")})
 																				</span>
 																			</div>
 																		</SelectItem>
 																	);
 																})
 														) : (
-															<div className="text-muted-foreground px-2 py-1.5 text-sm">All MCP clients configured</div>
+															<div className="text-muted-foreground px-2 py-1.5 text-sm">{t("virtualKeys.sheet.allMcpConfigured")}</div>
 														)}
 													</SelectContent>
 												</Select>
@@ -1432,8 +1427,8 @@ export default function VirtualKeySheet({ virtualKey, teams, customers, defaultT
 												<Table>
 													<TableHeader>
 														<TableRow>
-															<TableHead>MCP Client</TableHead>
-															<TableHead>Allowed Tools</TableHead>
+															<TableHead>{t("virtualKeys.sheet.mcpClient")}</TableHead>
+															<TableHead>{t("virtualKeys.sheet.allowedTools")}</TableHead>
 															<TableHead className="w-[50px]"></TableHead>
 														</TableRow>
 													</TableHeader>
@@ -1467,9 +1462,9 @@ export default function VirtualKeySheet({ virtualKey, teams, customers, defaultT
 																		<MultiSelect
 																			options={[
 																				{
-																					label: "Allow All Tools",
+																					label: t("virtualKeys.sheet.allowAllTools"),
 																					value: "*",
-																					description: "Allow all current and future tools",
+																					description: t("virtualKeys.sheet.allowAllToolsDesc"),
 																				},
 																				...[...availableTools, ...enabledToolsByConfig]
 																					.filter((tool, index, arr) => arr.findIndex((t) => t.name === tool.name) === index)
@@ -1499,10 +1494,10 @@ export default function VirtualKeySheet({ virtualKey, teams, customers, defaultT
 																			}}
 																			placeholder={
 																				selectedTools.length === 0
-																					? "No tools selected"
+																					? t("virtualKeys.sheet.noToolsSelected")
 																					: selectedTools.includes("*")
-																						? "All tools allowed"
-																						: "Select tools..."
+																						? t("virtualKeys.sheet.allToolsAllowed")
+																						: t("virtualKeys.sheet.selectTools")
 																			}
 																			variant="inverted"
 																			className="hover:bg-accent w-full bg-white dark:bg-zinc-800"
@@ -1536,7 +1531,7 @@ export default function VirtualKeySheet({ virtualKey, teams, customers, defaultT
 								<div className="space-y-4">
 									<MultiBudgetLines
 										data-testid="vk-budget-lines"
-										label="Budget Configuration"
+										label={t("virtualKeys.sheet.budgetConfig")}
 										lines={form.watch("budgets") ?? []}
 										onChange={(lines) => {
 											form.setValue("budgets", lines, { shouldDirty: true });
@@ -1557,15 +1552,12 @@ export default function VirtualKeySheet({ virtualKey, teams, customers, defaultT
 									>
 										<AlertDialogContent>
 											<AlertDialogHeader>
-												<AlertDialogTitle>Reassign to a different team?</AlertDialogTitle>
-												<AlertDialogDescription>
-													This key is currently assigned to another team. Reassigning it will move budget tracking to this team — future
-													requests through this key will count against this team’s budget, not the previous one.
-												</AlertDialogDescription>
+												<AlertDialogTitle>{t("virtualKeys.sheet.reassignTitle")}</AlertDialogTitle>
+												<AlertDialogDescription>{t("virtualKeys.sheet.reassignDesc")}</AlertDialogDescription>
 											</AlertDialogHeader>
 											<AlertDialogFooter>
 												<AlertDialogCancel data-testid="virtual-key-reassign-cancel" onClick={() => setPendingTeamId(null)}>
-													Cancel
+													{t("common.actions.cancel")}
 												</AlertDialogCancel>
 												<AlertDialogAction
 													data-testid="virtual-key-reassign-confirm"
@@ -1579,7 +1571,7 @@ export default function VirtualKeySheet({ virtualKey, teams, customers, defaultT
 														setShowReassignTeamWarning(false);
 													}}
 												>
-													Reassign
+													{t("virtualKeys.sheet.reassign")}
 												</AlertDialogAction>
 											</AlertDialogFooter>
 										</AlertDialogContent>
@@ -1588,7 +1580,7 @@ export default function VirtualKeySheet({ virtualKey, teams, customers, defaultT
 								{/* Rate Limiting Configuration */}
 								<div className="space-y-4">
 									<div className="flex items-center justify-between gap-2">
-										<Label className="text-sm font-medium">Rate Limiting Configuration</Label>
+										<Label className="text-sm font-medium">{t("virtualKeys.sheet.rateLimitConfig")}</Label>
 										{isEditing && (virtualKey?.rate_limit || watchedTokenMaxLimit || watchedRequestMaxLimit) && (
 											<Button
 												type="button"
@@ -1598,7 +1590,7 @@ export default function VirtualKeySheet({ virtualKey, teams, customers, defaultT
 												data-testid="vk-rate-limit-reset-button"
 											>
 												<RotateCcw className="h-4 w-4" />
-												Reset
+												{t("virtualKeys.sheet.reset")}
 											</Button>
 										)}
 									</div>
@@ -1611,7 +1603,7 @@ export default function VirtualKeySheet({ virtualKey, teams, customers, defaultT
 												<NumberAndSelect
 													id="tokenMaxLimit"
 													labelClassName="font-normal"
-													label="Maximum Tokens"
+													label={t("virtualKeys.sheet.maxTokens")}
 													value={field.value}
 													selectValue={form.watch("tokenResetDuration") || "1h"}
 													onChangeNumber={(value) => {
@@ -1637,7 +1629,7 @@ export default function VirtualKeySheet({ virtualKey, teams, customers, defaultT
 												<NumberAndSelect
 													id="requestMaxLimit"
 													labelClassName="font-normal"
-													label="Maximum Requests"
+													label={t("virtualKeys.sheet.maxRequests")}
 													value={field.value}
 													selectValue={form.watch("requestResetDuration") || "1h"}
 													onChangeNumber={(value) => {
@@ -1660,11 +1652,10 @@ export default function VirtualKeySheet({ virtualKey, teams, customers, defaultT
 									<div className="flex items-center justify-between gap-4 rounded-md border px-3 py-2">
 										<div className="space-y-0.5">
 											<Label htmlFor="vk-budget-calendar-aligned-toggle" className="text-sm font-normal">
-												Align to calendar cycle
+												{t("virtualKeys.sheet.calendarAlignLabel")}
 											</Label>
 											<p id="vk-budget-calendar-aligned-description" className="text-muted-foreground text-xs">
-												Reset budgets and rate limits at the start of each period (e.g. 1st of month) instead of rolling from creation date.
-												Applies to durations of a day or longer.
+												{t("virtualKeys.sheet.calendarAlignDesc")}
 											</p>
 										</div>
 										<Switch
@@ -1681,16 +1672,11 @@ export default function VirtualKeySheet({ virtualKey, teams, customers, defaultT
 								<AlertDialog open={showCalendarAlignWarning} onOpenChange={setShowCalendarAlignWarning}>
 									<AlertDialogContent>
 										<AlertDialogHeader>
-											<AlertDialogTitle>Reset budget and rate-limit usage?</AlertDialogTitle>
-											<AlertDialogDescription>
-												Enabling calendar alignment will reset budget usage to <span className="font-semibold">$0.00</span> and
-												token/request rate-limit counters to <span className="font-semibold">0</span> for this user, then snap each reset
-												date to the start of its current period (e.g. start of day, week, month, or year). The usage reset cannot be undone,
-												but calendar alignment can be turned off later. This will take effect when you save.
-											</AlertDialogDescription>
+											<AlertDialogTitle>{t("virtualKeys.sheet.calendarAlignTitle")}</AlertDialogTitle>
+											<AlertDialogDescription>{t("virtualKeys.sheet.calendarAlignWarning")}</AlertDialogDescription>
 										</AlertDialogHeader>
 										<AlertDialogFooter>
-											<AlertDialogCancel data-testid="vk-calendar-align-cancel-btn">Cancel</AlertDialogCancel>
+											<AlertDialogCancel data-testid="vk-calendar-align-cancel-btn">{t("common.actions.cancel")}</AlertDialogCancel>
 											<AlertDialogAction
 												data-testid="vk-calendar-align-enable-btn"
 												onClick={() => {
@@ -1700,7 +1686,7 @@ export default function VirtualKeySheet({ virtualKey, teams, customers, defaultT
 													setShowCalendarAlignWarning(false);
 												}}
 											>
-												Enable Calendar Alignment
+												{t("virtualKeys.sheet.enableCalendarAlign")}
 											</AlertDialogAction>
 										</AlertDialogFooter>
 									</AlertDialogContent>
@@ -1711,7 +1697,7 @@ export default function VirtualKeySheet({ virtualKey, teams, customers, defaultT
 
 										{/* Entity Assignment */}
 										<div className="space-y-4">
-											<Label className="text-sm font-medium">Entity Assignment</Label>
+											<Label className="text-sm font-medium">{t("virtualKeys.sheet.entityAssignment")}</Label>
 
 											<div className="grid grid-cols-1 items-center gap-2 md:grid-cols-2">
 												<FormField
@@ -1719,15 +1705,15 @@ export default function VirtualKeySheet({ virtualKey, teams, customers, defaultT
 													name="entityType"
 													render={({ field }) => (
 														<FormItem>
-															<FormLabel className="font-normal">Assignment Type</FormLabel>
+															<FormLabel className="font-normal">{t("virtualKeys.sheet.assignmentType")}</FormLabel>
 															<ComboboxSelect
 																options={[
-																	{ value: "none", label: "No Assignment" },
+																	{ value: "none", label: t("virtualKeys.sheet.noAssignment") },
 																	...(teams?.length > 0
 																		? [
 																				{
 																					value: "team",
-																					label: "Assign to Team",
+																					label: t("virtualKeys.sheet.assignToTeam"),
 																				},
 																			]
 																		: []),
@@ -1735,7 +1721,7 @@ export default function VirtualKeySheet({ virtualKey, teams, customers, defaultT
 																		? [
 																				{
 																					value: "customer",
-																					label: "Assign to Customer",
+																					label: t("virtualKeys.sheet.assignToCustomer"),
 																				},
 																			]
 																		: []),
@@ -1791,7 +1777,7 @@ export default function VirtualKeySheet({ virtualKey, teams, customers, defaultT
 														name="teamId"
 														render={({ field }) => (
 															<FormItem>
-																<FormLabel className="font-normal">Select Team</FormLabel>
+																<FormLabel className="font-normal">{t("virtualKeys.sheet.selectTeam")}</FormLabel>
 																<ComboboxSelect
 																	options={teams.map((team) => ({
 																		value: team.id,
@@ -1807,9 +1793,9 @@ export default function VirtualKeySheet({ virtualKey, teams, customers, defaultT
 																			field.onChange(newVal);
 																		}
 																	}}
-																	placeholder="Select a team"
+																	placeholder={t("virtualKeys.sheet.selectTeamPlaceholder")}
 																	disabled={isTeamLocked}
-																	emptyMessage="No teams found."
+																	emptyMessage={t("virtualKeys.sheet.noTeamsFound")}
 																	className="h-9"
 																/>
 																<FormMessage />
@@ -1824,7 +1810,7 @@ export default function VirtualKeySheet({ virtualKey, teams, customers, defaultT
 														name="customerId"
 														render={({ field }) => (
 															<FormItem>
-																<FormLabel className="font-normal">Select Customer</FormLabel>
+																<FormLabel className="font-normal">{t("virtualKeys.sheet.selectCustomer")}</FormLabel>
 																<ComboboxSelect
 																	options={customers.map((customer) => ({
 																		value: customer.id,
@@ -1832,8 +1818,8 @@ export default function VirtualKeySheet({ virtualKey, teams, customers, defaultT
 																	}))}
 																	value={field.value || null}
 																	onValueChange={(val) => field.onChange(val ?? "")}
-																	placeholder="Select a customer"
-																	emptyMessage="No customers found."
+																	placeholder={t("virtualKeys.sheet.selectCustomerPlaceholder")}
+																	emptyMessage={t("virtualKeys.sheet.noCustomersFound")}
 																	className="h-9"
 																/>
 																<FormMessage />
@@ -1850,17 +1836,15 @@ export default function VirtualKeySheet({ virtualKey, teams, customers, defaultT
 						<AlertDialog open={showRotateWarning} onOpenChange={setShowRotateWarning}>
 							<AlertDialogContent>
 								<AlertDialogHeader>
-									<AlertDialogTitle>Rotate user?</AlertDialogTitle>
+									<AlertDialogTitle>{t("virtualKeys.sheet.rotateTitle")}</AlertDialogTitle>
 									<AlertDialogDescription>
-										This will replace the secret value for &quot;
-										{virtualKey?.name}&quot;. The key ID, budgets, rate limits, provider permissions, MCP access, and assignments stay the
-										same. The previous key value will stop working immediately.
+										{t("virtualKeys.sheet.rotateDesc", { name: virtualKey?.name ?? "" })}
 									</AlertDialogDescription>
 								</AlertDialogHeader>
 								<AlertDialogFooter>
-									<AlertDialogCancel data-testid="vk-rotate-cancel-btn">Cancel</AlertDialogCancel>
+									<AlertDialogCancel data-testid="vk-rotate-cancel-btn">{t("common.actions.cancel")}</AlertDialogCancel>
 									<AlertDialogAction onClick={handleRotateVirtualKey} disabled={isRotating} data-testid="vk-rotate-confirm-btn">
-										{isRotating ? "Rotating..." : "Rotate Key"}
+										{isRotating ? t("virtualKeys.rotating") : t("virtualKeys.sheet.rotateKey")}
 									</AlertDialogAction>
 								</AlertDialogFooter>
 							</AlertDialogContent>
@@ -1868,19 +1852,23 @@ export default function VirtualKeySheet({ virtualKey, teams, customers, defaultT
 						<AlertDialog open={showBudgetResetPrompt} onOpenChange={setShowBudgetResetPrompt}>
 							<AlertDialogContent data-testid="vk-budget-reset-dialog">
 								<AlertDialogHeader>
-									<AlertDialogTitle>{pendingBudgetUsageWarning ? "Preserve over-limit usage?" : "Reset budget usage?"}</AlertDialogTitle>
+									<AlertDialogTitle>
+										{pendingBudgetUsageWarning
+											? t("virtualKeys.sheet.budgetPreserveTitle")
+											: t("virtualKeys.sheet.budgetResetTitle")}
+									</AlertDialogTitle>
 									<AlertDialogDescription>
 										{pendingBudgetUsageWarning
-											? `${pendingBudgetUsageWarning} You can preserve usage anyway, or reset usage to 0.`
-											: "You changed a budget amount, reset frequency, or calendar alignment. Reset current budget usage to 0, or preserve the existing usage counters."}
+											? `${pendingBudgetUsageWarning}${t("virtualKeys.sheet.budgetPreserveSuffix")}`
+											: t("virtualKeys.sheet.budgetResetDesc")}
 									</AlertDialogDescription>
 								</AlertDialogHeader>
 								<AlertDialogFooter>
 									<AlertDialogCancel onClick={() => handleBudgetResetChoice(false)} data-testid="vk-budget-reset-preserve-btn">
-										{pendingBudgetUsageWarning ? "Preserve Anyway" : "Preserve Usage"}
+										{pendingBudgetUsageWarning ? t("virtualKeys.sheet.preserveAnyway") : t("virtualKeys.sheet.preserveUsage")}
 									</AlertDialogCancel>
 									<AlertDialogAction onClick={() => handleBudgetResetChoice(true)} data-testid="vk-budget-reset-confirm-btn">
-										Reset Usage
+										{t("virtualKeys.sheet.resetUsage")}
 									</AlertDialogAction>
 								</AlertDialogFooter>
 							</AlertDialogContent>
@@ -1902,21 +1890,25 @@ export default function VirtualKeySheet({ virtualKey, teams, customers, defaultT
 										data-testid="vk-rotate-btn"
 									>
 										<RotateCcw className="h-4 w-4" />
-										{isRotating ? "Rotating..." : "Rotate Key"}
+										{isRotating ? t("virtualKeys.rotating") : t("virtualKeys.sheet.rotateKey")}
 									</Button>
 								) : (
 									<span />
 								)}
 								<div className="flex justify-end gap-2">
 									<Button type="button" variant="outline" onClick={handleClose} data-testid="vk-cancel-btn">
-										Cancel
+										{t("common.actions.cancel")}
 									</Button>
 									<TooltipProvider>
 										<Tooltip>
 											<TooltipTrigger asChild>
 												<span className="inline-block">
 													<Button type="submit" disabled={isLoading || !form.formState.isDirty || !canSubmit} data-testid="vk-save-btn">
-														{isLoading ? "Saving..." : isEditing ? "Update" : "Create"}
+														{isLoading
+															? t("common.actions.saving")
+															: isEditing
+																? t("virtualKeys.sheet.update")
+																: t("virtualKeys.sheet.create")}
 													</Button>
 												</span>
 											</TooltipTrigger>
@@ -1924,11 +1916,11 @@ export default function VirtualKeySheet({ virtualKey, teams, customers, defaultT
 												<TooltipContent>
 													<p>
 														{!canSubmit
-															? "You don't have permission to perform this action"
+															? t("virtualKeys.noPermission")
 															: isLoading
-																? "Saving..."
+																? t("common.actions.saving")
 																: !form.formState.isDirty
-																	? "No changes made"
+																	? t("virtualKeys.sheet.noChanges")
 																	: ""}
 													</p>
 												</TooltipContent>

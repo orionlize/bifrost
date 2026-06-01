@@ -1,0 +1,33 @@
+export const apiKeys = {
+	title: "API Keys",
+	description:
+		"Create global API keys for admin and dashboard API access. Use them as Authorization: Bearer <token>.",
+	infoAlert:
+		"Global API keys grant full admin access to dashboard and management APIs. Usage is always attributed to the admin user. Store them securely — the full token is only shown once at creation.",
+	authRequired:
+		"To create global API keys, enable dashboard authentication first.",
+	configureSecurity: "Configure Security Settings",
+	createApiKey: "Create API Key",
+	loading: "Loading API keys...",
+	empty: "No global API keys yet.",
+	prefix: "Prefix",
+	created: "Created",
+	enableKey: "Enable API key",
+	disableKey: "Disable API key",
+	deleteKey: "Delete API key",
+	createTitle: "Create API Key",
+	createDesc: "Enter a name for the key. The token is shown only once after you confirm creation.",
+	keyName: "Key name",
+	keyNamePlaceholder: "e.g. CI automation",
+	nameRequired: "Please enter a name for the API key.",
+	createdSuccess: "Global API key created.",
+	enabled: "API key enabled.",
+	disabled: "API key disabled.",
+	deleted: "API key deleted.",
+	createdDialogTitle: "API Key Created",
+	createdDialogDesc: "Copy this token now. You will not be able to see it again.",
+	copied: "Copied to clipboard.",
+	done: "Done",
+	deleteTitle: "Delete API Key",
+	deleteDesc: "This permanently removes the key. Applications using it will lose access immediately.",
+} as const;

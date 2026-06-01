@@ -1,3 +1,4 @@
+import { useT } from "@/lib/i18n";
 import { cn } from "@/components/ui/utils";
 import { filterModelsForProviderListing } from "@/lib/utils/providerModelListing";
 import { KnownProvidersNames } from "@/lib/constants/logs";
@@ -68,8 +69,6 @@ interface ModelOption {
 	provider?: string;
 }
 
-const ALL_MODELS_OPTION: ModelOption = { label: "All Models", value: "*" };
-
 function filterModelsByProvider(models: ModelResponse[] | undefined, provider?: string): ModelResponse[] {
 	return filterModelsForProviderListing(models, provider);
 }
@@ -101,6 +100,11 @@ function buildModelsQueryArgs(
 }
 
 export function ModelMultiselect(props: ModelMultiselectProps) {
+	const t = useT();
+	const allModelsOption: ModelOption = useMemo(
+		() => ({ label: t("shared.modelMultiselect.allModels"), value: "*" }),
+		[t],
+	);
 	const {
 		provider,
 		keys,
@@ -108,7 +112,7 @@ export function ModelMultiselect(props: ModelMultiselectProps) {
 		value,
 		unfiltered = false,
 		onChange,
-		placeholder = "Search models...",
+		placeholder = t("shared.modelMultiselect.searchModels"),
 		disabled = false,
 		className,
 		loadModelsOnEmptyProvider = false,
@@ -155,7 +159,7 @@ export function ModelMultiselect(props: ModelMultiselectProps) {
 		? stringValue
 			? [{ label: stringValue, value: stringValue }]
 			: []
-		: arrayValue.map((model) => (model === "*" ? ALL_MODELS_OPTION : { label: model, value: model }));
+		: arrayValue.map((model) => (model === "*" ? allModelsOption : { label: model, value: model }));
 
 	useEffect(() => {
 		if (shouldUseBaseModels) {
@@ -166,7 +170,8 @@ export function ModelMultiselect(props: ModelMultiselectProps) {
 	// Load options function for AsyncMultiSelect
 	const loadOptions = useCallback(
 		(query: string, callback: (options: ModelOption[]) => void) => {
-			const prefix: ModelOption[] = allowAllOption && (!query || "all models".includes(query.toLowerCase())) ? [ALL_MODELS_OPTION] : [];
+			const prefix: ModelOption[] =
+				allowAllOption && (!query || "all models".includes(query.toLowerCase())) ? [allModelsOption] : [];
 
 			if (!provider && !shouldLoadOnEmpty) {
 				callback(prefix);
@@ -286,7 +291,7 @@ export function ModelMultiselect(props: ModelMultiselectProps) {
 	);
 
 	const defaultOptions: ModelOption[] = useMemo(() => {
-		const prefix = allowAllOption ? [ALL_MODELS_OPTION] : [];
+		const prefix = allowAllOption ? [allModelsOption] : [];
 		if (shouldUseBaseModels) {
 			return [
 				...prefix,
@@ -327,7 +332,7 @@ export function ModelMultiselect(props: ModelMultiselectProps) {
 			debounce={300}
 			isCreatable={!providerScoped}
 			dynamicOptionCreation={!providerScoped}
-			createOptionText={"Press enter to add new model"}
+			createOptionText={t("shared.modelMultiselect.createOption")}
 			selectKey={[provider ?? "", keys?.join(",") ?? "", vks?.join(",") ?? "", String(unfiltered), String(shouldUseBaseModels)].join("|")}
 			defaultOptions={defaultOptions.length > 0 ? defaultOptions : ([] as Option<ModelOption>[])}
 			isLoading={isLoading}
@@ -344,13 +349,13 @@ export function ModelMultiselect(props: ModelMultiselectProps) {
 			menuListClassName="mx-1"
 			inputValue={inputValue}
 			onInputChange={handleInputChange}
-			noResultsFoundPlaceholder="No models found"
+			noResultsFoundPlaceholder={t("shared.modelMultiselect.noModelsFound")}
 			emptyResultPlaceholder={
 				provider || shouldLoadOnEmpty || wildcardOnlyWithoutProvider
 					? wildcardOnlyWithoutProvider
-						? "Select any model or choose a provider first"
-						: "Start typing to search models..."
-					: "Please select a provider first"
+						? t("shared.modelMultiselect.selectAnyOrProvider")
+						: t("shared.modelMultiselect.startTyping")
+					: t("shared.modelMultiselect.selectProviderFirst")
 			}
 			views={{
 				dropdownIndicator: isSingleSelect ? undefined : () => <></>,

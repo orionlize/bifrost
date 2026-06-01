@@ -342,6 +342,11 @@ const (
 	// DefaultLargePayloadRequestThresholdBytes is the default request-size heuristic
 	// used by transport guards when no enterprise threshold is present on context.
 	DefaultLargePayloadRequestThresholdBytes = 10 * 1024 * 1024 // 10MB
+
+	// LocalAdminUserID and LocalAdminUserName identify global API key and other
+	// local-admin credentials in LLM/MCP logs and user-ranking aggregates.
+	LocalAdminUserID   = "admin"
+	LocalAdminUserName = "全局"
 )
 
 // RoutingEngine constants

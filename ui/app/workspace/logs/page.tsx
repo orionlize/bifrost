@@ -22,6 +22,7 @@ import { useLazyGetLogByIdQuery, useLazyGetLogsQuery } from "@/lib/store/apis/lo
 import type { LogEntry, LogFilters, Pagination } from "@/lib/types/logs";
 import { dateUtils } from "@/lib/types/logs";
 import { COMPACT_NUMBER_FORMAT } from "@/lib/utils/numbers";
+import { useT } from "@/lib/i18n";
 import { RbacOperation, RbacResource, useRbac } from "@enterprise/lib";
 import NumberFlow from "@number-flow/react";
 import { useLocation } from "@tanstack/react-router";
@@ -31,6 +32,7 @@ import { parseAsArrayOf, parseAsBoolean, parseAsInteger, parseAsString, useQuery
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 
 export default function LogsPage() {
+	const t = useT();
 	const [error, setError] = useState<string | null>(null);
 	const [showEmptyState, setShowEmptyState] = useState(false);
 	const hasCheckedEmptyState = useRef(false);
@@ -400,19 +402,18 @@ export default function LogsPage() {
 	const statCards = useMemo(
 		() => [
 			{
-				title: "Total Requests",
+				title: t("logsColumns.stats.totalRequests"),
 				value: <NumberFlow value={stats?.total_requests ?? 0} format={COMPACT_NUMBER_FORMAT} />,
 				icon: <BarChart className="size-4" />,
 			},
 			{
-				title: "Success Rate",
+				title: t("logsColumns.stats.successRate"),
 				value: <NumberFlow value={stats?.success_rate ?? 0} format={{ minimumFractionDigits: 2, maximumFractionDigits: 2 }} suffix="%" />,
 				icon: <CheckCircle className="size-4" />,
-				description:
-					"Success rate as perceived by the system. Each fallback counts as a separate attempt. Retries on the same request are counted as one attempt.",
+				description: t("logsColumns.stats.successRateHint"),
 			},
 			{
-				title: "User Success Rate",
+				title: t("logsColumns.stats.userSuccessRate"),
 				value: (
 					<NumberFlow
 						value={stats?.user_facing_success_rate ?? 0}
@@ -421,22 +422,22 @@ export default function LogsPage() {
 					/>
 				),
 				icon: <CheckCircle className="size-4" />,
-				description: "Success rate as perceived by the end user. It includes fallback chains as one request.",
+				description: t("logsColumns.stats.userSuccessRateHint"),
 			},
 			{
-				title: "Avg Latency",
+				title: t("logsColumns.stats.avgLatency"),
 				value: (
 					<NumberFlow value={stats?.average_latency ?? 0} format={{ minimumFractionDigits: 2, maximumFractionDigits: 2 }} suffix="ms" />
 				),
 				icon: <Clock className="size-4" />,
 			},
 			{
-				title: "Total Tokens",
+				title: t("logsColumns.stats.totalTokens"),
 				value: <NumberFlow value={stats?.total_tokens ?? 0} format={COMPACT_NUMBER_FORMAT} />,
 				icon: <Hash className="size-4" />,
 			},
 			{
-				title: "Total Cost",
+				title: t("logsColumns.stats.totalCost"),
 				value: (
 					<NumberFlow
 						value={stats?.total_cost ?? 0}
@@ -450,7 +451,7 @@ export default function LogsPage() {
 				icon: <DollarSign className="size-4" />,
 			},
 		],
-		[stats],
+		[stats, t],
 	);
 
 	// Only need metadata_keys here (used to render dynamic columns even when the
@@ -463,7 +464,7 @@ export default function LogsPage() {
 		return Object.keys(filterData.metadata_keys).sort();
 	}, [filterData?.metadata_keys]);
 
-	const columns = useMemo(() => createColumns(handleDelete, hasDeleteAccess, metadataKeys), [handleDelete, hasDeleteAccess, metadataKeys]);
+	const columns = useMemo(() => createColumns(handleDelete, hasDeleteAccess, metadataKeys, t), [handleDelete, hasDeleteAccess, metadataKeys, t]);
 
 	const columnIds = useMemo(
 		() => columns.map((col) => ("id" in col && col.id ? col.id : "accessorKey" in col ? String(col.accessorKey) : "")).filter(Boolean),
@@ -472,16 +473,16 @@ export default function LogsPage() {
 
 	const COLUMN_LABELS: Record<string, string> = useMemo(
 		() => ({
-			timestamp: "Time",
-			request_type: "Type",
-			input: "Message",
-			provider: "Provider",
-			model: "Model",
-			latency: "Latency",
-			tokens: "Tokens",
-			cost: "Cost",
+			timestamp: t("logsColumns.time"),
+			request_type: t("logsColumns.type"),
+			input: t("logsColumns.message"),
+			provider: t("logsColumns.provider"),
+			model: t("logsColumns.model"),
+			latency: t("logsColumns.latency"),
+			tokens: t("logsColumns.tokens"),
+			cost: t("logsColumns.cost"),
 		}),
-		[],
+		[t],
 	);
 
 	const {
@@ -638,7 +639,7 @@ export default function LogsPage() {
 														<TooltipTrigger asChild>
 															<button
 																type="button"
-																aria-label={`${card.title} info`}
+																aria-label={t("logsColumns.stats.infoAria", { title: card.title })}
 																data-testid={`logs-metric-info-${card.title.toLowerCase().replace(/\s+/g, "-")}`}
 																className="inline-flex items-center"
 															>

@@ -22,6 +22,7 @@ import { Customer, Team, VirtualKey } from "@/lib/types/governance";
 import { cn } from "@/lib/utils";
 import { formatCurrency } from "@/lib/utils/governance";
 import { RbacOperation, RbacResource, useRbac } from "@enterprise/lib";
+import { useT } from "@/lib/i18n";
 import { ChevronLeft, ChevronRight, Edit, MoreHorizontal, Plus, Search, Trash2 } from "lucide-react";
 import { useEffect, useState } from "react";
 import { toast } from "sonner";
@@ -48,6 +49,7 @@ function TeamActionsMenu({
 	onEdit: (team: Team) => void;
 	onDelete: (teamId: string) => void;
 }) {
+	const t = useT();
 	const [isOpen, setIsOpen] = useState(false);
 	const [deleteOpen, setDeleteOpen] = useState(false);
 
@@ -77,7 +79,7 @@ function TeamActionsMenu({
 						}}
 					>
 						<Edit className="h-4 w-4" />
-						Edit
+						{t("governanceShared.edit")}
 					</DropdownMenuItem>
 					<DropdownMenuItem
 						variant="destructive"
@@ -91,23 +93,20 @@ function TeamActionsMenu({
 						}}
 					>
 						<Trash2 className="h-4 w-4" />
-						Delete
+						{t("governanceShared.delete")}
 					</DropdownMenuItem>
 				</DropdownMenuContent>
 			</DropdownMenu>
 			<AlertDialog open={deleteOpen} onOpenChange={setDeleteOpen}>
 				<AlertDialogContent>
 					<AlertDialogHeader>
-						<AlertDialogTitle>Delete Team</AlertDialogTitle>
-						<AlertDialogDescription>
-							Are you sure you want to delete &quot;{team.name}&quot;? This will also unassign any users from this team. This action cannot
-							be undone.
-						</AlertDialogDescription>
+						<AlertDialogTitle>{t("teams.deleteTitle")}</AlertDialogTitle>
+						<AlertDialogDescription>{t("teams.deleteDescription", { name: team.name })}</AlertDialogDescription>
 					</AlertDialogHeader>
 					<AlertDialogFooter>
-						<AlertDialogCancel>Cancel</AlertDialogCancel>
+						<AlertDialogCancel>{t("governanceShared.cancel")}</AlertDialogCancel>
 						<AlertDialogAction onClick={() => onDelete(team.id)} disabled={isDeleting} className="bg-red-600 hover:bg-red-700">
-							{isDeleting ? "Deleting..." : "Delete"}
+							{isDeleting ? t("governanceShared.deleting") : t("governanceShared.delete")}
 						</AlertDialogAction>
 					</AlertDialogFooter>
 				</AlertDialogContent>
@@ -151,6 +150,7 @@ export default function TeamsTable({
 	onDialogClose,
 	isLoading,
 }: TeamsTableProps) {
+	const tr = useT();
 	const showTeamSheet = selectedTeamId !== null && selectedTeamId !== "";
 	const editingTeam = selectedTeamId && selectedTeamId !== "new" ? (teams.find((t) => t.id === selectedTeamId) ?? null) : null;
 
@@ -171,7 +171,7 @@ export default function TeamsTable({
 	const handleDelete = async (teamId: string) => {
 		try {
 			await deleteTeam(teamId).unwrap();
-			toast.success("Team deleted successfully");
+			toast.success(tr("teams.deleted"));
 		} catch (error) {
 			toast.error(getErrorMessage(error));
 		}
@@ -196,7 +196,7 @@ export default function TeamsTable({
 	const getCustomerName = (customerId?: string) => {
 		if (!customerId) return "-";
 		const customer = customers.find((c) => c.id === customerId);
-		return customer ? customer.name : "Unknown Customer";
+		return customer ? customer.name : tr("governanceShared.unknownCustomer");
 	};
 
 	const hasActiveFilters = debouncedSearch;
@@ -221,12 +221,12 @@ export default function TeamsTable({
 				<div className="flex grow flex-col overflow-y-auto">
 					<div className="mb-4 flex items-center justify-between">
 						<div>
-							<h2 className="text-lg font-semibold">Teams</h2>
-							<p className="text-muted-foreground text-sm">Organize users into teams with shared budgets and access controls.</p>
+							<h2 className="text-lg font-semibold">{tr("governancePages.teams")}</h2>
+							<p className="text-muted-foreground text-sm">{tr("teams.description")}</p>
 						</div>
 						<Button data-testid="create-team-btn" onClick={handleAddTeam} disabled={!hasCreateAccess}>
 							<Plus className="h-4 w-4" />
-							Add Team
+							{tr("teams.addTeam")}
 						</Button>
 					</div>
 
@@ -234,8 +234,8 @@ export default function TeamsTable({
 						<div className="relative max-w-sm flex-1">
 							<Search className="text-muted-foreground absolute top-1/2 left-3 h-4 w-4 -translate-y-1/2" />
 							<Input
-								aria-label="Search teams by name"
-								placeholder="Search by name..."
+								aria-label={tr("governanceShared.searchTeamsAria")}
+								placeholder={tr("governanceShared.searchByName")}
 								value={search}
 								onChange={(e) => onSearchChange(e.target.value)}
 								className="pl-9"
@@ -248,11 +248,11 @@ export default function TeamsTable({
 						<Table className="min-w-[1100px]" containerClassName="h-full">
 							<TableHeader className="bg-background sticky top-0">
 								<TableRow>
-									<TableHead>Name</TableHead>
-									<TableHead>Customer</TableHead>
-									<TableHead>Budget</TableHead>
-									<TableHead>Rate Limit</TableHead>
-									<TableHead>Users</TableHead>
+									<TableHead>{tr("tables.name")}</TableHead>
+									<TableHead>{tr("governanceShared.customer")}</TableHead>
+									<TableHead>{tr("governanceShared.budget")}</TableHead>
+									<TableHead>{tr("governanceShared.rateLimit")}</TableHead>
+									<TableHead>{tr("governanceShared.users")}</TableHead>
 									<TableHead className={`bg-muted sticky right-0 z-10 w-[56px] text-right ${PIN_SHADOW_RIGHT}`}></TableHead>
 								</TableRow>
 							</TableHeader>
@@ -260,7 +260,7 @@ export default function TeamsTable({
 								{teams.length === 0 ? (
 									<TableRow>
 										<TableCell colSpan={6} className="h-24 text-center">
-											<span className="text-muted-foreground text-sm">No matching teams found.</span>
+											<span className="text-muted-foreground text-sm">{tr("governanceShared.noMatchingTeams")}</span>
 										</TableCell>
 									</TableRow>
 								) : (
@@ -304,7 +304,7 @@ export default function TeamsTable({
 														<span className="truncate font-medium">{team.name}</span>
 														{isExhausted && (
 															<Badge variant="destructive" className="w-fit text-xs">
-																Limit Reached
+																{tr("governanceShared.limitReached")}
 															</Badge>
 														)}
 													</div>
@@ -345,7 +345,9 @@ export default function TeamsTable({
 																			<p className="font-medium">
 																				{formatCurrency(b.current_usage)} / {formatCurrency(b.max_limit)}
 																			</p>
-																			<p className="text-primary-foreground/80 text-xs">Resets {formatResetDuration(b.reset_duration)}</p>
+																			<p className="text-primary-foreground/80 text-xs">
+																				{tr("governanceShared.resets", { duration: formatResetDuration(b.reset_duration) })}
+																			</p>
 																		</TooltipContent>
 																	</Tooltip>
 																);
@@ -363,7 +365,9 @@ export default function TeamsTable({
 																	<TooltipTrigger asChild>
 																		<div className="space-y-1.5">
 																			<div className="flex items-center justify-between gap-4 text-xs">
-																				<span className="font-medium">{team.rate_limit.token_max_limit.toLocaleString()} tokens</span>
+																				<span className="font-medium">
+																					{team.rate_limit.token_max_limit.toLocaleString()} {tr("governanceShared.tokens")}
+																				</span>
 																				<span className="text-muted-foreground">
 																					{formatResetDuration(team.rate_limit.token_reset_duration || "1h")}
 																				</span>
@@ -384,10 +388,12 @@ export default function TeamsTable({
 																	<TooltipContent>
 																		<p className="font-medium">
 																			{team.rate_limit.token_current_usage.toLocaleString()} /{" "}
-																			{team.rate_limit.token_max_limit.toLocaleString()} tokens
+																			{team.rate_limit.token_max_limit.toLocaleString()} {tr("governanceShared.tokens")}
 																		</p>
 																		<p className="text-primary-foreground/80 text-xs">
-																			Resets {formatResetDuration(team.rate_limit.token_reset_duration || "1h")}
+																			{tr("governanceShared.resets", {
+																				duration: formatResetDuration(team.rate_limit.token_reset_duration || "1h"),
+																			})}
 																		</p>
 																	</TooltipContent>
 																</Tooltip>
@@ -397,7 +403,9 @@ export default function TeamsTable({
 																	<TooltipTrigger asChild>
 																		<div className="space-y-1.5">
 																			<div className="flex items-center justify-between gap-4 text-xs">
-																				<span className="font-medium">{team.rate_limit.request_max_limit.toLocaleString()} req</span>
+																				<span className="font-medium">
+																					{team.rate_limit.request_max_limit.toLocaleString()} {tr("governanceShared.req")}
+																				</span>
 																				<span className="text-muted-foreground">
 																					{formatResetDuration(team.rate_limit.request_reset_duration || "1h")}
 																				</span>
@@ -418,10 +426,12 @@ export default function TeamsTable({
 																	<TooltipContent>
 																		<p className="font-medium">
 																			{team.rate_limit.request_current_usage.toLocaleString()} /{" "}
-																			{team.rate_limit.request_max_limit.toLocaleString()} requests
+																			{team.rate_limit.request_max_limit.toLocaleString()} {tr("governanceShared.requests")}
 																		</p>
 																		<p className="text-primary-foreground/80 text-xs">
-																			Resets {formatResetDuration(team.rate_limit.request_reset_duration || "1h")}
+																			{tr("governanceShared.resets", {
+																				duration: formatResetDuration(team.rate_limit.request_reset_duration || "1h"),
+																			})}
 																		</p>
 																	</TooltipContent>
 																</Tooltip>
@@ -437,7 +447,7 @@ export default function TeamsTable({
 															<Tooltip>
 																<TooltipTrigger>
 																	<Badge variant="outline" className="text-xs">
-																		{vks.length} {vks.length === 1 ? "key" : "keys"}
+																		{vks.length} {vks.length === 1 ? tr("governanceShared.key") : tr("governanceShared.keys")}
 																	</Badge>
 																</TooltipTrigger>
 																<TooltipContent>{vks.map((vk) => vk.name).join(", ")}</TooltipContent>
@@ -471,8 +481,11 @@ export default function TeamsTable({
 					{totalCount > 0 && (
 						<div className="flex shrink-0 items-center justify-between text-xs" data-testid="pagination">
 							<div className="text-muted-foreground flex items-center gap-2">
-								{(offset + 1).toLocaleString()}-{Math.min(offset + limit, totalCount).toLocaleString()} of {totalCount.toLocaleString()}{" "}
-								entries
+								{tr("governanceShared.entriesRange", {
+									from: (offset + 1).toLocaleString(),
+									to: Math.min(offset + limit, totalCount).toLocaleString(),
+									total: totalCount.toLocaleString(),
+								})}
 							</div>
 
 							<div className="flex items-center gap-2">
@@ -482,15 +495,17 @@ export default function TeamsTable({
 									onClick={() => onOffsetChange(Math.max(0, offset - limit))}
 									disabled={offset === 0}
 									data-testid="teams-pagination-prev-btn"
-									aria-label="Previous page"
+									aria-label={tr("governanceShared.prevPageAria")}
 								>
 									<ChevronLeft className="size-3" />
 								</Button>
 
 								<div className="flex items-center gap-1">
-									<span>Page</span>
+									<span>{tr("governanceShared.page")}</span>
 									<span>{Math.floor(offset / limit) + 1}</span>
-									<span>of {Math.ceil(totalCount / limit)}</span>
+									<span>
+										{tr("governanceShared.of")} {Math.ceil(totalCount / limit)}
+									</span>
 								</div>
 
 								<Button
@@ -499,7 +514,7 @@ export default function TeamsTable({
 									onClick={() => onOffsetChange(offset + limit)}
 									disabled={offset + limit >= totalCount}
 									data-testid="teams-pagination-next-btn"
-									aria-label="Next page"
+									aria-label={tr("governanceShared.nextPageAria")}
 								>
 									<ChevronRight className="size-3" />
 								</Button>

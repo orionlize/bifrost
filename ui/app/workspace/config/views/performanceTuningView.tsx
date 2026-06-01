@@ -3,12 +3,17 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { getErrorMessage, useGetCoreConfigQuery, useUpdateCoreConfigMutation } from "@/lib/store";
 import { CoreConfig, DefaultCoreConfig } from "@/lib/types/config";
+import { useT } from "@/lib/i18n";
+import { useNavDescription, useNavTitle } from "@/lib/i18n/useNavTitle";
 import { RbacOperation, RbacResource, useRbac } from "@enterprise/lib";
 import { AlertTriangle } from "lucide-react";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { toast } from "sonner";
 
 export default function PerformanceTuningView() {
+	const t = useT();
+	const pageTitle = useNavTitle("performanceTuning");
+	const pageDescription = useNavDescription("performanceTuning");
 	const hasSettingsUpdateAccess = useRbac(RbacResource.Settings, RbacOperation.Update);
 	const { data: bifrostConfig } = useGetCoreConfigQuery({ fromDB: true });
 	const config = bifrostConfig?.client_config;
@@ -65,50 +70,46 @@ export default function PerformanceTuningView() {
 			const maxBodySize = Number.parseInt(localValues.max_request_body_size_mb);
 
 			if (isNaN(poolSize) || poolSize <= 0) {
-				toast.error("Initial pool size must be a positive number.");
+				toast.error(t("configViews.performanceTuning.poolSizePositive"));
 				return;
 			}
 
 			if (isNaN(maxBodySize) || maxBodySize <= 0) {
-				toast.error("Max request body size must be a positive number.");
+				toast.error(t("configViews.performanceTuning.maxBodySizePositive"));
 				return;
 			}
 
 			if (!bifrostConfig) {
-				toast.error("Configuration not loaded. Please refresh and try again.");
+				toast.error(t("configViews.shared.configNotLoadedRefresh"));
 				return;
 			}
 			await updateCoreConfig({ ...bifrostConfig, client_config: localConfig }).unwrap();
-			toast.success("Performance settings updated successfully.");
+			toast.success(t("configViews.performanceTuning.updated"));
 		} catch (error) {
 			toast.error(getErrorMessage(error));
 		}
-	}, [bifrostConfig, localConfig, localValues, updateCoreConfig]);
+	}, [bifrostConfig, localConfig, localValues, updateCoreConfig, t]);
 
 	return (
 		<div className="mx-auto w-full max-w-4xl space-y-4">
 			<div>
-				<h2 className="text-lg font-semibold tracking-tight">Performance Tuning</h2>
-				<p className="text-muted-foreground text-sm">Configure performance-related settings.</p>
+				<h2 className="text-lg font-semibold tracking-tight">{pageTitle}</h2>
+				<p className="text-muted-foreground text-sm">{pageDescription}</p>
 			</div>
 
 			<Alert variant="destructive">
 				<AlertTriangle className="h-4 w-4" />
-				<AlertDescription>
-					These settings require a Bifrost service restart to take effect. Current connections will continue with existing settings until
-					restart.
-				</AlertDescription>
+				<AlertDescription>{t("configViews.shared.restartRequiredAlert")}</AlertDescription>
 			</Alert>
 
 			<div className="space-y-4">
-				{/* Initial Pool Size */}
 				<div>
 					<div className="flex items-center justify-between space-x-2 rounded-lg border p-4">
 						<div className="space-y-0.5">
 							<label htmlFor="initial-pool-size" className="text-sm font-medium">
-								Initial Pool Size
+								{t("configViews.performanceTuning.initialPoolSize")}
 							</label>
-							<p className="text-muted-foreground text-sm">The initial connection pool size.</p>
+							<p className="text-muted-foreground text-sm">{t("configViews.performanceTuning.initialPoolSizeDesc")}</p>
 						</div>
 						<Input
 							id="initial-pool-size"
@@ -122,14 +123,13 @@ export default function PerformanceTuningView() {
 					{needsRestart && <RestartWarning />}
 				</div>
 
-				{/* Max Request Body Size */}
 				<div>
 					<div className="flex items-center justify-between space-x-2 rounded-lg border p-4">
 						<div className="space-y-0.5">
 							<label htmlFor="max-request-body-size-mb" className="text-sm font-medium">
-								Max Request Body Size (MB)
+								{t("configViews.performanceTuning.maxRequestBodySize")}
 							</label>
-							<p className="text-muted-foreground text-sm">Maximum size of request body in megabytes.</p>
+							<p className="text-muted-foreground text-sm">{t("configViews.performanceTuning.maxRequestBodySizeDesc")}</p>
 						</div>
 						<Input
 							id="max-request-body-size-mb"
@@ -145,7 +145,7 @@ export default function PerformanceTuningView() {
 			</div>
 			<div className="flex justify-end pt-2">
 				<Button onClick={handleSave} disabled={!hasChanges || isLoading || !hasSettingsUpdateAccess}>
-					{isLoading ? "Saving..." : "Save Changes"}
+					{isLoading ? t("common.actions.saving") : t("common.actions.saveChanges")}
 				</Button>
 			</div>
 		</div>
@@ -153,5 +153,6 @@ export default function PerformanceTuningView() {
 }
 
 const RestartWarning = () => {
-	return <div className="text-muted-foreground mt-2 pl-4 text-xs font-semibold">Need to restart Bifrost to apply changes.</div>;
+	const t = useT();
+	return <div className="text-muted-foreground mt-2 pl-4 text-xs font-semibold">{t("configCommon.restartHint")}</div>;
 };

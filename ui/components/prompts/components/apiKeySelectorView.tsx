@@ -11,6 +11,7 @@ import {
 import { Label } from "@/components/ui/label";
 import type { DBKey, VirtualKey } from "@/lib/types/governance";
 import { useCallback, useMemo, useState } from "react";
+import { useT } from "@/lib/i18n";
 
 export function ApiKeySelectorView({
 	providerKeys,
@@ -27,13 +28,14 @@ export function ApiKeySelectorView({
 	disabled?: boolean;
 	placeholder?: string;
 }) {
+	const t = useT();
 	const [query, setQuery] = useState("");
 
 	const allOptions = useMemo(() => {
 		const apiKeyOpts = providerKeys.map((k) => ({ label: k.name, value: k.key_id, group: "api" as const }));
 		const vkOpts = virtualKeys.map((vk) => ({ label: vk.name, value: vk.value, group: "virtual" as const }));
-		return [{ label: "Auto (default)", value: "__auto__", group: "api" as const }, ...apiKeyOpts, ...vkOpts];
-	}, [providerKeys, virtualKeys]);
+		return [{ label: t("prompts.autoDefault"), value: "__auto__", group: "api" as const }, ...apiKeyOpts, ...vkOpts];
+	}, [providerKeys, virtualKeys, t]);
 
 	const filtered = useMemo(() => {
 		if (!query) return allOptions;
@@ -48,7 +50,7 @@ export function ApiKeySelectorView({
 
 	return (
 		<div className="flex flex-col gap-2">
-			<Label className="text-muted-foreground text-xs font-medium uppercase">API Key</Label>
+			<Label className="text-muted-foreground text-xs font-medium uppercase">{t("prompts.settings.apiKey")}</Label>
 			<Combobox
 				value={value}
 				onValueChange={(v) => onValueChange(v)}
@@ -59,12 +61,12 @@ export function ApiKeySelectorView({
 				filter={null}
 				itemToStringLabel={getLabel}
 			>
-				<ComboboxInput placeholder={placeholder ?? "Select API key"} showClear={value !== "__auto__"} showTrigger disabled={disabled} />
+				<ComboboxInput placeholder={placeholder ?? t("prompts.selectApiKey")} showClear={value !== "__auto__"} showTrigger disabled={disabled} />
 				<ComboboxContent>
 					<ComboboxList>
 						{filteredApiKeys.length > 0 && (
 							<ComboboxGroup>
-								<ComboboxLabel>API Keys</ComboboxLabel>
+								<ComboboxLabel>{t("prompts.settings.apiKeys")}</ComboboxLabel>
 								{filteredApiKeys.map((o) => (
 									<ComboboxItem key={o.value} value={o.value}>
 										{o.label}
@@ -75,7 +77,7 @@ export function ApiKeySelectorView({
 						{filteredApiKeys.length > 0 && filteredVirtualKeys.length > 0 && <ComboboxSeparator />}
 						{filteredVirtualKeys.length > 0 && (
 							<ComboboxGroup>
-								<ComboboxLabel>Personal API Keys</ComboboxLabel>
+								<ComboboxLabel>{t("prompts.settings.personalApiKeys")}</ComboboxLabel>
 								{filteredVirtualKeys.map((o) => (
 									<ComboboxItem key={o.value} value={o.value}>
 										{o.label}
@@ -83,7 +85,9 @@ export function ApiKeySelectorView({
 								))}
 							</ComboboxGroup>
 						)}
-						{filtered.length === 0 && <div className="text-muted-foreground py-6 text-center text-sm">No results found.</div>}
+						{filtered.length === 0 && (
+							<div className="text-muted-foreground py-6 text-center text-sm">{t("prompts.noResults")}</div>
+						)}
 					</ComboboxList>
 				</ComboboxContent>
 			</Combobox>

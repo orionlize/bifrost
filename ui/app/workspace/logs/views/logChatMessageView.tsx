@@ -1,4 +1,5 @@
 import { CodeEditor } from "@/components/ui/codeEditor";
+import { useT } from "@/lib/i18n";
 import { ChatMessage, ContentBlock } from "@/lib/types/logs";
 import { isLogBinaryPlaceholder } from "@/lib/utils/logBinaryPlaceholder";
 import { cleanJson, isJson } from "@/lib/utils/validation";
@@ -11,6 +12,7 @@ interface LogChatMessageViewProps {
 }
 
 function ContentBlockView({ block }: { block: ContentBlock; index: number }) {
+	const t = useT();
 	const blockType = block.type.replaceAll("_", " ");
 
 	// Handle text content
@@ -52,7 +54,7 @@ function ContentBlockView({ block }: { block: ContentBlock; index: number }) {
 					</CollapsibleBox>
 				);
 			}
-			return <img src={src} alt="Attached image" className="max-w-full rounded border" />;
+			return <img src={src} alt={t("logDetail.attachedImage")} className="max-w-full rounded border" />;
 		}
 	}
 
@@ -100,6 +102,8 @@ function ContentBlockView({ block }: { block: ContentBlock; index: number }) {
 }
 
 export default function LogChatMessageView({ message, audioFormat }: LogChatMessageViewProps) {
+	const t = useT();
+
 	return (
 		<div className="flex w-full flex-col gap-2">
 			{/* Role header */}
@@ -112,7 +116,11 @@ export default function LogChatMessageView({ message, audioFormat }: LogChatMess
 			{message.reasoning && (
 				<>
 					{isJson(message.reasoning) ? (
-						<CollapsibleBox title="Reasoning" onCopy={() => JSON.stringify(cleanJson(message.reasoning), null, 2)} collapsedHeight={100}>
+						<CollapsibleBox
+							title={t("logsMedia.reasoning")}
+							onCopy={() => JSON.stringify(cleanJson(message.reasoning), null, 2)}
+							collapsedHeight={100}
+						>
 							<CodeEditor
 								className="z-0 w-full"
 								shouldAdjustInitialHeight={true}
@@ -125,7 +133,7 @@ export default function LogChatMessageView({ message, audioFormat }: LogChatMess
 							/>
 						</CollapsibleBox>
 					) : (
-						<CollapsibleBox title="Reasoning" onCopy={() => message.reasoning || ""} collapsedHeight={100}>
+						<CollapsibleBox title={t("logsMedia.reasoning")} onCopy={() => message.reasoning || ""} collapsedHeight={100}>
 							<div className="custom-scrollbar text-muted-foreground max-h-[400px] overflow-y-auto px-6 py-2 font-mono text-xs break-words whitespace-pre-wrap italic">
 								{message.reasoning}
 							</div>
@@ -138,7 +146,11 @@ export default function LogChatMessageView({ message, audioFormat }: LogChatMess
 			{message.refusal && (
 				<>
 					{isJson(message.refusal) ? (
-						<CollapsibleBox title="Refusal" onCopy={() => JSON.stringify(cleanJson(message.refusal), null, 2)} collapsedHeight={100}>
+						<CollapsibleBox
+							title={t("logsMedia.refusal")}
+							onCopy={() => JSON.stringify(cleanJson(message.refusal), null, 2)}
+							collapsedHeight={100}
+						>
 							<CodeEditor
 								className="z-0 w-full"
 								shouldAdjustInitialHeight={true}
@@ -151,7 +163,7 @@ export default function LogChatMessageView({ message, audioFormat }: LogChatMess
 							/>
 						</CollapsibleBox>
 					) : (
-						<CollapsibleBox title="Refusal" onCopy={() => message.refusal || ""} collapsedHeight={100}>
+						<CollapsibleBox title={t("logsMedia.refusal")} onCopy={() => message.refusal || ""} collapsedHeight={100}>
 							<div className="custom-scrollbar max-h-[400px] overflow-y-auto px-6 py-2 font-mono text-xs break-words whitespace-pre-wrap text-red-800">
 								{message.refusal}
 							</div>
@@ -167,7 +179,7 @@ export default function LogChatMessageView({ message, audioFormat }: LogChatMess
 						<>
 							{isJson(message.content) ? (
 								<CollapsibleBox
-									title="Content"
+									title={t("logsMedia.content")}
 									onCopy={() => JSON.stringify(cleanJson(message.content as string), null, 2)}
 									collapsedHeight={100}
 								>
@@ -183,7 +195,7 @@ export default function LogChatMessageView({ message, audioFormat }: LogChatMess
 									/>
 								</CollapsibleBox>
 							) : (
-								<CollapsibleBox title="Content" onCopy={() => (message.content as string) || ""} collapsedHeight={100}>
+								<CollapsibleBox title={t("logsMedia.content")} onCopy={() => (message.content as string) || ""} collapsedHeight={100}>
 									<div className="custom-scrollbar max-h-[400px] overflow-y-auto px-6 py-2 font-mono text-xs break-words whitespace-pre-wrap">
 										{message.content}
 									</div>
@@ -205,7 +217,7 @@ export default function LogChatMessageView({ message, audioFormat }: LogChatMess
 						return (
 							<CollapsibleBox
 								key={index}
-								title={`Tool Call: ${toolCall.function?.name || `#${index + 1}`}`}
+								title={t("logsMedia.toolCall", { name: toolCall.function?.name || `#${index + 1}` })}
 								onCopy={() => jsonContent}
 								collapsedHeight={100}
 							>
@@ -227,7 +239,7 @@ export default function LogChatMessageView({ message, audioFormat }: LogChatMess
 
 			{/* Handle annotations */}
 			{message.annotations && message.annotations.length > 0 && (
-				<CollapsibleBox title="Annotations" onCopy={() => JSON.stringify(message.annotations, null, 2)} collapsedHeight={100}>
+				<CollapsibleBox title={t("logsMedia.annotations")} onCopy={() => JSON.stringify(message.annotations, null, 2)} collapsedHeight={100}>
 					<CodeEditor
 						className="z-0 w-full"
 						shouldAdjustInitialHeight={true}
@@ -243,7 +255,7 @@ export default function LogChatMessageView({ message, audioFormat }: LogChatMess
 
 			{/* Handle audio output */}
 			{message.audio && (
-				<CollapsibleBox title="Audio Output" collapsedHeight={150}>
+				<CollapsibleBox title={t("logsMedia.audioOutput")} collapsedHeight={150}>
 					<div className="space-y-4 px-6 py-4">
 						{message.audio.transcript && (
 							<div className="space-y-2">
@@ -262,7 +274,7 @@ export default function LogChatMessageView({ message, audioFormat }: LogChatMess
 								ID: {message.audio.id} | Expires:{" "}
 								{message.audio.expires_at && Number.isFinite(message.audio.expires_at)
 									? new Date(message.audio.expires_at * 1000).toLocaleString()
-									: "N/A"}
+									: t("logsMedia.na")}
 							</div>
 						)}
 					</div>

@@ -1,5 +1,6 @@
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { useT } from "@/lib/i18n";
 import { getErrorMessage } from "@/lib/store/apis/baseApi";
 import { useCompleteOAuthFlowMutation, useLazyGetOAuthConfigStatusQuery } from "@/lib/store/apis/mcpApi";
 import { Loader2 } from "lucide-react";
@@ -25,6 +26,7 @@ export const OAuth2Authorizer: React.FC<OAuth2AuthorizerProps> = ({
 	oauthConfigId,
 	isPerUserOauth,
 }) => {
+	const t = useT();
 	const [status, setStatus] = useState<"confirm" | "pending" | "blocked" | "polling" | "success" | "failed">(
 		isPerUserOauth ? "confirm" : "pending",
 	);
@@ -102,12 +104,12 @@ export const OAuth2Authorizer: React.FC<OAuth2AuthorizerProps> = ({
 				stopPolling();
 				await handleOAuthComplete();
 			} else if (result.status === "failed" || result.status === "expired") {
-				handleOAuthFailed(`Authorization ${result.status}`);
+				handleOAuthFailed(t("mcp.oauthAuth.authorizationStatus", { status: result.status }));
 			}
 		} catch (error) {
 			console.error("Error checking OAuth status:", error);
 		}
-	}, [oauthConfigId, getOAuthStatus, stopPolling, handleOAuthComplete, handleOAuthFailed]);
+	}, [oauthConfigId, getOAuthStatus, stopPolling, handleOAuthComplete, handleOAuthFailed, t]);
 
 	// Poll OAuth status
 	const startPolling = useCallback(() => {
@@ -128,7 +130,7 @@ export const OAuth2Authorizer: React.FC<OAuth2AuthorizerProps> = ({
 						await handleOAuthComplete();
 					} else if (result.status === "failed" || result.status === "expired") {
 						stopPolling();
-						handleOAuthFailed("Authorization failed");
+						handleOAuthFailed(t("mcp.oauthAuth.authFailed"));
 					}
 					// pending or other non-terminal: let polling continue
 				} catch {
@@ -139,7 +141,7 @@ export const OAuth2Authorizer: React.FC<OAuth2AuthorizerProps> = ({
 
 			await checkOAuthStatus();
 		}, 2000); // Poll every 2 seconds
-	}, [checkOAuthStatus, getOAuthStatus, handleOAuthComplete, handleOAuthFailed, oauthConfigId, stopPolling]);
+	}, [checkOAuthStatus, getOAuthStatus, handleOAuthComplete, handleOAuthFailed, oauthConfigId, stopPolling, t]);
 
 	// Open popup and start polling
 	const openPopup = useCallback(() => {
@@ -255,14 +257,14 @@ export const OAuth2Authorizer: React.FC<OAuth2AuthorizerProps> = ({
 				}}
 			>
 				<DialogHeader>
-					<DialogTitle>{status === "confirm" ? "Test OAuth Configuration" : "OAuth Authorization"}</DialogTitle>
+					<DialogTitle>{status === "confirm" ? t("mcp.oauthAuth.testTitle") : t("mcp.oauthAuth.authTitle")}</DialogTitle>
 					<DialogDescription>
-						{status === "confirm" && "A one-time login is needed to verify your OAuth setup."}
-						{status === "pending" && "Open the authorization window to continue"}
-						{status === "blocked" && "Authorization window was blocked"}
-						{status === "polling" && "Waiting for authorization..."}
-						{status === "success" && "Authorization successful!"}
-						{status === "failed" && "Authorization failed"}
+						{status === "confirm" && t("mcp.oauthAuth.confirmDescShort")}
+						{status === "pending" && t("mcp.oauthAuth.pendingDesc")}
+						{status === "blocked" && t("mcp.oauthAuth.blockedDesc")}
+						{status === "polling" && t("mcp.oauthAuth.pollingDesc")}
+						{status === "success" && t("mcp.oauthAuth.authSuccess")}
+						{status === "failed" && t("mcp.oauthAuth.authFailed")}
 					</DialogDescription>
 				</DialogHeader>
 
@@ -270,21 +272,16 @@ export const OAuth2Authorizer: React.FC<OAuth2AuthorizerProps> = ({
 					{status === "confirm" && (
 						<>
 							<div className="text-muted-foreground space-y-3 text-sm">
-								<p>
-									To set up this MCP server, we need to verify that your OAuth configuration is correct and discover the available tools.
-								</p>
-								<p>
-									You will be asked to log in to the OAuth provider. This is a <strong>one-time test</strong> to confirm the setup works.
-									Your credentials will <strong>not</strong> be stored or used for any other purpose.
-								</p>
-								<p>Once verified, each user will authenticate individually when they use this MCP server.</p>
+								<p>{t("mcp.oauthAuth.verifyIntro")}</p>
+								<p>{t("mcp.oauthAuth.verifyLogin")}</p>
+								<p>{t("mcp.oauthAuth.verifyPerUser")}</p>
 							</div>
 							<div className="flex w-full justify-end space-x-2">
 								<Button onClick={handleCancel} variant="outline" data-testid="per-user-oauth-cancel">
-									Cancel
+									{t("common.actions.cancel")}
 								</Button>
 								<Button onClick={handleConfirmPerUserOAuth} data-testid="per-user-oauth-confirm">
-									Continue with Test Login
+									{t("mcp.oauthAuth.continueTest")}
 								</Button>
 							</div>
 						</>
@@ -293,16 +290,14 @@ export const OAuth2Authorizer: React.FC<OAuth2AuthorizerProps> = ({
 					{(status === "pending" || status === "blocked") && (
 						<>
 							<p className="text-muted-foreground text-sm">
-								{status === "blocked"
-									? "Your browser blocked the authorization window. Open it manually to continue."
-									: "Open the authorization window to sign in and complete the connection."}
+								{status === "blocked" ? t("mcp.oauthAuth.blockedOpenDesc") : t("mcp.oauthAuth.pendingOpenDesc")}
 							</p>
 							<div className="flex w-full justify-end space-x-2">
 								<Button onClick={handleCancel} variant="outline" data-testid="oauth-pending-cancel-btn">
-									Cancel
+									{t("common.actions.cancel")}
 								</Button>
 								<Button onClick={openPopup} data-testid="oauth-open-window-btn">
-									Open Authorization Window
+									{t("mcp.oauthAuth.openWindow")}
 								</Button>
 							</div>
 						</>
@@ -311,7 +306,7 @@ export const OAuth2Authorizer: React.FC<OAuth2AuthorizerProps> = ({
 					{status === "polling" && (
 						<>
 							<Loader2 className="text-secondary-foreground h-4 w-4 animate-spin" />
-							<p className="text-muted-foreground text-sm">Please complete authorization in the popup window</p>
+							<p className="text-muted-foreground text-sm">{t("mcp.oauthAuth.completePopup")}</p>
 						</>
 					)}
 
@@ -322,7 +317,7 @@ export const OAuth2Authorizer: React.FC<OAuth2AuthorizerProps> = ({
 									<path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
 								</svg>
 							</div>
-							<p className="text-sm text-green-600">MCP server connected successfully!</p>
+							<p className="text-sm text-green-600">{t("mcp.oauthAuth.connected")}</p>
 						</>
 					)}
 
@@ -333,9 +328,9 @@ export const OAuth2Authorizer: React.FC<OAuth2AuthorizerProps> = ({
 									<path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
 								</svg>
 							</div>
-							<p className="text-sm text-red-600">{errorMessage || "An error occurred"}</p>
+							<p className="text-sm text-red-600">{errorMessage || t("mcp.oauthAuth.errorOccurred")}</p>
 							<Button onClick={handleRetry} variant="outline">
-								Retry
+								{t("common.actions.retry")}
 							</Button>
 						</>
 					)}
@@ -344,7 +339,7 @@ export const OAuth2Authorizer: React.FC<OAuth2AuthorizerProps> = ({
 				{status === "polling" && (
 					<div className="flex justify-end space-x-2">
 						<Button onClick={handleCancel} variant="outline">
-							Cancel
+							{t("common.actions.cancel")}
 						</Button>
 					</div>
 				)}

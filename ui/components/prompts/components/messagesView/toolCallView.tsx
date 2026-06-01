@@ -6,6 +6,7 @@ import { CodeEditor } from "@/components/ui/codeEditor";
 import { Wrench, XIcon } from "lucide-react";
 import { useRef, useState } from "react";
 import MessageRoleSwitcher from "./messageRoleSwitcher";
+import { useT } from "@/lib/i18n";
 
 /**
  * Renders a UI for viewing and editing tool-call entries on a message, including optional argument editing and submitting tool responses.
@@ -36,6 +37,7 @@ export default function ToolCallMessageView({
 	onSubmitToolResult?: (toolCallId: string, content: string) => void;
 	respondedToolCallIds?: Set<string>;
 }) {
+	const t = useT();
 	const toolCalls = message.toolCalls ?? [];
 	const [responses, setResponses] = useState<Record<string, string>>({});
 	const messageRef = useRef(message);
@@ -98,7 +100,7 @@ export default function ToolCallMessageView({
 					{!disabled && onRemove && (
 						<button
 							type="button"
-							aria-label="Delete message"
+							aria-label={t("prompts.deleteMessage")}
 							data-testid="tool-call-msg-delete"
 							onClick={onRemove}
 							className="hover:bg-muted focus:bg-muted rounded-sm p-1 opacity-0 transition-opacity group-focus-within:opacity-100 group-hover:opacity-100 focus:opacity-100"
@@ -155,7 +157,7 @@ export default function ToolCallMessageView({
 									<div className="text-muted-foreground mb-1 text-[10px] font-semibold tracking-wide uppercase">Response</div>
 									<div className="flex items-end gap-2">
 										<Textarea
-											placeholder="Enter tool response..."
+											placeholder={t("prompts.toolResponsePlaceholder")}
 											value={responses[tc.id] ?? ""}
 											onChange={(e) => handleResponseChange(tc.id, e.target.value)}
 											data-testid="tool-call-response-textarea"

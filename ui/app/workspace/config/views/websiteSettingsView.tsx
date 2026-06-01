@@ -11,6 +11,8 @@ import {
 	websiteConfigFromMetadata,
 	type WebsiteConfig,
 } from "@/lib/types/websiteConfig";
+import { useT } from "@/lib/i18n";
+import { useNavDescription, useNavTitle } from "@/lib/i18n/useNavTitle";
 import { RbacOperation, RbacResource, useRbac } from "@enterprise/lib";
 import { LayoutTemplate, Loader2 } from "lucide-react";
 import { useCallback, useEffect, useMemo, useState } from "react";
@@ -53,6 +55,9 @@ function BrandPreview({ config, variant }: { config: WebsiteConfig; variant: "ex
 }
 
 export default function WebsiteSettingsView() {
+	const t = useT();
+	const pageTitle = useNavTitle("website");
+	const pageDescription = useNavDescription("website");
 	const hasSettingsUpdateAccess = useRbac(RbacResource.Settings, RbacOperation.Update);
 	const { data: bifrostConfig, isLoading: isConfigLoading } = useGetCoreConfigQuery({ fromDB: true });
 	const [updateClientMetadata, { isLoading: isSaving }] = useUpdateClientMetadataMutation();
@@ -76,7 +81,7 @@ export default function WebsiteSettingsView() {
 		for (const field of ["icon_url", "icon_dark_url"] as const) {
 			const value = localConfig[field] ?? "";
 			if (!isValidOptionalUrl(value)) {
-				toast.error(`Invalid URL for ${field.replace(/_/g, " ")}`);
+				toast.error(t("configViews.website.invalidUrlForField", { field: field.replace(/_/g, " ") }));
 				return;
 			}
 		}
@@ -84,7 +89,7 @@ export default function WebsiteSettingsView() {
 		try {
 			const normalized = normalizeWebsiteConfig(localConfig);
 			await updateClientMetadata({ [WEBSITE_METADATA_KEY]: normalized }).unwrap();
-			toast.success("Website settings saved");
+			toast.success(t("configViews.website.saved"));
 		} catch (err) {
 			toast.error(getErrorMessage(err));
 		}
@@ -99,37 +104,34 @@ export default function WebsiteSettingsView() {
 			<header className="space-y-1">
 				<h2 className="flex flex-row items-center gap-1 text-lg font-semibold tracking-tight">
 					<LayoutTemplate className="size-4" />
-					Website
+					{pageTitle}
 				</h2>
-				<p className="text-muted-foreground text-sm">
-					Customize the site name and icon shown in the sidebar. One icon is used for both expanded and collapsed layouts. Leave fields
-					empty to use the default Bifrost assets.
-				</p>
+				<p className="text-muted-foreground text-sm">{pageDescription}</p>
 			</header>
 
 			{isConfigLoading ? (
-				<p className="text-muted-foreground text-sm">Loading website settings...</p>
+				<p className="text-muted-foreground text-sm">{t("configPages.loadingWebsiteSettings")}</p>
 			) : (
 				<div className="grid gap-8 lg:grid-cols-[minmax(0,1fr)_240px]">
 					<div className="space-y-6">
 						<div className="space-y-2">
-							<Label htmlFor="website-name">Site name</Label>
+							<Label htmlFor="website-name">{t("configViews.website.siteName")}</Label>
 							<Input
 								id="website-name"
 								value={localConfig.name ?? ""}
 								onChange={(e) => updateField("name", e.target.value)}
-								placeholder="Bifrost"
+								placeholder={t("configViews.website.siteNamePlaceholder")}
 								disabled={!hasSettingsUpdateAccess}
 								data-testid="website-name-input"
 							/>
-							<p className="text-muted-foreground text-xs">Shown next to the icon in the expanded sidebar and used for image alt text.</p>
+							<p className="text-muted-foreground text-xs">{t("configViews.website.siteNameHint")}</p>
 						</div>
 
 						<div className="space-y-4 rounded-md border p-4">
-							<h3 className="text-sm font-medium">Sidebar icon</h3>
-							<p className="text-muted-foreground text-xs">Used in both expanded and collapsed sidebar states.</p>
+							<h3 className="text-sm font-medium">{t("configViews.website.sidebarIcon")}</h3>
+							<p className="text-muted-foreground text-xs">{t("configViews.website.sidebarIconHint")}</p>
 							<div className="space-y-2">
-								<Label htmlFor="website-icon-url">Icon URL (light)</Label>
+								<Label htmlFor="website-icon-url">{t("configViews.website.iconUrlLight")}</Label>
 								<Input
 									id="website-icon-url"
 									value={localConfig.icon_url ?? ""}
@@ -140,7 +142,7 @@ export default function WebsiteSettingsView() {
 								/>
 							</div>
 							<div className="space-y-2">
-								<Label htmlFor="website-icon-dark-url">Icon URL (dark, optional)</Label>
+								<Label htmlFor="website-icon-dark-url">{t("configViews.website.iconUrlDark")}</Label>
 								<Input
 									id="website-icon-dark-url"
 									value={localConfig.icon_dark_url ?? ""}
@@ -159,23 +161,23 @@ export default function WebsiteSettingsView() {
 								data-testid="website-settings-save-btn"
 							>
 								{isSaving && <Loader2 className="mr-2 size-4 animate-spin" />}
-								Save changes
+								{t("common.actions.saveChanges")}
 							</Button>
 							<Button variant="outline" onClick={handleReset} disabled={!hasChanges || isSaving}>
-								Reset
+								{t("configViews.shared.reset")}
 							</Button>
 						</div>
 					</div>
 
 					<div className="space-y-4">
-						<p className="text-muted-foreground text-xs font-medium tracking-wide uppercase">Preview</p>
+						<p className="text-muted-foreground text-xs font-medium tracking-wide uppercase">{t("configViews.website.preview")}</p>
 						<div className="space-y-3">
 							<div className="space-y-2">
-								<p className="text-muted-foreground text-xs">Expanded</p>
+								<p className="text-muted-foreground text-xs">{t("configViews.website.expanded")}</p>
 								<BrandPreview config={localConfig} variant="expanded" />
 							</div>
 							<div className="space-y-2">
-								<p className="text-muted-foreground text-xs">Collapsed</p>
+								<p className="text-muted-foreground text-xs">{t("configViews.website.collapsed")}</p>
 								<BrandPreview config={localConfig} variant="collapsed" />
 							</div>
 						</div>

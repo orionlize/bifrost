@@ -5,6 +5,7 @@ import (
 	"testing"
 	"time"
 
+	bifrost "github.com/maximhq/bifrost/core"
 	"github.com/maximhq/bifrost/core/schemas"
 	"github.com/maximhq/bifrost/framework/configstore"
 	configstoreTables "github.com/maximhq/bifrost/framework/configstore/tables"
@@ -149,6 +150,52 @@ func TestUsageTracker_UpdateUsage_StreamingOptimization(t *testing.T) {
 
 	// Request counter should be updated on final chunk
 	assert.Equal(t, int64(1), updatedRateLimit.RequestCurrentUsage, "Request should be incremented on final chunk")
+}
+
+// TestUsageTracker_UserGroupRequestDedup ensures duplicate final post-hooks do not double-count tokens.
+func TestUsageTracker_UserGroupRequestDedup(t *testing.T) {
+	logger := NewMockLogger()
+	mgr := NewUserGroupManager(nil, logger)
+	mgr.groups["g"] = &configstoreTables.TableUserGroup{
+		ID:                       "g",
+		Name:                     "g",
+		Enabled:                  bifrost.Ptr(true),
+		ShortWindowTokenLimit:    bifrost.Ptr(int64(10_000_000)),
+		ShortWindowResetDuration: bifrost.Ptr("5h"),
+	}
+	mgr.vkToGroups["vk"] = []string{"g"}
+
+	vk := buildVirtualKeyWithBudget("vk", "sk-bf-test", "Test VK", buildBudgetWithUsage("b1", 1000, 0, "1d"))
+	store, err := NewLocalGovernanceStore(context.Background(), logger, nil, &configstore.GovernanceConfig{
+		VirtualKeys: []configstoreTables.TableVirtualKey{*vk},
+	}, nil)
+	require.NoError(t, err)
+
+	tracker := NewUsageTracker(context.Background(), store, NewBudgetResolver(store, nil, logger, nil), nil, logger)
+	tracker.SetUserGroupManager(mgr)
+	defer tracker.Cleanup()
+
+	update := &UsageUpdate{
+		VirtualKey:    "sk-bf-test",
+		RawVirtualKey: "sk-bf-test",
+		Provider:      schemas.OpenAI,
+		Model:         "gpt-4",
+		Success:       true,
+		TokensUsed:    1_000_000,
+		RequestID:     "req-dedup-1",
+		IsStreaming:   true,
+		IsFinalChunk:  true,
+		HasUsageData:  true,
+	}
+	tracker.UpdateUsage(context.Background(), update)
+	time.Sleep(100 * time.Millisecond)
+
+	dup := *update
+	tracker.UpdateUsage(context.Background(), &dup)
+	time.Sleep(100 * time.Millisecond)
+
+	used := mgr.effectiveTokens("vk", mgr.groups["g"], configstoreTables.UserGroupWindowShort, "5h", time.Now())
+	assert.Equal(t, int64(1_000_000), used, "duplicate request_id must not add tokens twice")
 }
 
 // TestUsageTracker_Cleanup tests cleanup of the usage tracker

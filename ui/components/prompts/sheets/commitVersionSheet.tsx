@@ -13,6 +13,7 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import { useForm } from "react-hook-form";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
+import { useT } from "@/lib/i18n";
 
 interface CommitVersionFormData {
 	commitMessage: string;
@@ -34,8 +35,10 @@ function MessagePreview({
 	selected: boolean;
 	onToggle: () => void;
 }) {
+	const t = useT();
 	const msg = useMemo(() => Message.deserialize(sessionMessage.message), [sessionMessage.message]);
 	const role = msg.role;
+	const roleLabel = t(`prompts.roles.${role as "system" | "user" | "assistant" | "tool"}`);
 	const content = msg.content;
 	const hasToolCalls = msg.type === MessageType.CompletionResult && msg.toolCalls && msg.toolCalls.length > 0;
 
@@ -48,14 +51,18 @@ function MessagePreview({
 		>
 			<Checkbox checked={selected} onCheckedChange={onToggle} className="mt-1 shrink-0" />
 			<div className="min-w-0 flex-1">
-				<span className="text-xs font-medium uppercase">{role}</span>
+				<span className="text-xs font-medium uppercase">{roleLabel}</span>
 				<div className="text-muted-foreground mt-1 line-clamp-3 text-sm">
 					{hasToolCalls && !content ? (
-						<span className="italic">Tool call: {msg.toolCalls!.map((tc) => tc.function.name).join(", ")}</span>
+						<span className="italic">
+							{t("prompts.commit.toolCall", {
+								names: msg.toolCalls!.map((tc) => tc.function.name).join(", "),
+							})}
+						</span>
 					) : content ? (
 						<Markdown content={content} className="text-muted-foreground [&_*]:text-sm" />
 					) : (
-						<span className="italic">Empty message</span>
+						<span className="italic">{t("prompts.commit.emptyMessage")}</span>
 					)}
 				</div>
 			</div>
@@ -64,6 +71,7 @@ function MessagePreview({
 }
 
 export function CommitVersionSheet({ open, onOpenChange, session, onCommitted }: CommitVersionSheetProps) {
+	const t = useT();
 	const [commitSession, { isLoading }] = useCommitSessionMutation();
 	const [selectedIndices, setSelectedIndices] = useState<Set<number>>(new Set());
 
@@ -108,7 +116,7 @@ export function CommitVersionSheet({ open, onOpenChange, session, onCommitted }:
 
 	async function onSubmit(data: CommitVersionFormData) {
 		if (selectedIndices.size === 0) {
-			toast.error("Please select at least one message to commit");
+			toast.error(t("prompts.selectMessageToCommit"));
 			return;
 		}
 		try {
@@ -125,12 +133,12 @@ export function CommitVersionSheet({ open, onOpenChange, session, onCommitted }:
 				promptId: session.prompt_id,
 				data: commitData,
 			}).unwrap();
-			toast.success("Version committed");
+			toast.success(t("prompts.versionCommitted"));
 			reset();
 			onCommitted(result.version.id);
 			onOpenChange(false);
 		} catch (err) {
-			toast.error("Failed to commit version", {
+			toast.error(t("prompts.commitFailed"), {
 				description: getErrorMessage(err),
 			});
 		}
@@ -158,7 +166,7 @@ export function CommitVersionSheet({ open, onOpenChange, session, onCommitted }:
 								Messages ({selectedIndices.size}/{session.messages.length})
 							</Label>
 							<button type="button" onClick={toggleAll} className="text-muted-foreground hover:text-foreground text-xs transition-colors">
-								{allSelected ? "Deselect all" : "Select all"}
+								{allSelected ? t("prompts.deselectAll") : t("prompts.selectAll")}
 							</button>
 						</div>
 						<ScrollArea className="flex-1 overflow-y-auto rounded-md border">
@@ -182,10 +190,10 @@ export function CommitVersionSheet({ open, onOpenChange, session, onCommitted }:
 							<Input
 								id="commitMessage"
 								data-testid="commit-version-message"
-								placeholder="Added system message for better context..."
+								placeholder={t("prompts.commitMessagePlaceholder")}
 								{...register("commitMessage", {
-									required: "Commit message is required",
-									validate: (v) => v.trim().length > 0 || "Commit message cannot be blank",
+									required: t("prompts.commitMessageRequired"),
+									validate: (v) => v.trim().length > 0 || t("prompts.commitMessageBlank"),
 								})}
 								autoFocus
 							/>
@@ -208,7 +216,7 @@ export function CommitVersionSheet({ open, onOpenChange, session, onCommitted }:
 								disabled={isLoading || selectedIndices.size === 0}
 								className={selectedIndices.size === 0 ? "opacity-50" : ""}
 							>
-								{isLoading ? "Committing..." : "Commit Version"}
+								{isLoading ? t("prompts.committing") : t("prompts.commitVersion")}
 							</Button>
 						</SheetFooter>
 					</div>

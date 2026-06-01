@@ -7,6 +7,7 @@ import { isJson } from "@/lib/utils/validation";
 import { PencilIcon, XIcon } from "lucide-react";
 import { useEffect, useMemo, useRef, useState } from "react";
 import MessageRoleSwitcher from "./messageRoleSwitcher";
+import { useT } from "@/lib/i18n";
 
 /**
  * Renders an editable system message block that supports role switching, rich-text editing, JSON editing with buffered changes, Jinja variable highlighting, and optional removal.
@@ -28,6 +29,7 @@ export function SystemMessageView({
 	onChange: (serialized: SerializedMessage) => void;
 	onRemove?: () => void;
 }) {
+	const t = useT();
 	const [editMode, setEditMode] = useState(false);
 	const containerRef = useRef<HTMLDivElement>(null);
 	const messageRef = useRef(message);
@@ -111,7 +113,7 @@ export function SystemMessageView({
 					{!disabled && (
 						<button
 							type="button"
-							aria-label="Edit message"
+							aria-label={t("prompts.editMessage")}
 							data-testid="system-msg-edit"
 							onClick={() => setEditMode(true)}
 							className="hover:bg-muted focus:bg-muted rounded-sm p-1 opacity-0 transition-opacity group-focus-within:opacity-100 group-hover:opacity-100 focus:opacity-100"
@@ -122,7 +124,7 @@ export function SystemMessageView({
 					{!disabled && onRemove && (
 						<button
 							type="button"
-							aria-label="Delete message"
+							aria-label={t("prompts.deleteMessage")}
 							data-testid="system-msg-delete"
 							onClick={onRemove}
 							className="hover:bg-muted focus:bg-muted rounded-sm p-1 opacity-0 transition-opacity group-focus-within:opacity-100 group-hover:opacity-100 focus:opacity-100"

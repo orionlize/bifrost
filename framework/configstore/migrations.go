@@ -852,6 +852,9 @@ func triggerMigrations(ctx context.Context, db *gorm.DB) error {
 	if err := migrationAddUserGroupTables(ctx, db); err != nil {
 		return err
 	}
+	if err := migrationAddUserGroupTierMappingKeyColumns(ctx, db); err != nil {
+		return err
+	}
 	return nil
 }
 
@@ -912,6 +915,44 @@ func migrationAddUserGroupTables(ctx context.Context, db *gorm.DB) error {
 	}})
 	if err := m.Migrate(); err != nil {
 		return fmt.Errorf("error while running user_group_tables migration: %s", err.Error())
+	}
+	return nil
+}
+
+// migrationAddUserGroupTierMappingKeyColumns adds optional source/target provider key
+// pins to user-group tier mappings for key-level degradation rules.
+func migrationAddUserGroupTierMappingKeyColumns(ctx context.Context, db *gorm.DB) error {
+	m := migrator.New(db, migrator.DefaultOptions, []*migrator.Migration{{
+		ID: "add_user_group_tier_mapping_key_columns",
+		Migrate: func(tx *gorm.DB) error {
+			tx = tx.WithContext(ctx)
+			migrator := tx.Migrator()
+			if !migrator.HasColumn(&tables.TableUserGroupTierMapping{}, "source_key_id") {
+				if err := migrator.AddColumn(&tables.TableUserGroupTierMapping{}, "source_key_id"); err != nil {
+					return err
+				}
+			}
+			if !migrator.HasColumn(&tables.TableUserGroupTierMapping{}, "target_key_id") {
+				if err := migrator.AddColumn(&tables.TableUserGroupTierMapping{}, "target_key_id"); err != nil {
+					return err
+				}
+			}
+			return nil
+		},
+		Rollback: func(tx *gorm.DB) error {
+			tx = tx.WithContext(ctx)
+			migrator := tx.Migrator()
+			if err := migrator.DropColumn(&tables.TableUserGroupTierMapping{}, "target_key_id"); err != nil {
+				return err
+			}
+			if err := migrator.DropColumn(&tables.TableUserGroupTierMapping{}, "source_key_id"); err != nil {
+				return err
+			}
+			return nil
+		},
+	}})
+	if err := m.Migrate(); err != nil {
+		return fmt.Errorf("error while running add_user_group_tier_mapping_key_columns migration: %s", err.Error())
 	}
 	return nil
 }

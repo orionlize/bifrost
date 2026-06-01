@@ -98,6 +98,7 @@ type ServerCallbacks interface {
 	RemoveRoutingRule(ctx context.Context, id string) error
 	ReloadUserGroups(ctx context.Context) error
 	GetUserGroupUsage(ctx context.Context, groupID string) ([]governance.UserGroupMemberUsage, error)
+	ResetUserGroupMemberUsage(ctx context.Context, groupID, identity string) error
 	// MCP related callbacks
 	AddMCPClient(ctx context.Context, clientConfig *schemas.MCPClientConfig) error
 	RemoveMCPClient(ctx context.Context, id string) error
@@ -767,6 +768,15 @@ func (s *BifrostHTTPServer) GetUserGroupUsage(ctx context.Context, groupID strin
 	return governancePlugin.GetUserGroupUsage(ctx, groupID), nil
 }
 
+// ResetUserGroupMemberUsage clears window counters for one member of a user group.
+func (s *BifrostHTTPServer) ResetUserGroupMemberUsage(ctx context.Context, groupID, identity string) error {
+	governancePlugin, err := s.getGovernancePlugin()
+	if err != nil {
+		return fmt.Errorf("governance plugin not found: %w", err)
+	}
+	return governancePlugin.ResetUserGroupMemberUsage(ctx, groupID, identity)
+}
+
 // ReloadClientConfigFromConfigStore reloads the client config from config store
 func (s *BifrostHTTPServer) ReloadClientConfigFromConfigStore(ctx context.Context) error {
 	if s.Config == nil || s.Config.ConfigStore == nil {
@@ -1185,6 +1195,9 @@ func (s *BifrostHTTPServer) RegisterAPIRoutes(ctx context.Context, callbacks Ser
 		governanceHandler, err = handlers.NewGovernanceHandler(callbacks, s.Config.ConfigStore)
 		if err != nil {
 			return fmt.Errorf("failed to initialize governance handler: %v", err)
+		}
+		if loggingHandler != nil {
+			governanceHandler.SetVirtualKeyTokenSummarizer(loggingHandler)
 		}
 	}
 	// Resolve the semantic_cache plugin per request so plugin reloads via

@@ -18,14 +18,16 @@ import { useState } from "react";
 import { toast } from "sonner";
 import { UserGroupSheet } from "./userGroupSheet";
 import { UserGroupsTable } from "./userGroupsTable";
-import { UserGroupUsageSheet } from "./userGroupUsageSheet";
+import { useT } from "@/lib/i18n";
+import { useNavDescription, useNavTitle } from "@/lib/i18n/useNavTitle";
 
 export function UserGroupsView() {
+	const t = useT();
+	const pageTitle = useNavTitle("userGroups");
+	const pageDescription = useNavDescription("userGroups");
 	const [sheetOpen, setSheetOpen] = useState(false);
 	const [editingGroup, setEditingGroup] = useState<UserGroup | null>(null);
 	const [deleteTarget, setDeleteTarget] = useState<UserGroup | null>(null);
-	const [usageOpen, setUsageOpen] = useState(false);
-	const [usageGroup, setUsageGroup] = useState<UserGroup | null>(null);
 
 	const canCreate = useRbac(RbacResource.VirtualKeys, RbacOperation.Create);
 	const canUpdate = useRbac(RbacResource.VirtualKeys, RbacOperation.Update);
@@ -46,16 +48,11 @@ export function UserGroupsView() {
 		setSheetOpen(true);
 	};
 
-	const handleViewUsage = (group: UserGroup) => {
-		setUsageGroup(group);
-		setUsageOpen(true);
-	};
-
 	const handleConfirmDelete = async () => {
 		if (!deleteTarget) return;
 		try {
 			await deleteGroup(deleteTarget.id).unwrap();
-			toast.success("User group deleted");
+			toast.success(t("governance.userGroups.deleted"));
 			setDeleteTarget(null);
 		} catch (err) {
 			toast.error(getErrorMessage(err));
@@ -66,15 +63,13 @@ export function UserGroupsView() {
 		<div className="space-y-4">
 			<div className="flex items-center justify-between">
 				<div>
-					<h1 className="text-foreground text-lg font-semibold">User Groups</h1>
-					<p className="text-muted-foreground text-sm">
-						Tag users into groups with tiered model degradation to cap high-cost AI consumption.
-					</p>
+					<h1 className="text-foreground text-lg font-semibold">{pageTitle}</h1>
+					<p className="text-muted-foreground text-sm">{pageDescription}</p>
 				</div>
 				{canCreate && (
 					<Button onClick={handleCreate} className="gap-2" data-testid="create-user-group-btn">
 						<Plus className="h-4 w-4" />
-						<span className="hidden sm:inline">New Group</span>
+						<span className="hidden sm:inline">{t("governance.userGroups.newGroup")}</span>
 					</Button>
 				)}
 			</div>
@@ -84,26 +79,24 @@ export function UserGroupsView() {
 				isLoading={isLoading}
 				onEdit={handleEdit}
 				onDelete={setDeleteTarget}
-				onViewUsage={handleViewUsage}
 				canUpdate={canUpdate}
 				canDelete={canDelete}
 			/>
 
 			<UserGroupSheet open={sheetOpen} onOpenChange={setSheetOpen} editingGroup={editingGroup} />
-			<UserGroupUsageSheet group={usageGroup} open={usageOpen} onOpenChange={setUsageOpen} />
 
 			<AlertDialog open={!!deleteTarget} onOpenChange={(open) => !open && setDeleteTarget(null)}>
 				<AlertDialogContent>
 					<AlertDialogHeader>
-						<AlertDialogTitle>Delete user group?</AlertDialogTitle>
+						<AlertDialogTitle>{t("governance.userGroups.deleteTitle")}</AlertDialogTitle>
 						<AlertDialogDescription>
-							This will remove the group "{deleteTarget?.name}" and its degradation tiers. Members (users) are not deleted.
+							{t("governance.userGroups.deleteDescription", { name: deleteTarget?.name ?? "" })}
 						</AlertDialogDescription>
 					</AlertDialogHeader>
 					<AlertDialogFooter>
-						<AlertDialogCancel>Cancel</AlertDialogCancel>
+						<AlertDialogCancel>{t("common.actions.cancel")}</AlertDialogCancel>
 						<AlertDialogAction onClick={handleConfirmDelete} disabled={isDeleting}>
-							{isDeleting ? "Deleting..." : "Delete"}
+							{isDeleting ? t("common.actions.deleting") : t("common.actions.delete")}
 						</AlertDialogAction>
 					</AlertDialogFooter>
 				</AlertDialogContent>

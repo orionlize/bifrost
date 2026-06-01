@@ -4,6 +4,7 @@ import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle } from "
 import { getErrorMessage, useCreatePluginMutation, useUpdatePluginMutation } from "@/lib/store";
 import { Plugin } from "@/lib/types/plugins";
 import { RbacOperation, RbacResource, useRbac } from "@enterprise/lib";
+import { useT } from "@/lib/i18n";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useEffect } from "react";
 import { useForm } from "react-hook-form";
@@ -58,6 +59,7 @@ interface AddNewPluginSheetProps {
 }
 
 export default function AddNewPluginSheet({ open, onClose, onCreate, plugin }: AddNewPluginSheetProps) {
+	const t = useT();
 	const hasCreatePluginAccess = useRbac(RbacResource.Plugins, RbacOperation.Create);
 	const hasUpdatePluginAccess = useRbac(RbacResource.Plugins, RbacOperation.Update);
 	const [createPlugin, { isLoading: isCreating }] = useCreatePluginMutation();
@@ -105,7 +107,7 @@ export default function AddNewPluginSheet({ open, onClose, onCreate, plugin }: A
 				try {
 					parsedConfig = JSON.parse(data.config);
 				} catch {
-					toast.error("Invalid JSON configuration");
+					toast.error(t("plugins.invalidJsonConfig"));
 					return;
 				}
 			}
@@ -119,7 +121,7 @@ export default function AddNewPluginSheet({ open, onClose, onCreate, plugin }: A
 						config: parsedConfig,
 					},
 				}).unwrap();
-				toast.success("Plugin updated successfully");
+				toast.success(t("plugins.updated"));
 			} else {
 				// Create new plugin
 				await createPlugin({
@@ -128,7 +130,7 @@ export default function AddNewPluginSheet({ open, onClose, onCreate, plugin }: A
 					enabled: true,
 					config: parsedConfig,
 				}).unwrap();
-				toast.success("Plugin created successfully");
+				toast.success(t("plugins.created"));
 				// Notify parent with the config name to select it
 				onCreate?.(data.name);
 			}
@@ -151,11 +153,9 @@ export default function AddNewPluginSheet({ open, onClose, onCreate, plugin }: A
 		<Sheet open={open} onOpenChange={handleClose}>
 			<SheetContent className="flex w-full flex-col overflow-x-hidden pt-4">
 				<SheetHeader className="flex flex-col items-start px-8 py-4" headerClassName="mb-0 sticky top-0 bg-card z-10">
-					<SheetTitle>{isEditMode ? "Update Plugin" : "Install New Plugin"}</SheetTitle>
+					<SheetTitle>{isEditMode ? t("plugins.updateSheetTitle") : t("plugins.installNewSheetTitle")}</SheetTitle>
 					<SheetDescription>
-						{isEditMode
-							? "Update the plugin configuration. Note: Plugin name and path cannot be changed."
-							: "Add a custom plugin by providing its name, path/URL, and optional configuration."}
+						{isEditMode ? t("plugins.updateSheetDesc") : t("plugins.installSheetDesc")}
 					</SheetDescription>
 				</SheetHeader>
 
@@ -167,10 +167,10 @@ export default function AddNewPluginSheet({ open, onClose, onCreate, plugin }: A
 
 						<div className="bg-card sticky bottom-0 flex justify-end gap-2 border-t px-8 py-4">
 							<Button type="button" variant="outline" onClick={handleClose} disabled={isLoading}>
-								Cancel
+								{t("common.actions.cancel")}
 							</Button>
 							<Button type="submit" disabled={isLoading || !form.formState.isValid || disableAction} isLoading={isLoading}>
-								{isEditMode ? "Update Plugin" : "Install Plugin"}
+								{isEditMode ? t("plugins.updatePlugin") : t("plugins.installPlugin")}
 							</Button>
 						</div>
 					</form>

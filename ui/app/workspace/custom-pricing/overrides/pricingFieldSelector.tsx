@@ -1,6 +1,7 @@
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import { cn } from "@/lib/utils";
+import { useT } from "@/lib/i18n";
 import { ChevronDown, Plus, X } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
 import type { FieldErrors, PricingFieldKey } from "./pricingOverrideSheet";
@@ -8,14 +9,14 @@ import { PRICING_FIELDS } from "./pricingOverrideSheet";
 
 type GroupKey = "chat" | "embedding" | "rerank" | "audio" | "image" | "video" | "ocr";
 
-const PRICING_GROUPS: { key: GroupKey; label: string }[] = [
-	{ key: "chat", label: "Chat / Text / Responses" },
-	{ key: "embedding", label: "Embedding" },
-	{ key: "rerank", label: "Rerank" },
-	{ key: "audio", label: "Audio" },
-	{ key: "image", label: "Image" },
-	{ key: "video", label: "Video" },
-	{ key: "ocr", label: "OCR" },
+const PRICING_GROUP_KEYS: { key: GroupKey; labelKey: string }[] = [
+	{ key: "chat", labelKey: "pricing.fieldSelector.groups.chat" },
+	{ key: "embedding", labelKey: "pricing.fieldSelector.groups.embedding" },
+	{ key: "rerank", labelKey: "pricing.fieldSelector.groups.rerank" },
+	{ key: "audio", labelKey: "pricing.fieldSelector.groups.audio" },
+	{ key: "image", labelKey: "pricing.fieldSelector.groups.image" },
+	{ key: "video", labelKey: "pricing.fieldSelector.groups.video" },
+	{ key: "ocr", labelKey: "pricing.fieldSelector.groups.ocr" },
 ];
 
 const REQUEST_TYPE_TO_CATEGORY: Record<string, GroupKey> = {
@@ -43,6 +44,7 @@ interface PricingFieldSelectorProps {
 }
 
 export function PricingFieldSelector({ values, errors, selectedRequestTypes, onChange, onFieldInteraction }: PricingFieldSelectorProps) {
+	const t = useT();
 	const [search, setSearch] = useState("");
 	const [openGroups, setOpenGroups] = useState<Set<GroupKey>>(new Set(["chat"]));
 
@@ -78,7 +80,7 @@ export function PricingFieldSelector({ values, errors, selectedRequestTypes, onC
 	// Fields visible per group when not searching, respecting activeCategories filter
 	const visibleGroupedFields = useMemo(
 		() =>
-			PRICING_GROUPS.map((group) => {
+			PRICING_GROUP_KEYS.map((group) => {
 				const fields = PRICING_FIELDS.filter((f) => {
 					if (f.group !== group.key) return false;
 					if (activeCategories === null) return true;
@@ -146,7 +148,7 @@ export function PricingFieldSelector({ values, errors, selectedRequestTypes, onC
 						className="text-muted-foreground hover:text-foreground rounded-sm p-0.5 transition-colors"
 						onClick={() => deactivateField(field.key)}
 						data-testid={`pricing-field-deactivate-${field.key}`}
-						title="Remove field"
+						title={t("pricing.fieldSelector.removeField")}
 					>
 						<X className="h-3.5 w-3.5" />
 					</button>
@@ -168,7 +170,7 @@ export function PricingFieldSelector({ values, errors, selectedRequestTypes, onC
 	return (
 		<div className="space-y-2">
 			<Input
-				placeholder="Search all pricing fields..."
+				placeholder={t("pricing.fieldSelector.searchPlaceholder")}
 				value={search}
 				onChange={(e) => setSearch(e.target.value)}
 				className="h-9"
@@ -179,7 +181,7 @@ export function PricingFieldSelector({ values, errors, selectedRequestTypes, onC
 				{isSearching ? (
 					<div className="space-y-0.5 p-2">
 						{filteredFields!.length === 0 ? (
-							<div className="text-muted-foreground py-4 text-center text-sm">No fields match &ldquo;{search}&rdquo;</div>
+							<div className="text-muted-foreground py-4 text-center text-sm">{t("pricing.fieldSelector.noMatch", { query: search })}</div>
 						) : (
 							filteredFields!.map((field) => renderFieldRow(field))
 						)}
@@ -187,7 +189,7 @@ export function PricingFieldSelector({ values, errors, selectedRequestTypes, onC
 				) : (
 					<div className="divide-y">
 						{visibleGroupedFields.length === 0 ? (
-							<div className="text-muted-foreground py-4 text-center text-sm">No pricing fields for the selected request types</div>
+							<div className="text-muted-foreground py-4 text-center text-sm">{t("pricing.fieldSelector.noFieldsForTypes")}</div>
 						) : (
 							visibleGroupedFields.map((group) => {
 								const isOpen = openGroups.has(group.key);
@@ -202,7 +204,7 @@ export function PricingFieldSelector({ values, errors, selectedRequestTypes, onC
 											data-testid={`pricing-group-toggle-${group.key}`}
 										>
 											<span className="flex items-center gap-2">
-												{group.label}
+												{t(group.labelKey)}
 												{valueCount > 0 && (
 													<Badge variant="secondary" className="px-1.5 py-0 text-[10px]">
 														{valueCount}

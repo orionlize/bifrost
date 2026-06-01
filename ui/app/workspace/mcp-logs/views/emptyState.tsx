@@ -3,6 +3,7 @@ import { Button } from "@/components/ui/button";
 import { CodeEditor } from "@/components/ui/codeEditor";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { useT } from "@/lib/i18n";
 import { getExampleBaseUrl } from "@/lib/utils/port";
 import { useCopyToClipboard } from "@/hooks/useCopyToClipboard";
 import { AlertTriangle, Copy } from "lucide-react";
@@ -36,9 +37,12 @@ interface CodeBlockProps {
 	onLanguageChange?: (language: string) => void;
 	showLanguageSelect?: boolean;
 	readonly?: boolean;
+	copyLabel: string;
+	pythonLabel: string;
+	typescriptLabel: string;
 }
 
-function CodeBlock({ code, language, onLanguageChange, showLanguageSelect = false, readonly = true }: CodeBlockProps) {
+function CodeBlock({ code, language, onLanguageChange, showLanguageSelect = false, readonly = true, copyLabel, pythonLabel, typescriptLabel }: CodeBlockProps) {
 	const { copy: copyToClipboard } = useCopyToClipboard();
 
 	return (
@@ -51,15 +55,15 @@ function CodeBlock({ code, language, onLanguageChange, showLanguageSelect = fals
 						</SelectTrigger>
 						<SelectContent>
 							<SelectItem className="text-xs" value="python">
-								Python
+								{pythonLabel}
 							</SelectItem>
 							<SelectItem className="text-xs" value="typescript">
-								TypeScript
+								{typescriptLabel}
 							</SelectItem>
 						</SelectContent>
 					</Select>
 				)}
-				<Button variant="ghost" size="icon" onClick={() => copyToClipboard(code)} aria-label="Copy to clipboard">
+				<Button variant="ghost" size="icon" onClick={() => copyToClipboard(code)} aria-label={copyLabel}>
 					<Copy className="size-4" />
 				</Button>
 			</div>
@@ -74,6 +78,7 @@ interface MCPEmptyStateProps {
 }
 
 export function MCPEmptyState({ error, statusIndicator }: MCPEmptyStateProps) {
+	const t = useT();
 	const [language, setLanguage] = useState<Language>("python");
 
 	// Generate examples dynamically using the port utility
@@ -249,7 +254,7 @@ if (response.choices[0].message.tool_calls) {
 				<Alert>
 					<AlertTriangle className="h-4 w-4" />
 					<AlertDescription>
-						{isUnexpectedError ? "Looks like you haven't configured the log store in your config file." : error}
+						{isUnexpectedError ? t("mcp.logs.empty.logStoreShort") : error}
 					</AlertDescription>
 				</Alert>
 			)}
@@ -257,61 +262,63 @@ if (response.choices[0].message.tool_calls) {
 			<div className="w-full space-y-6">
 				<div className="flex flex-row items-center gap-2">
 					<div>
-						<h3 className="text-lg font-semibold">Get Started with MCP Tool Execution</h3>
-						<p className="text-muted-foreground text-sm">Execute your first MCP tool call to see logs appear</p>
+						<h3 className="text-lg font-semibold">{t("mcp.logs.empty.title")}</h3>
+						<p className="text-muted-foreground text-sm">{t("mcp.logs.empty.subtitleShort")}</p>
 					</div>
 					<div className="ml-auto">{statusIndicator}</div>
 				</div>
 
 				<Tabs defaultValue="manual" className="w-full rounded-lg border">
 					<TabsList className="grid h-10 w-full grid-cols-2 rounded-t-lg rounded-b-none">
-						<TabsTrigger value="manual">Manual Tool Execution</TabsTrigger>
-						<TabsTrigger value="agent">Agent Mode (Auto-Execute)</TabsTrigger>
+						<TabsTrigger value="manual">{t("mcp.logs.empty.manualTab")}</TabsTrigger>
+						<TabsTrigger value="agent">{t("mcp.logs.empty.agentTab")}</TabsTrigger>
 					</TabsList>
 
 					<TabsContent value="manual" className="px-4">
 						<div className="text-muted-foreground mb-3 text-sm">
-							<p>Full control over tool approval. You explicitly execute each tool call via the API.</p>
+							<p>{t("mcp.logs.empty.manualDescFull")}</p>
 						</div>
 						<CodeBlock
 							code={examples.manual[language]}
 							language={language}
 							onLanguageChange={(newLang) => setLanguage(newLang as Language)}
 							showLanguageSelect
+							copyLabel={t("mcp.logs.empty.copyToClipboard")}
+							pythonLabel={t("mcp.logs.empty.python")}
+							typescriptLabel={t("mcp.logs.empty.typescript")}
 						/>
 					</TabsContent>
 
 					<TabsContent value="agent" className="px-4">
 						<div className="text-muted-foreground mb-3 text-sm">
-							<p>Autonomous execution for pre-approved tools. Configure auto-executable tools in MCP Gateway settings.</p>
+							<p>{t("mcp.logs.empty.agentDescFull")}</p>
 						</div>
 						<CodeBlock
 							code={examples.agentMode[language]}
 							language={language}
 							onLanguageChange={(newLang) => setLanguage(newLang as Language)}
 							showLanguageSelect
+							copyLabel={t("mcp.logs.empty.copyToClipboard")}
+							pythonLabel={t("mcp.logs.empty.python")}
+							typescriptLabel={t("mcp.logs.empty.typescript")}
 						/>
 					</TabsContent>
 				</Tabs>
 
 				<div className="bg-muted/50 rounded-lg border p-4">
-					<h4 className="mb-2 text-sm font-semibold">Prerequisites</h4>
+					<h4 className="mb-2 text-sm font-semibold">{t("mcp.logs.empty.prerequisites")}</h4>
 					<ul className="text-muted-foreground space-y-1 text-sm">
 						<li className="flex items-start gap-2">
 							<span className="text-primary">1.</span>
-							<span>Configure MCP servers in the MCP Gateway (e.g., filesystem, web_search)</span>
+							<span>{t("mcp.logs.empty.prerequisite1")}</span>
 						</li>
 						<li className="flex items-start gap-2">
 							<span className="text-primary">2.</span>
-							<span>
-								Set <code className="bg-muted rounded px-1">tools_to_execute</code> to whitelist available tools
-							</span>
+							<span>{t("mcp.logs.empty.prerequisite2")}</span>
 						</li>
 						<li className="flex items-start gap-2">
 							<span className="text-primary">3.</span>
-							<span>
-								For Agent Mode: Configure <code className="bg-muted rounded px-1">tools_to_auto_execute</code> for autonomous execution
-							</span>
+							<span>{t("mcp.logs.empty.prerequisite3")}</span>
 						</li>
 					</ul>
 				</div>

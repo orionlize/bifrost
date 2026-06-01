@@ -1,3 +1,4 @@
+import { useT } from "@/lib/i18n";
 import { getErrorMessage, useAppSelector, useUpdatePluginMutation } from "@/lib/store";
 import { MaximConfigSchema, MaximFormSchema } from "@/lib/types/schemas";
 import { useMemo } from "react";
@@ -10,6 +11,7 @@ interface MaximViewProps {
 }
 
 export default function MaximView({ onDelete, isDeleting }: MaximViewProps) {
+	const t = useT();
 	const selectedPlugin = useAppSelector((state) => state.plugin.selectedPlugin);
 	const [updatePlugin] = useUpdatePluginMutation();
 	const currentConfig = useMemo(
@@ -28,11 +30,11 @@ export default function MaximView({ onDelete, isDeleting }: MaximViewProps) {
 			})
 				.unwrap()
 				.then(() => {
-					toast.success("Maxim configuration updated successfully");
+					toast.success(t("observabilityConnectors.toast.maximUpdated"));
 					resolve();
 				})
 				.catch((err) => {
-					toast.error("Failed to update Maxim configuration", {
+					toast.error(t("observabilityConnectors.toast.maximFailed"), {
 						description: getErrorMessage(err),
 					});
 					reject(err);

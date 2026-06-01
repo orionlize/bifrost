@@ -1,13 +1,21 @@
 // ─── Scope config ──────────────────────────────────────────────────────────
 
 export const SCOPE_CONFIG = {
-	virtual_key: { label: "User", color: "#7c3aed", headerClass: "bg-purple-100 dark:bg-purple-900/30" },
-	team: { label: "Team", color: "#2563eb", headerClass: "bg-blue-100 dark:bg-blue-900/30" },
-	customer: { label: "Customer", color: "#16a34a", headerClass: "bg-green-100 dark:bg-green-900/30" },
-	global: { label: "Global", color: "#6b7280", headerClass: "bg-gray-100 dark:bg-gray-800/30" },
+	virtual_key: { color: "#7c3aed", headerClass: "bg-purple-100 dark:bg-purple-900/30" },
+	team: { color: "#2563eb", headerClass: "bg-blue-100 dark:bg-blue-900/30" },
+	customer: { color: "#16a34a", headerClass: "bg-green-100 dark:bg-green-900/30" },
+	global: { color: "#6b7280", headerClass: "bg-gray-100 dark:bg-gray-800/30" },
 } as const;
 
 export type ScopeKey = keyof typeof SCOPE_CONFIG;
+
+/** i18n keys under routing.scope.* */
+export const SCOPE_LABEL_KEYS: Record<ScopeKey, string> = {
+	virtual_key: "routing.scope.user",
+	team: "routing.scope.team",
+	customer: "routing.scope.customer",
+	global: "routing.scope.global",
+};
 
 export const SCOPE_ORDER = ["virtual_key", "team", "customer", "global"] as const;
 

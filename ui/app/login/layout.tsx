@@ -1,5 +1,6 @@
 import { ThemeProvider } from "@/components/themeProvider";
 import { WebsiteDocumentHead } from "@/components/websiteDocumentHead";
+import { I18nProvider } from "@/lib/i18n";
 import { ReduxProvider } from "@/lib/store/provider";
 import { defaultAuthenticatedPath, probeAuthSession, shouldEnterDashboard } from "@/lib/utils/authRedirect";
 import { LOGIN_COMPLETE_PATH } from "@/lib/utils/loginGoto";
@@ -22,14 +23,16 @@ function RouteComponent() {
 	const isZdSwitchSuccessRoute = pathname === LOGIN_ZD_SWITCH_SUCCESS_PATH || pathname.startsWith(`${LOGIN_ZD_SWITCH_SUCCESS_PATH}/`);
 
 	return (
-		<ThemeProvider attribute="class" defaultTheme="system" enableSystem>
-			<ReduxProvider>
-				<WebsiteDocumentHead preferPublicApi />
-				<div className="bg-background min-h-screen">
-					{isZdSwitchSuccessRoute ? <ZdSwitchSuccessPage /> : isCompleteRoute ? <LoginCompletePage /> : <LoginPage />}
-				</div>
-			</ReduxProvider>
-		</ThemeProvider>
+		<I18nProvider>
+			<ThemeProvider attribute="class" defaultTheme="system" enableSystem>
+				<ReduxProvider>
+					<WebsiteDocumentHead preferPublicApi />
+					<div className="bg-background min-h-screen">
+						{isZdSwitchSuccessRoute ? <ZdSwitchSuccessPage /> : isCompleteRoute ? <LoginCompletePage /> : <LoginPage />}
+					</div>
+				</ReduxProvider>
+			</ThemeProvider>
+		</I18nProvider>
 	);
 }
 

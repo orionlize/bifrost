@@ -1,10 +1,12 @@
 import { useWebsiteBranding } from "@/lib/hooks/useWebsiteBranding";
+import { useT } from "@/lib/i18n";
 
 interface LoginBrandHeaderProps {
 	showWelcome?: boolean;
 }
 
 export function LoginBrandHeader({ showWelcome = true }: LoginBrandHeaderProps) {
+	const t = useT();
 	const { siteName, hasCustomIcon, brandSrc, isLoaded } = useWebsiteBranding({ preferPublicApi: true });
 
 	return (
@@ -19,7 +21,7 @@ export function LoginBrandHeader({ showWelcome = true }: LoginBrandHeaderProps) 
 			{showWelcome ? (
 				<div className="space-y-2 text-center">
 					<h1 className="text-foreground text-lg font-semibold">{isLoaded ? siteName : "\u00a0"}</h1>
-					<p className="text-muted-foreground text-sm">Sign in to your account to continue</p>
+					<p className="text-muted-foreground text-sm">{t("auth.signInWelcome")}</p>
 				</div>
 			) : null}
 		</>

@@ -4,7 +4,9 @@ import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/component
 import { Input } from "@/components/ui/input";
 import { ScrollArea } from "@/components/ui/scrollArea";
 import { Skeleton } from "@/components/ui/skeleton";
-import { RequestTypeLabels, RequestTypes, RoutingEngineUsedLabels, Statuses } from "@/lib/constants/logs";
+import { LOCAL_ADMIN_USER_ID, LOCAL_ADMIN_USER_NAME, RequestTypes, Statuses } from "@/lib/constants/logs";
+import { logRequestTypeFilterLabel, logStatusFilterLabel, routingEngineFilterLabel } from "@/lib/i18n/filterLabels";
+import { useT } from "@/lib/i18n";
 import { useGetAvailableFilterDataQuery, useGetProvidersQuery } from "@/lib/store";
 import type { LogFilters } from "@/lib/types/logs";
 import { cn } from "@/lib/utils";
@@ -32,6 +34,7 @@ interface LogsSidebarProps {
 }
 
 export function LogsFilterSidebar({ filters, onFiltersChange, hiddenSections = [] }: LogsSidebarProps) {
+	const t = useT();
 	const hiddenSectionSet = useMemo(() => new Set(hiddenSections), [hiddenSections]);
 	const hiddenFilterKeys = useMemo(() => new Set(hiddenSections.flatMap((section) => LOGS_FILTER_SECTION_KEYS[section])), [hiddenSections]);
 	const [collapsed, setCollapsed] = useState(false);
@@ -81,11 +84,11 @@ export function LogsFilterSidebar({ filters, onFiltersChange, hiddenSections = [
 				type="button"
 				onClick={toggleCollapsed}
 				className="bg-card group flex h-full w-10 shrink-0 cursor-pointer flex-col items-center gap-3 rounded-r-md py-4 text-sm font-medium"
-				title="Show filters"
-				aria-label="Show filters"
+				title={t("logsFilters.showFilters")}
+				aria-label={t("logsFilters.showFilters")}
 			>
 				<PanelLeftOpen className="text-muted-foreground group-hover:text-foreground size-4 transition-colors" />
-				<span className="rotate-180 select-none [writing-mode:vertical-rl]">Filters</span>
+				<span className="rotate-180 select-none [writing-mode:vertical-rl]">{t("logsFilters.title")}</span>
 				{activeFilterCount > 0 && (
 					<span className="bg-primary/10 text-primary flex size-6 items-center justify-center rounded-full text-xs font-medium">
 						{activeFilterCount}
@@ -99,15 +102,22 @@ export function LogsFilterSidebar({ filters, onFiltersChange, hiddenSections = [
 		<div className="bg-card flex h-full w-64 shrink-0 flex-col rounded-r-md">
 			{/* Header */}
 			<div className="flex h-11 items-center justify-between border-b pr-2 pl-5">
-				<span className="text-sm font-semibold">Filters</span>
+				<span className="text-sm font-semibold">{t("logsFilters.title")}</span>
 				<div className="flex items-center gap-1">
 					{activeFilterCount > 0 && (
 						<Button variant="outline" size="sm" className="text-muted-foreground h-7 px-2 text-xs" onClick={handleReset}>
 							<RotateCcw className="size-3" />
-							Reset
+							{t("logsFilters.reset")}
 						</Button>
 					)}
-					<Button variant="ghost" size="icon" className="size-7" onClick={toggleCollapsed} title="Hide filters" aria-label="Hide filters">
+					<Button
+						variant="ghost"
+						size="icon"
+						className="size-7"
+						onClick={toggleCollapsed}
+						title={t("logsFilters.hideFilters")}
+						aria-label={t("logsFilters.hideFilters")}
+					>
 						<PanelLeftClose className="size-4" />
 					</Button>
 				</div>
@@ -128,7 +138,6 @@ export function LogsFilterSidebar({ filters, onFiltersChange, hiddenSections = [
 					{!hiddenSectionSet.has("routing_engines") && <RoutingEnginesFilter filters={filters} onFiltersChange={onFiltersChange} />}
 					<RoutingRulesFilter filters={filters} onFiltersChange={onFiltersChange} />
 					<LocalCachingFilter filters={filters} onFiltersChange={onFiltersChange} />
-					<UserFilter filters={filters} onFiltersChange={onFiltersChange} />
 					<TeamFilter filters={filters} onFiltersChange={onFiltersChange} />
 					<SessionFilter filters={filters} onFiltersChange={onFiltersChange} />
 					<CostFilter filters={filters} onFiltersChange={onFiltersChange} />
@@ -266,7 +275,7 @@ function SearchableCheckboxList({
 	items,
 	isSelected,
 	onToggle,
-	placeholder = "Search...",
+	placeholder,
 	inputRef,
 	testIdPrefix,
 	allowCustom = false,
@@ -283,6 +292,8 @@ function SearchableCheckboxList({
 	onSearch?: (query: string) => void;
 	fetching?: boolean;
 }) {
+	const t = useT();
+	const resolvedPlaceholder = placeholder ?? t("logsFilters.search");
 	const [query, setQuery] = useState("");
 	const normalized = query.trim().toLowerCase();
 	const filtered = normalized ? items.filter((item) => item.label.toLowerCase().includes(normalized)) : items;
@@ -322,7 +333,7 @@ function SearchableCheckboxList({
 							commitCustom();
 						}
 					}}
-					placeholder={placeholder}
+					placeholder={resolvedPlaceholder}
 					className="h-8 border-0 pl-8 text-xs"
 					data-testid={testIdPrefix ? `${testIdPrefix}-search` : undefined}
 				/>
@@ -337,7 +348,7 @@ function SearchableCheckboxList({
 				/>
 			))}
 			{filtered.length === 0 && !showAddCustom && (
-				<div className="text-muted-foreground flex h-9 items-center px-3 text-xs">No results</div>
+				<div className="text-muted-foreground flex h-9 items-center px-3 text-xs">{t("logsFilters.noResults")}</div>
 			)}
 			{showAddCustom && (
 				<button
@@ -348,7 +359,7 @@ function SearchableCheckboxList({
 				>
 					<Plus className="text-muted-foreground size-3.5 shrink-0" />
 					<span className="truncate">
-						Use <span className="font-medium">&quot;{trimmed}&quot;</span>
+						{t("logsFilters.useCustom", { value: trimmed })}
 					</span>
 				</button>
 			)}
@@ -361,14 +372,14 @@ function SearchableCheckboxList({
 // ---------------------------------------------------------------------------
 
 function StatusFilter({ filters, onFiltersChange, defaultOpen }: FilterComponentProps) {
+	const t = useT();
 	const hasActive = (filters.status || []).length > 0;
 	return (
-		<FilterSection title="Status" defaultOpen={defaultOpen || hasActive} testId="status-filter-toggle">
+		<FilterSection title={t("logsFilters.sections.status")} defaultOpen={defaultOpen || hasActive} testId="status-filter-toggle">
 			{Statuses.map((status) => (
 				<CheckboxFilterItem
 					key={status}
-					labelClassName="capitalize"
-					label={status}
+					label={logStatusFilterLabel(t, status)}
 					checked={(filters.status || []).includes(status)}
 					onCheckedChange={() => {
 						const current = filters.status || [];
@@ -387,6 +398,7 @@ function StatusFilter({ filters, onFiltersChange, defaultOpen }: FilterComponent
 // ---------------------------------------------------------------------------
 
 function StopReasonFilter({ filters, onFiltersChange, defaultOpen }: FilterComponentProps) {
+	const t = useT();
 	const hasActive = (filters.stop_reasons || []).length > 0;
 	const [opened, setOpened] = useState(defaultOpen || hasActive);
 	const searchInputRef = useAutoFocusOnOpen(opened);
@@ -408,7 +420,7 @@ function StopReasonFilter({ filters, onFiltersChange, defaultOpen }: FilterCompo
 
 	return (
 		<FilterSection
-			title="Stop Reason"
+			title={t("logsFilters.sections.stopReason")}
 			defaultOpen={defaultOpen || hasActive}
 			loading={isLoading}
 			onOpenChange={setOpened}
@@ -416,7 +428,7 @@ function StopReasonFilter({ filters, onFiltersChange, defaultOpen }: FilterCompo
 		>
 			<SearchableCheckboxList
 				inputRef={searchInputRef}
-				placeholder="Search or add a stop reason"
+				placeholder={t("logsFilters.placeholders.stopReason")}
 				items={items}
 				allowCustom
 				isSelected={(reason) => (filters.stop_reasons || []).includes(reason)}
@@ -438,6 +450,7 @@ function StopReasonFilter({ filters, onFiltersChange, defaultOpen }: FilterCompo
 // ---------------------------------------------------------------------------
 
 function ProvidersFilter({ filters, onFiltersChange, defaultOpen }: FilterComponentProps) {
+	const t = useT();
 	const hasActive = (filters.providers || []).length > 0;
 	const [opened, setOpened] = useState(defaultOpen || hasActive);
 	const searchInputRef = useAutoFocusOnOpen(opened);
@@ -449,7 +462,7 @@ function ProvidersFilter({ filters, onFiltersChange, defaultOpen }: FilterCompon
 
 	return (
 		<FilterSection
-			title="Providers"
+			title={t("logsFilters.sections.providers")}
 			defaultOpen={defaultOpen || hasActive}
 			loading={isLoading}
 			onOpenChange={setOpened}
@@ -457,7 +470,7 @@ function ProvidersFilter({ filters, onFiltersChange, defaultOpen }: FilterCompon
 		>
 			<SearchableCheckboxList
 				inputRef={searchInputRef}
-				placeholder="Search providers"
+				placeholder={t("logsFilters.placeholders.providers")}
 				items={availableProviders.map((p) => ({ key: p.name, label: p.name }))}
 				isSelected={(name) => (filters.providers || []).includes(name)}
 				onToggle={(name) => {
@@ -476,11 +489,12 @@ function ProvidersFilter({ filters, onFiltersChange, defaultOpen }: FilterCompon
 // ---------------------------------------------------------------------------
 
 function TypeFilter({ filters, onFiltersChange, defaultOpen }: FilterComponentProps) {
+	const t = useT();
 	const hasActive = (filters.objects || []).length > 0;
 	return (
-		<FilterSection title="Type" defaultOpen={defaultOpen || hasActive} testId="type-filter-toggle">
+		<FilterSection title={t("logsFilters.sections.type")} defaultOpen={defaultOpen || hasActive} testId="type-filter-toggle">
 			{RequestTypes.map((type) => {
-				const label = RequestTypeLabels[type as keyof typeof RequestTypeLabels] ?? type;
+				const label = logRequestTypeFilterLabel(t, type);
 				return (
 					<CheckboxFilterItem
 						key={type}
@@ -504,6 +518,7 @@ function TypeFilter({ filters, onFiltersChange, defaultOpen }: FilterComponentPr
 // ---------------------------------------------------------------------------
 
 function ModelsFilter({ filters, onFiltersChange, defaultOpen }: FilterComponentProps) {
+	const t = useT();
 	const hasActive = (filters.models || []).length > 0;
 	const [opened, setOpened] = useState(defaultOpen || hasActive);
 	const searchInputRef = useAutoFocusOnOpen(opened);
@@ -525,7 +540,7 @@ function ModelsFilter({ filters, onFiltersChange, defaultOpen }: FilterComponent
 
 	return (
 		<FilterSection
-			title="Models"
+			title={t("logsFilters.sections.models")}
 			defaultOpen={defaultOpen || hasActive}
 			loading={isLoading}
 			onOpenChange={setOpened}
@@ -533,7 +548,7 @@ function ModelsFilter({ filters, onFiltersChange, defaultOpen }: FilterComponent
 		>
 			<SearchableCheckboxList
 				inputRef={searchInputRef}
-				placeholder="Search or add a model"
+				placeholder={t("logsFilters.placeholders.model")}
 				items={items}
 				allowCustom
 				isSelected={(model) => (filters.models || []).includes(model)}
@@ -555,6 +570,7 @@ function ModelsFilter({ filters, onFiltersChange, defaultOpen }: FilterComponent
 // ---------------------------------------------------------------------------
 
 function AliasesFilter({ filters, onFiltersChange, defaultOpen }: FilterComponentProps) {
+	const t = useT();
 	const hasActive = (filters.aliases || []).length > 0;
 	const [opened, setOpened] = useState(defaultOpen || hasActive);
 	const searchInputRef = useAutoFocusOnOpen(opened);
@@ -576,7 +592,7 @@ function AliasesFilter({ filters, onFiltersChange, defaultOpen }: FilterComponen
 
 	return (
 		<FilterSection
-			title="Aliases"
+			title={t("logsFilters.sections.aliases")}
 			defaultOpen={defaultOpen || hasActive}
 			loading={isLoading}
 			onOpenChange={setOpened}
@@ -584,7 +600,7 @@ function AliasesFilter({ filters, onFiltersChange, defaultOpen }: FilterComponen
 		>
 			<SearchableCheckboxList
 				inputRef={searchInputRef}
-				placeholder="Search or add an alias"
+				placeholder={t("logsFilters.placeholders.alias")}
 				items={items}
 				allowCustom
 				isSelected={(alias) => (filters.aliases || []).includes(alias)}
@@ -606,6 +622,7 @@ function AliasesFilter({ filters, onFiltersChange, defaultOpen }: FilterComponen
 // ---------------------------------------------------------------------------
 
 function SelectedKeysFilter({ filters, onFiltersChange, defaultOpen }: FilterComponentProps) {
+	const t = useT();
 	const hasActive = (filters.selected_key_ids || []).length > 0;
 	const [opened, setOpened] = useState(defaultOpen || hasActive);
 	const searchInputRef = useAutoFocusOnOpen(opened);
@@ -639,7 +656,7 @@ function SelectedKeysFilter({ filters, onFiltersChange, defaultOpen }: FilterCom
 
 	return (
 		<FilterSection
-			title="Selected Keys"
+			title={t("logsFilters.sections.selectedKeys")}
 			defaultOpen={defaultOpen || hasActive}
 			loading={isLoading}
 			onOpenChange={setOpened}
@@ -647,7 +664,7 @@ function SelectedKeysFilter({ filters, onFiltersChange, defaultOpen }: FilterCom
 		>
 			<SearchableCheckboxList
 				inputRef={searchInputRef}
-				placeholder="Search keys"
+				placeholder={t("logsFilters.placeholders.keys")}
 				items={dedup(availableSelectedKeys).map((name) => ({ key: name, label: name }))}
 				isSelected={isSelected}
 				onToggle={toggle}
@@ -664,23 +681,40 @@ function SelectedKeysFilter({ filters, onFiltersChange, defaultOpen }: FilterCom
 // ---------------------------------------------------------------------------
 
 function VirtualKeysFilter({ filters, onFiltersChange, defaultOpen }: FilterComponentProps) {
-	const hasActive = (filters.virtual_key_ids || []).length > 0;
+	const t = useT();
+	const hasActive = (filters.virtual_key_ids || []).length > 0 || (filters.user_ids || []).length > 0;
 	const [opened, setOpened] = useState(defaultOpen || hasActive);
 	const searchInputRef = useAutoFocusOnOpen(opened);
 	const [searchQuery, setSearchQuery] = useState("");
 	const {
 		data: filterData,
-		isUninitialized,
-		isLoading,
 		isFetching,
-	} = useGetAvailableFilterDataQuery({ dimensions: ["virtual_keys"], q: searchQuery || undefined }, { skip: !opened && !hasActive });
+	} = useGetAvailableFilterDataQuery(
+		{ dimensions: ["virtual_keys"], q: searchQuery || undefined },
+		{ skip: !opened && !hasActive },
+	);
 	const availableVirtualKeys = filterData?.virtual_keys || [];
 	const nameToIds = useMemo(() => groupByName(availableVirtualKeys), [availableVirtualKeys]);
 
-	if (!isUninitialized && !isLoading && availableVirtualKeys.length === 0 && !hasActive && !opened) return null;
+	const items = useMemo(() => {
+		const merged: { key: string; label: string }[] = [{ key: LOCAL_ADMIN_USER_ID, label: LOCAL_ADMIN_USER_NAME }];
+		const seen = new Set<string>([LOCAL_ADMIN_USER_ID]);
+		for (const name of dedup(availableVirtualKeys)) {
+			if (seen.has(name)) continue;
+			merged.push({ key: name, label: name });
+			seen.add(name);
+		}
+		return merged;
+	}, [availableVirtualKeys]);
 
-	const toggle = (name: string) => {
-		const resolvedIds = nameToIds.get(name) || [name];
+	const toggle = (key: string) => {
+		if (key === LOCAL_ADMIN_USER_ID) {
+			const current = filters.user_ids || [];
+			const next = current.includes(key) ? current.filter((id) => id !== key) : [...current, key];
+			onFiltersChange({ ...filters, user_ids: next });
+			return;
+		}
+		const resolvedIds = nameToIds.get(key) || [key];
 		const current = filters.virtual_key_ids || [];
 		const allSelected = resolvedIds.every((id) => current.includes(id));
 		const next = allSelected
@@ -689,24 +723,27 @@ function VirtualKeysFilter({ filters, onFiltersChange, defaultOpen }: FilterComp
 		onFiltersChange({ ...filters, virtual_key_ids: next });
 	};
 
-	const isSelected = (name: string) => {
-		const resolvedIds = nameToIds.get(name) || [name];
+	const isSelected = (key: string) => {
+		if (key === LOCAL_ADMIN_USER_ID) {
+			return (filters.user_ids || []).includes(key);
+		}
+		const resolvedIds = nameToIds.get(key) || [key];
 		const current = filters.virtual_key_ids || [];
 		return resolvedIds.every((id) => current.includes(id));
 	};
 
 	return (
 		<FilterSection
-			title="Users"
+			title={t("logsFilters.sections.users")}
 			defaultOpen={defaultOpen || hasActive}
-			loading={isLoading}
+			loading={false}
 			onOpenChange={setOpened}
 			testId="virtual-keys-filter-toggle"
 		>
 			<SearchableCheckboxList
 				inputRef={searchInputRef}
-				placeholder="Search users"
-				items={dedup(availableVirtualKeys).map((name) => ({ key: name, label: name }))}
+				placeholder={t("logsFilters.placeholders.users")}
+				items={items}
 				isSelected={isSelected}
 				onToggle={toggle}
 				onSearch={setSearchQuery}
@@ -722,6 +759,7 @@ function VirtualKeysFilter({ filters, onFiltersChange, defaultOpen }: FilterComp
 // ---------------------------------------------------------------------------
 
 function RoutingEnginesFilter({ filters, onFiltersChange, defaultOpen }: FilterComponentProps) {
+	const t = useT();
 	const hasActive = (filters.routing_engine_used || []).length > 0;
 	const [opened, setOpened] = useState(defaultOpen || hasActive);
 	const searchInputRef = useAutoFocusOnOpen(opened);
@@ -738,7 +776,7 @@ function RoutingEnginesFilter({ filters, onFiltersChange, defaultOpen }: FilterC
 
 	return (
 		<FilterSection
-			title="Routing Engines"
+			title={t("logsFilters.sections.routingEngines")}
 			defaultOpen={defaultOpen || hasActive}
 			loading={isLoading}
 			onOpenChange={setOpened}
@@ -746,10 +784,10 @@ function RoutingEnginesFilter({ filters, onFiltersChange, defaultOpen }: FilterC
 		>
 			<SearchableCheckboxList
 				inputRef={searchInputRef}
-				placeholder="Search engines"
+				placeholder={t("logsFilters.placeholders.engines")}
 				items={availableRoutingEngines.map((engine) => ({
 					key: engine,
-					label: RoutingEngineUsedLabels[engine as keyof typeof RoutingEngineUsedLabels] ?? engine,
+					label: routingEngineFilterLabel(t, engine),
 				}))}
 				isSelected={(engine) => (filters.routing_engine_used || []).includes(engine)}
 				onToggle={(engine) => {
@@ -770,6 +808,7 @@ function RoutingEnginesFilter({ filters, onFiltersChange, defaultOpen }: FilterC
 // ---------------------------------------------------------------------------
 
 function RoutingRulesFilter({ filters, onFiltersChange, defaultOpen }: FilterComponentProps) {
+	const t = useT();
 	const hasActive = (filters.routing_rule_ids || []).length > 0;
 	const [opened, setOpened] = useState(defaultOpen || hasActive);
 	const searchInputRef = useAutoFocusOnOpen(opened);
@@ -803,7 +842,7 @@ function RoutingRulesFilter({ filters, onFiltersChange, defaultOpen }: FilterCom
 
 	return (
 		<FilterSection
-			title="Routing Rules"
+			title={t("logsFilters.sections.routingRules")}
 			defaultOpen={defaultOpen || hasActive}
 			loading={isLoading}
 			onOpenChange={setOpened}
@@ -811,7 +850,7 @@ function RoutingRulesFilter({ filters, onFiltersChange, defaultOpen }: FilterCom
 		>
 			<SearchableCheckboxList
 				inputRef={searchInputRef}
-				placeholder="Search rules"
+				placeholder={t("logsFilters.placeholders.rules")}
 				items={dedup(availableRoutingRules).map((name) => ({ key: name, label: name }))}
 				isSelected={isSelected}
 				onToggle={toggle}
@@ -828,15 +867,16 @@ function RoutingRulesFilter({ filters, onFiltersChange, defaultOpen }: FilterCom
 // ---------------------------------------------------------------------------
 
 function SessionFilter({ filters, onFiltersChange, defaultOpen }: FilterComponentProps) {
+	const t = useT();
 	const hasActive = !!filters.parent_request_id;
 	return (
-		<FilterSection title="Session" defaultOpen={defaultOpen || hasActive} testId="session-filter-toggle">
+		<FilterSection title={t("logsFilters.sections.session")} defaultOpen={defaultOpen || hasActive} testId="session-filter-toggle">
 			<div className="relative">
 				<Search className="text-muted-foreground pointer-events-none absolute top-1/2 left-2.5 size-3.5 -translate-y-1/2" />
 				<Input
 					value={filters.parent_request_id || ""}
 					onChange={(e) => onFiltersChange({ ...filters, parent_request_id: e.target.value })}
-					placeholder="Parent request ID"
+					placeholder={t("logsFilters.placeholders.parentRequestId")}
 					className="h-8 border-0 pl-8 text-sm"
 					data-testid="session-filter-input"
 					autoFocus
@@ -847,61 +887,11 @@ function SessionFilter({ filters, onFiltersChange, defaultOpen }: FilterComponen
 }
 
 // ---------------------------------------------------------------------------
-// UserFilter
-// ---------------------------------------------------------------------------
-
-function UserFilter({ filters, onFiltersChange, defaultOpen }: FilterComponentProps) {
-	const hasActive = (filters.user_ids || []).length > 0;
-	const [opened, setOpened] = useState(defaultOpen || hasActive);
-	const searchInputRef = useAutoFocusOnOpen(opened);
-	const [searchQuery, setSearchQuery] = useState("");
-	const {
-		data: filterData,
-		isUninitialized,
-		isLoading,
-		isFetching,
-	} = useGetAvailableFilterDataQuery({ dimensions: ["users"], q: searchQuery || undefined }, { skip: !opened && !hasActive });
-	const availableUsers = filterData?.users || [];
-	const items = useMemo(() => {
-		const seen = new Set(availableUsers.map((u) => u.id));
-		const extras = (filters.user_ids || []).filter((id) => !seen.has(id));
-		return [...availableUsers.map((u) => ({ key: u.id, label: u.name || u.id })), ...extras.map((id) => ({ key: id, label: id }))];
-	}, [availableUsers, filters.user_ids]);
-
-	if (!isUninitialized && !isLoading && availableUsers.length === 0 && !hasActive && !opened) return null;
-
-	return (
-		<FilterSection
-			title="User"
-			defaultOpen={defaultOpen || hasActive}
-			loading={isLoading}
-			onOpenChange={setOpened}
-			testId="user-filter-toggle"
-		>
-			<SearchableCheckboxList
-				inputRef={searchInputRef}
-				placeholder="Search or add a user"
-				items={items}
-				allowCustom
-				isSelected={(id) => (filters.user_ids || []).includes(id)}
-				onToggle={(id) => {
-					const current = filters.user_ids || [];
-					const next = current.includes(id) ? current.filter((u) => u !== id) : [...current, id];
-					onFiltersChange({ ...filters, user_ids: next });
-				}}
-				onSearch={setSearchQuery}
-				fetching={isFetching}
-				testIdPrefix="user-filter"
-			/>
-		</FilterSection>
-	);
-}
-
-// ---------------------------------------------------------------------------
 // TeamFilter
 // ---------------------------------------------------------------------------
 
 function TeamFilter({ filters, onFiltersChange, defaultOpen }: FilterComponentProps) {
+	const t = useT();
 	const hasActive = (filters.team_ids || []).length > 0;
 	const [opened, setOpened] = useState(defaultOpen || hasActive);
 	const searchInputRef = useAutoFocusOnOpen(opened);
@@ -935,7 +925,7 @@ function TeamFilter({ filters, onFiltersChange, defaultOpen }: FilterComponentPr
 
 	return (
 		<FilterSection
-			title="Teams"
+			title={t("logsFilters.sections.teams")}
 			defaultOpen={defaultOpen || hasActive}
 			loading={isLoading}
 			onOpenChange={setOpened}
@@ -943,7 +933,7 @@ function TeamFilter({ filters, onFiltersChange, defaultOpen }: FilterComponentPr
 		>
 			<SearchableCheckboxList
 				inputRef={searchInputRef}
-				placeholder="Search or add a team"
+				placeholder={t("logsFilters.placeholders.team")}
 				items={dedup(availableTeams).map((name) => ({ key: name, label: name }))}
 				isSelected={isSelected}
 				onToggle={toggle}
@@ -960,11 +950,12 @@ function TeamFilter({ filters, onFiltersChange, defaultOpen }: FilterComponentPr
 // ---------------------------------------------------------------------------
 
 function CostFilter({ filters, onFiltersChange, defaultOpen }: FilterComponentProps) {
+	const t = useT();
 	const hasActive = !!filters.missing_cost_only;
 	return (
-		<FilterSection title="Cost" defaultOpen={defaultOpen || hasActive} testId="cost-filter-toggle">
+		<FilterSection title={t("logsFilters.sections.cost")} defaultOpen={defaultOpen || hasActive} testId="cost-filter-toggle">
 			<CheckboxFilterItem
-				label="Show missing cost only"
+				label={t("logsFilters.missingCostOnly")}
 				checked={!!filters.missing_cost_only}
 				onCheckedChange={(checked) => onFiltersChange({ ...filters, missing_cost_only: !!checked })}
 				testId="cost-filter-missing-only-checkbox"
@@ -977,16 +968,17 @@ function CostFilter({ filters, onFiltersChange, defaultOpen }: FilterComponentPr
 // LocalCachingFilter – filter by semantic-cache hit type (direct / semantic)
 // ---------------------------------------------------------------------------
 
-const LocalCachingOptions: { key: string; label: string }[] = [
-	{ key: "direct", label: "Direct cache" },
-	{ key: "semantic", label: "Semantic cache" },
+const LocalCachingOptions = (t: ReturnType<typeof useT>): { key: string; label: string }[] => [
+	{ key: "direct", label: t("logsFilters.directCache") },
+	{ key: "semantic", label: t("logsFilters.semanticCache") },
 ];
 
 function LocalCachingFilter({ filters, onFiltersChange, defaultOpen }: FilterComponentProps) {
+	const t = useT();
 	const hasActive = (filters.cache_hit_types || []).length > 0;
 	return (
-		<FilterSection title="Local Caching" defaultOpen={defaultOpen || hasActive} testId="local-caching-filter-toggle">
-			{LocalCachingOptions.map((option) => (
+		<FilterSection title={t("logsFilters.sections.localCaching")} defaultOpen={defaultOpen || hasActive} testId="local-caching-filter-toggle">
+			{LocalCachingOptions(t).map((option) => (
 				<CheckboxFilterItem
 					key={option.key}
 					label={option.label}
@@ -1008,6 +1000,7 @@ function LocalCachingFilter({ filters, onFiltersChange, defaultOpen }: FilterCom
 // ---------------------------------------------------------------------------
 
 function MetadataFilters({ filters, onFiltersChange, defaultOpen }: FilterComponentProps) {
+	const t = useT();
 	const hasActive = !!filters.metadata_filters && Object.keys(filters.metadata_filters).length > 0;
 	const [opened, setOpened] = useState(defaultOpen || hasActive);
 	const [searchQuery, setSearchQuery] = useState("");
@@ -1048,14 +1041,14 @@ function MetadataFilters({ filters, onFiltersChange, defaultOpen }: FilterCompon
 
 	return (
 		<FilterSection
-			title="Metadata"
+			title={t("logsFilters.sections.metadata")}
 			defaultOpen={defaultOpen || hasActive}
 			loading={isLoading}
 			onOpenChange={setOpened}
 			testId="metadata-filter-toggle"
 		>
 			{isEmpty ? (
-				<div className="text-muted-foreground px-3 py-2 text-xs">No metadata keys</div>
+				<div className="text-muted-foreground px-3 py-2 text-xs">{t("logsFilters.noMetadataKeys")}</div>
 			) : (
 				<>
 					<div className="relative border-b">
@@ -1067,13 +1060,13 @@ function MetadataFilters({ filters, onFiltersChange, defaultOpen }: FilterCompon
 						<Input
 							value={searchQuery}
 							onChange={(e) => setSearchQuery(e.target.value)}
-							placeholder="Search metadata..."
+							placeholder={t("logsFilters.placeholders.metadata")}
 							className="h-8 border-0 pl-8 text-xs"
 							data-testid="metadata-search-input"
 						/>
 					</div>
 					{entries.length === 0 && !isFetching && (
-						<div className="text-muted-foreground flex h-9 items-center px-3 text-xs">No results</div>
+						<div className="text-muted-foreground flex h-9 items-center px-3 text-xs">{t("logsFilters.noResults")}</div>
 					)}
 					{entries.map(([metadataKey, values]) => (
 						<div key={metadataKey} data-testid={`metadata-${metadataKey}-filter-group`}>
@@ -1093,7 +1086,7 @@ function MetadataFilters({ filters, onFiltersChange, defaultOpen }: FilterCompon
 							<div className="px-3 py-2.5">
 								<Input
 									className="placeholder:text-muted-foreground h-7 w-full rounded border bg-transparent px-2 text-sm"
-									placeholder="Custom value..."
+									placeholder={t("logsFilters.placeholders.customValue")}
 									value={
 										customInputs[metadataKey] ??
 										(filters.metadata_filters?.[metadataKey] && !values.includes(filters.metadata_filters[metadataKey])

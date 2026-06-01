@@ -5,11 +5,16 @@ import { getErrorMessage, useGetCoreConfigQuery, useUpdateCoreConfigMutation } f
 import { CoreConfig, DefaultCoreConfig } from "@/lib/types/config";
 import { parseArrayFromText } from "@/lib/utils/array";
 import { RbacOperation, RbacResource, useRbac } from "@enterprise/lib";
+import { useT } from "@/lib/i18n";
+import { useNavDescription, useNavTitle } from "@/lib/i18n/useNavTitle";
 import { AlertTriangle } from "lucide-react";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { toast } from "sonner";
 
 export default function ObservabilityView() {
+	const t = useT();
+	const pageTitle = useNavTitle("connectors");
+	const pageDescription = useNavDescription("connectors");
 	const hasSettingsUpdateAccess = useRbac(RbacResource.Settings, RbacOperation.Update);
 	const { data: bifrostConfig } = useGetCoreConfigQuery({ fromDB: true });
 	const config = bifrostConfig?.client_config;
@@ -47,43 +52,42 @@ export default function ObservabilityView() {
 
 	const handleSave = useCallback(async () => {
 		if (!bifrostConfig) {
-			toast.error("Could not save settings: configuration not loaded.");
+			toast.error(t("configViews.shared.couldNotSaveNotLoaded"));
 			return;
 		}
 		try {
 			await updateCoreConfig({ ...bifrostConfig, client_config: localConfig }).unwrap();
-			toast.success("Observability settings updated successfully.");
+			toast.success(t("configViews.observability.updated"));
 		} catch (error) {
 			toast.error(getErrorMessage(error));
 		}
-	}, [bifrostConfig, localConfig, updateCoreConfig]);
+	}, [bifrostConfig, localConfig, updateCoreConfig, t]);
 
 	return (
 		<div className="mx-auto w-full max-w-4xl space-y-4">
-			<div className="flex items-center justify-between"></div>
+			<div>
+				<h2 className="text-lg font-semibold tracking-tight">{pageTitle}</h2>
+				<p className="text-muted-foreground text-sm">{pageDescription}</p>
+			</div>
 
 			<Alert variant="destructive">
 				<AlertTriangle className="h-4 w-4" />
-				<AlertDescription>
-					These settings require a Bifrost service restart to take effect. Current connections will continue with existing settings until
-					restart.
-				</AlertDescription>
+				<AlertDescription>{t("configViews.shared.restartRequiredAlert")}</AlertDescription>
 			</Alert>
 
 			<div className="space-y-4">
-				{/* Prometheus Labels */}
 				<div>
 					<div className="space-y-2 rounded-lg border p-4">
 						<div className="space-y-0.5">
 							<label htmlFor="prometheus-labels" className="text-sm font-medium">
-								Prometheus Labels
+								{t("configViews.observability.prometheusLabels")}
 							</label>
-							<p className="text-muted-foreground text-sm">Comma-separated list of custom labels to add to the Prometheus metrics.</p>
+							<p className="text-muted-foreground text-sm">{t("configViews.observability.prometheusLabelsDesc")}</p>
 						</div>
 						<Textarea
 							id="prometheus-labels"
 							className="h-24"
-							placeholder="teamId, projectId, environment"
+							placeholder={t("configViews.observability.prometheusLabelsPlaceholder")}
 							value={localValues.prometheus_labels}
 							onChange={(e) => handlePrometheusLabelsChange(e.target.value)}
 						/>
@@ -93,7 +97,7 @@ export default function ObservabilityView() {
 			</div>
 			<div className="flex justify-end pt-2">
 				<Button onClick={handleSave} disabled={!hasChanges || isLoading || !hasSettingsUpdateAccess}>
-					{isLoading ? "Saving..." : "Save Changes"}
+					{isLoading ? t("common.actions.saving") : t("common.actions.saveChanges")}
 				</Button>
 			</div>
 		</div>
@@ -101,5 +105,6 @@ export default function ObservabilityView() {
 }
 
 const RestartWarning = () => {
-	return <div className="text-muted-foreground mt-2 pl-4 text-xs font-semibold">Need to restart Bifrost to apply changes.</div>;
+	const t = useT();
+	return <div className="text-muted-foreground mt-2 pl-4 text-xs font-semibold">{t("configCommon.restartHint")}</div>;
 };

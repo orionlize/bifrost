@@ -26,6 +26,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { TriStateCheckbox } from "@/components/ui/tristateCheckbox";
 import { useToast } from "@/hooks/use-toast";
+import { useT } from "@/lib/i18n";
 import { useDebouncedValue } from "@/hooks/useDebounce";
 import { MCP_STATUS_COLORS } from "@/lib/constants/config";
 import { getErrorMessage, useGetCoreConfigQuery, useGetVirtualKeysQuery, useUpdateMCPClientMutation } from "@/lib/store";
@@ -67,6 +68,7 @@ export default function MCPClientSheet({
 	hasPrev = false,
 	hasNext = false,
 }: MCPClientSheetProps) {
+	const t = useT();
 	const hasUpdateMCPClientAccess = useRbac(RbacResource.MCPGateway, RbacOperation.Update);
 	const [updateMCPClient, { isLoading: isUpdating }] = useUpdateMCPClientMutation();
 
@@ -138,10 +140,10 @@ export default function MCPClientSheet({
 
 	const toolOptions = useMemo(
 		() => [
-			{ value: "*", label: "Allow All Tools", description: "Allow all current and future tools" },
+			{ value: "*", label: t("mcp.sheet.allowAllTools"), description: t("mcp.sheet.allowAllToolsDesc") },
 			...allToolNames.map((n) => ({ value: n, label: n })),
 		],
-		[allToolNames],
+		[allToolNames, t],
 	);
 	const supportsOAuthCredentialUpdate = false;
 	// mcpClient.config.auth_type === "oauth" || mcpClient.config.auth_type === "per_user_oauth";
@@ -243,8 +245,8 @@ export default function MCPClientSheet({
 		try {
 			if (mcpClient.config.auth_type === "per_user_headers" && (!data.per_user_header_keys || data.per_user_header_keys.length === 0)) {
 				toast({
-					title: "Header keys required",
-					description: "Declare at least one header name users must supply.",
+					title: t("mcp.form.headerKeysRequired"),
+					description: t("mcp.form.headerKeysRequiredDesc"),
 					variant: "destructive",
 				});
 				return;
@@ -291,13 +293,13 @@ export default function MCPClientSheet({
 			}
 
 			toast({
-				title: "Success",
-				description: "MCP client updated successfully",
+				title: t("mcp.success"),
+				description: t("mcp.sheet.updatedSuccess"),
 			});
 			onSubmitSuccess();
 		} catch (error) {
 			toast({
-				title: "Error",
+				title: t("mcp.error"),
 				description: getErrorMessage(error),
 				variant: "destructive",
 			});
@@ -419,7 +421,7 @@ export default function MCPClientSheet({
 									{mcpClient.config.name}
 									<Badge className={MCP_STATUS_COLORS[mcpClient.state]}>{mcpClient.state}</Badge>
 								</SheetTitle>
-								<SheetDescription>MCP server configuration and available tools</SheetDescription>
+								<SheetDescription>{t("mcp.sheet.description")}</SheetDescription>
 							</div>
 							<SheetNavigationButtons
 								hasPrev={hasPrev}
@@ -427,7 +429,7 @@ export default function MCPClientSheet({
 								onNavigate={handleNavigate}
 								prevKeys={prevKeys}
 								nextKeys={nextKeys}
-								entityLabel="server"
+								entityLabel={t("mcp.sheet.entityLabel")}
 							/>
 						</div>
 					</SheetHeader>
@@ -436,32 +438,28 @@ export default function MCPClientSheet({
 							<div className="gap-6 space-y-6 px-8">
 								{/* Name and Header Section */}
 								<div className="space-y-4">
-									<h3 className="font-semibold">Basic Information</h3>
+									<h3 className="font-semibold">{t("mcp.sheet.basicInfo")}</h3>
 									<FormField
 										control={form.control}
 										name="name"
 										render={({ field }) => (
 											<FormItem className="flex flex-col gap-3">
 												<div className="flex items-center gap-2">
-													<FormLabel>Name</FormLabel>
+													<FormLabel>{t("mcp.form.name")}</FormLabel>
 													<TooltipProvider>
 														<Tooltip>
 															<TooltipTrigger asChild>
 																<Info className="text-muted-foreground h-4 w-4 cursor-help" />
 															</TooltipTrigger>
 															<TooltipContent className="max-w-xs">
-																<p>
-																	Use a descriptive, meaningful name that clearly identifies the server. For example, use "google_drive"
-																	instead of "gdrive", or "hacker_news" instead of "hn". This name is used as the Python module name in code
-																	mode.
-																</p>
+																<p>{t("mcp.sheet.nameTooltipExtended")}</p>
 															</TooltipContent>
 														</Tooltip>
 													</TooltipProvider>
 												</div>
 												<div>
 													<FormControl>
-														<Input placeholder="Client name" {...field} value={field.value || ""} />
+														<Input placeholder={t("mcp.sheet.clientName")} {...field} value={field.value || ""} />
 													</FormControl>
 													<FormMessage />
 												</div>
@@ -472,7 +470,7 @@ export default function MCPClientSheet({
 								    can't be changed after create — surface them here for
 								    visibility without exposing edit controls. */}
 									<div className="flex flex-col gap-2">
-										<div className="text-sm font-medium">Connection</div>
+										<div className="text-sm font-medium">{t("mcp.sheet.connection")}</div>
 										<div className="bg-muted/40 text-muted-foreground rounded-md border px-3 py-2 text-sm">
 											<span className="text-foreground font-mono text-xs uppercase">
 												{mcpClient.config.connection_type === "stdio"
@@ -498,7 +496,7 @@ export default function MCPClientSheet({
 										render={({ field }) => (
 											<FormItem className="flex items-center justify-between rounded-lg border p-4">
 												<div className="flex items-center gap-2">
-													<FormLabel>Code Mode Server</FormLabel>
+													<FormLabel>{t("mcp.form.codeMode")}</FormLabel>
 													<TooltipProvider>
 														<Tooltip>
 															<TooltipTrigger asChild>
@@ -508,13 +506,13 @@ export default function MCPClientSheet({
 																	rel="noopener noreferrer"
 																	data-testid="code-mode-link-help"
 																	className="text-muted-foreground hover:text-foreground focus-visible:ring-ring rounded focus-visible:ring-2 focus-visible:outline-none"
-																	aria-label="Learn more about Code Mode"
+																	aria-label={t("mcp.form.codeModeAria")}
 																>
 																	<Info className="h-4 w-4 cursor-help" />
 																</a>
 															</TooltipTrigger>
 															<TooltipContent>
-																<p>Click to learn more about Code Mode</p>
+																<p>{t("mcp.form.codeModeLearnMore")}</p>
 															</TooltipContent>
 														</Tooltip>
 													</TooltipProvider>
@@ -532,17 +530,14 @@ export default function MCPClientSheet({
 										render={({ field }) => (
 											<FormItem className="flex items-center justify-between rounded-lg border p-4">
 												<div className="flex items-center gap-2">
-													<FormLabel>Ping Available for Health Check</FormLabel>
+													<FormLabel>{t("mcp.form.pingHealth")}</FormLabel>
 													<TooltipProvider>
 														<Tooltip>
 															<TooltipTrigger asChild>
 																<Info className="text-muted-foreground h-4 w-4 cursor-help" />
 															</TooltipTrigger>
 															<TooltipContent className="max-w-xs">
-																<p>
-																	Enable to use lightweight ping method for health checks. Disable if your MCP server doesn't support ping -
-																	will use listTools instead.
-																</p>
+																<p>{t("mcp.sheet.pingHealthTooltip")}</p>
 															</TooltipContent>
 														</Tooltip>
 													</TooltipProvider>
@@ -559,18 +554,14 @@ export default function MCPClientSheet({
 										render={({ field }) => (
 											<FormItem className="flex items-center justify-between rounded-lg border p-4">
 												<div className="flex items-center gap-2">
-													<FormLabel>Allow on All Users</FormLabel>
+													<FormLabel>{t("mcp.sheet.allowAllUsers")}</FormLabel>
 													<TooltipProvider>
 														<Tooltip>
 															<TooltipTrigger asChild>
 																<Info className="text-muted-foreground h-4 w-4 cursor-help" />
 															</TooltipTrigger>
 															<TooltipContent className="max-w-xs">
-																<p>
-																	When enabled, this MCP server is accessible to all users without requiring explicit per-user assignment.
-																	All tools are allowed by default. If a user has an explicit MCP config for this server, that config takes
-																	precedence and overrides this behaviour.
-																</p>
+																<p>{t("mcp.sheet.allowAllUsersTooltip")}</p>
 															</TooltipContent>
 														</Tooltip>
 													</TooltipProvider>
@@ -591,17 +582,14 @@ export default function MCPClientSheet({
 										render={({ field }) => (
 											<FormItem className="flex items-center justify-between rounded-lg border p-4">
 												<div className="flex items-center gap-2">
-													<FormLabel>Disable Client</FormLabel>
+													<FormLabel>{t("mcp.sheet.disableClient")}</FormLabel>
 													<TooltipProvider>
 														<Tooltip>
 															<TooltipTrigger asChild>
 																<Info className="text-muted-foreground h-4 w-4 cursor-help" />
 															</TooltipTrigger>
 															<TooltipContent className="max-w-xs">
-																<p>
-																	When enabled, the client's connection, health monitor, and tool syncer are shut down. Tools from this
-																	client will not be available for inference until it is re-enabled.
-																</p>
+																<p>{t("mcp.sheet.disableClientTooltip")}</p>
 															</TooltipContent>
 														</Tooltip>
 													</TooltipProvider>
@@ -631,7 +619,7 @@ export default function MCPClientSheet({
 													<div className="flex flex-col items-start gap-0.5">
 														<div className="flex items-start gap-2">
 															<div>
-																<FormLabel>Tool Sync Interval (minutes)</FormLabel>
+																<FormLabel>{t("mcp.sheet.toolSyncInterval")}</FormLabel>
 															</div>
 															<TooltipProvider>
 																<Tooltip>
@@ -639,15 +627,12 @@ export default function MCPClientSheet({
 																		<Info className="text-muted-foreground h-4 w-4 cursor-help" />
 																	</TooltipTrigger>
 																	<TooltipContent className="max-w-xs">
-																		<p>
-																			Override the global tool sync interval for this server. Leave empty to use global setting. Set to -1
-																			to disable sync for this server.
-																		</p>
+																		<p>{t("mcp.sheet.toolSyncIntervalTooltip")}</p>
 																	</TooltipContent>
 																</Tooltip>
 															</TooltipProvider>
 														</div>
-														<div>{isUsingGlobal && <p className="text-muted-foreground text-xs">Using global setting</p>}</div>
+														<div>{isUsingGlobal && <p className="text-muted-foreground text-xs">{t("mcp.sheet.usingGlobal")}</p>}</div>
 													</div>
 													<FormControl>
 														<Input
@@ -675,9 +660,9 @@ export default function MCPClientSheet({
 													<HeadersTable
 														value={field.value || {}}
 														onChange={field.onChange}
-														keyPlaceholder="Header name"
-														valuePlaceholder="Header value"
-														label="Headers"
+														keyPlaceholder={t("mcp.form.headerName")}
+														valuePlaceholder={t("mcp.form.headerValue")}
+														label={t("mcp.form.headers")}
 														useEnvVarInput
 													/>
 												</FormControl>
@@ -693,32 +678,26 @@ export default function MCPClientSheet({
 												<FormItem className="space-y-1">
 													<div className="space-y-0.5">
 														<div className="flex items-center gap-2">
-															<FormLabel>Required Headers</FormLabel>
+															<FormLabel>{t("mcp.sheet.requiredHeaders")}</FormLabel>
 															<TooltipProvider>
 																<Tooltip>
 																	<TooltipTrigger asChild>
 																		<Info className="text-muted-foreground h-4 w-4 cursor-help" />
 																	</TooltipTrigger>
 																	<TooltipContent className="max-w-xs">
-																		<p>
-																			Changing this list marks existing per-user header submissions as needing an update, so callers
-																			resubmit values on next use.
-																		</p>
+																		<p>{t("mcp.sheet.perUserHeadersUpdateTooltip")}</p>
 																	</TooltipContent>
 																</Tooltip>
 															</TooltipProvider>
 														</div>
-														<p className="text-muted-foreground text-sm">
-															Comma-separated list of header names each caller must supply when they first use this server (e.g.{" "}
-															<code>X-API-Key, X-Tenant-ID</code>). Values are submitted per user, not stored on this server config.
-														</p>
+														<p className="text-muted-foreground text-sm">{t("mcp.sheet.perUserHeadersDesc")}</p>
 													</div>
 													<FormControl>
 														<Textarea
 															id="mcpclient-per-user-header-keys"
 															data-testid="mcpclient-per-user-header-keys-textarea"
 															className="h-24"
-															placeholder="X-API-Key, X-Tenant-ID"
+															placeholder={t("mcp.sheet.extraHeadersPlaceholder")}
 															name={field.name}
 															ref={field.ref}
 															value={perUserHeaderKeysRaw}
@@ -744,14 +723,14 @@ export default function MCPClientSheet({
 										render={({ field }) => (
 											<FormItem className="flex flex-col gap-2">
 												<div className="flex items-center gap-2">
-													<FormLabel>Allowed Extra Headers</FormLabel>
+													<FormLabel>{t("mcp.sheet.allowedExtraHeaders")}</FormLabel>
 													<TooltipProvider>
 														<Tooltip>
 															<TooltipTrigger asChild>
 																<Info className="text-muted-foreground h-4 w-4 cursor-help" />
 															</TooltipTrigger>
 															<TooltipContent className="max-w-xs">
-																<p>Allowlist of headers that callers can forward to this MCP server at request time.</p>
+																<p>{t("mcp.sheet.allowedExtraHeadersTooltip")}</p>
 															</TooltipContent>
 														</Tooltip>
 													</TooltipProvider>
@@ -759,7 +738,7 @@ export default function MCPClientSheet({
 												<FormControl>
 													<Input
 														data-testid="mcpclient-input-allowed-extra-headers"
-														placeholder="*, or: authorization, x-user-id"
+														placeholder={t("mcp.sheet.allowedExtraPlaceholder")}
 														name={field.name}
 														ref={field.ref}
 														value={allowedExtraHeadersRaw}
@@ -778,9 +757,7 @@ export default function MCPClientSheet({
 														}}
 													/>
 												</FormControl>
-												<p className="text-muted-foreground text-xs">
-													Comma-separated header names, or <code>*</code> to allow all. Leave empty to block all extra headers.
-												</p>
+												<p className="text-muted-foreground text-xs">{t("mcp.sheet.allowedExtraHeadersHint")}</p>
 												<FormMessage />
 											</FormItem>
 										)}
@@ -788,16 +765,14 @@ export default function MCPClientSheet({
 								</div>
 								{supportsOAuthCredentialUpdate ? (
 									<div className="space-y-4">
-										<h3 className="font-semibold">OAuth Credentials</h3>
+										<h3 className="font-semibold">{t("mcp.sheet.oauthCredentials")}</h3>
 										{isDisabled ? (
 											<div className="flex items-start gap-2 rounded-lg border border-amber-200 bg-amber-50 p-3 text-sm text-amber-800">
 												<Info className="mt-0.5 h-4 w-4 shrink-0 text-amber-600" />
-												<p>OAuth credentials cannot be rotated while the client is disabled. Re-enable the client to update credentials.</p>
+												<p>{t("mcp.sheet.oauthCredentialsDisabled")}</p>
 											</div>
 										) : (
-											<p className="text-muted-foreground text-sm">
-												Update OAuth client credentials only. Connection type, auth type, and connection URL cannot be changed.
-											</p>
+											<p className="text-muted-foreground text-sm">{t("mcp.sheet.oauthCredentialsHint")}</p>
 										)}
 										<div className="grid grid-cols-1 gap-4 md:grid-cols-2">
 											<FormField
@@ -805,18 +780,18 @@ export default function MCPClientSheet({
 												name="oauth_config.client_id"
 												render={({ field }) => (
 													<FormItem className="flex flex-col gap-2">
-														<FormLabel>Client ID</FormLabel>
+														<FormLabel>{t("mcp.sheet.clientId")}</FormLabel>
 														<FormControl>
 															<EnvVarInput
 																data-testid="mcpclient-input-oauth-client-id"
-																placeholder="Enter new OAuth client ID"
+																placeholder={t("mcp.sheet.newClientId")}
 																disabled={isDisabled}
 																value={field.value}
 																onChange={field.onChange}
 															/>
 														</FormControl>
 														{!isDisabled && (
-															<p className="text-muted-foreground text-xs">Leave empty to keep existing credentials unchanged.</p>
+															<p className="text-muted-foreground text-xs">{t("mcp.sheet.keepCredentialsUnchanged")}</p>
 														)}
 														<FormMessage />
 													</FormItem>
@@ -827,11 +802,11 @@ export default function MCPClientSheet({
 												name="oauth_config.client_secret"
 												render={({ field }) => (
 													<FormItem className="flex flex-col gap-2">
-														<FormLabel>Client Secret</FormLabel>
+														<FormLabel>{t("mcp.sheet.clientSecret")}</FormLabel>
 														<FormControl>
 															<EnvVarInput
 																data-testid="mcpclient-input-oauth-client-secret"
-																placeholder="Enter new OAuth client secret"
+																placeholder={t("mcp.sheet.newClientSecret")}
 																disabled={isDisabled}
 																hideValueWhenEnv
 																maskNonEnvValue
@@ -849,7 +824,7 @@ export default function MCPClientSheet({
 								{/* Tools Section */}
 								<div className="space-y-4 pb-10">
 									<div className="flex items-center justify-between">
-										<h3 className="font-semibold">Available Tools ({mcpClient.tools?.length || 0})</h3>
+										<h3 className="font-semibold">{t("mcp.sheet.availableToolsCount", { count: mcpClient.tools?.length || 0 })}</h3>
 										{mcpClient.tools && mcpClient.tools.length > 0 && (
 											<div className="flex items-center gap-4">
 												{/* Enable All */}
@@ -868,7 +843,11 @@ export default function MCPClientSheet({
 																<FormControl>
 																	<div className="flex items-center gap-2">
 																		<span className="text-muted-foreground text-sm">
-																			{isAllEnabled ? "All enabled" : isNoneEnabled ? "None enabled" : `${currentTools.length} enabled`}
+																			{isAllEnabled
+																				? t("mcp.sheet.allEnabled")
+																				: isNoneEnabled
+																					? t("mcp.sheet.noneEnabled")
+																					: t("mcp.sheet.countEnabled", { count: currentTools.length })}
 																		</span>
 																		<TriStateCheckbox
 																			allIds={allToolNames}
@@ -918,10 +897,10 @@ export default function MCPClientSheet({
 																	<div className="flex items-center gap-2">
 																		<span className="text-muted-foreground text-sm">
 																			{isAllAutoExecute
-																				? "All auto-execute"
+																				? t("mcp.sheet.allAutoExecute")
 																				: isNoneAutoExecute
-																					? "None auto-execute"
-																					: `${autoExecuteCount} auto-execute`}
+																					? t("mcp.sheet.noneAutoExecute")
+																					: t("mcp.sheet.countAutoExecute", { count: autoExecuteCount })}
 																		</span>
 																		<TriStateCheckbox
 																			allIds={enabledToolNames}
@@ -953,11 +932,11 @@ export default function MCPClientSheet({
 												<TableHeader>
 													<TableRow>
 														<TableHead className="w-10"></TableHead>
-														<TableHead className="max-w-[300px]">Tool Name</TableHead>
-														<TableHead className="w-24 text-center">Enabled</TableHead>
+														<TableHead className="max-w-[300px]">{t("mcp.sheet.toolName")}</TableHead>
+														<TableHead className="w-24 text-center">{t("mcp.sheet.enabled")}</TableHead>
 														<TableHead className="w-28 text-center">
 															<div className="flex items-center justify-center gap-1.5">
-																<span>Auto-execute</span>
+																<span>{t("mcp.sheet.autoExecute")}</span>
 																<TooltipProvider>
 																	<Tooltip>
 																		<TooltipTrigger asChild>
@@ -965,24 +944,20 @@ export default function MCPClientSheet({
 																				href="https://docs.getbifrost.ai/mcp/agent-mode"
 																				target="_blank"
 																				rel="noopener noreferrer"
-																				aria-label="Learn more about Auto-execute and Agent Mode"
+																				aria-label={t("mcp.sheet.autoExecuteAria")}
 																				className="text-muted-foreground hover:text-foreground focus-visible:ring-ring inline-flex rounded focus-visible:ring-2 focus-visible:outline-none"
 																			>
 																				<Info className="h-3.5 w-3.5 cursor-help" />
 																			</a>
 																		</TooltipTrigger>
 																		<TooltipContent className="max-w-xs">
-																			<p>
-																				Applies only when Bifrost runs the LLM loop in Agent Mode. In MCP Gateway mode, the connected client
-																				(Claude Desktop, Cursor, etc.) controls tool approval and this setting is ignored. Click to learn
-																				more.
-																			</p>
+																			<p>{t("mcp.sheet.autoExecuteTooltip")}</p>
 																		</TooltipContent>
 																	</Tooltip>
 																</TooltipProvider>
 															</div>
 														</TableHead>
-														<TableHead className="w-32 text-center">Cost (USD)</TableHead>
+														<TableHead className="w-32 text-center">{t("mcp.sheet.costUsd")}</TableHead>
 													</TableRow>
 												</TableHeader>
 												<TableBody>
@@ -1086,7 +1061,7 @@ export default function MCPClientSheet({
 																	<tr>
 																		<td colSpan={5} className="p-0">
 																			<div className="bg-muted/30 border-b px-4 py-3">
-																				<div className="text-muted-foreground mb-2 text-xs font-medium">Parameters Schema</div>
+																				<div className="text-muted-foreground mb-2 text-xs font-medium">{t("mcp.sheet.parametersSchema")}</div>
 																				{tool.parameters ? (
 																					<CodeEditor
 																						className="z-0 w-full rounded-sm border"
@@ -1104,7 +1079,7 @@ export default function MCPClientSheet({
 																						}}
 																					/>
 																				) : (
-																					<div className="text-muted-foreground text-sm">No parameters defined</div>
+																					<div className="text-muted-foreground text-sm">{t("mcp.sheet.noParameters")}</div>
 																				)}
 																			</div>
 																		</td>
@@ -1118,7 +1093,7 @@ export default function MCPClientSheet({
 										</div>
 									) : (
 										<div className="text-muted-foreground rounded-sm border p-6 text-center">
-											<p className="text-sm">No tools available</p>
+											<p className="text-sm">{t("mcp.sheet.noTools")}</p>
 										</div>
 									)}
 
@@ -1127,14 +1102,14 @@ export default function MCPClientSheet({
 											<div className="flex flex-col gap-2">
 												<div className="flex items-center justify-between">
 													<div className="flex items-center gap-2">
-														<div className="text-md font-semibold">User Access</div>
+														<div className="text-md font-semibold">{t("mcp.sheet.userAccess")}</div>
 														<TooltipProvider>
 															<Tooltip>
 																<TooltipTrigger asChild>
 																	<Info className="text-muted-foreground h-4 w-4 cursor-help" />
 																</TooltipTrigger>
 																<TooltipContent className="max-w-xs">
-																	<p>Control which users can use this MCP server and which specific tools they can call.</p>
+																	<p>{t("mcp.sheet.userAccessTooltip")}</p>
 																</TooltipContent>
 															</Tooltip>
 														</TooltipProvider>
@@ -1155,14 +1130,14 @@ export default function MCPClientSheet({
 																data-testid="mcpclient-virtualkey-add-trigger"
 															>
 																<Plus className="h-4 w-4" />
-																Add User
+																{t("mcp.sheet.addUser")}
 															</Button>
 														</PopoverTrigger>
 														<PopoverContent side="top" align="end" className="w-56 p-0" noPortal>
 															<div className="pb-1">
 																<Input
 																	data-testid="mcpclient-virtualkey-search-input"
-																	placeholder="Start typing to search…"
+																	placeholder={t("mcp.sheet.searchUsers")}
 																	value={vkSearch}
 																	onChange={(e) => setVKSearch(e.target.value)}
 																	onKeyDown={(e) => {
@@ -1191,7 +1166,7 @@ export default function MCPClientSheet({
 																		</button>
 																	))
 																) : (
-																	<div className="text-muted-foreground px-2 py-1.5 text-sm">No users found</div>
+																	<div className="text-muted-foreground px-2 py-1.5 text-sm">{t("mcp.sheet.noUsersFound")}</div>
 																)}
 															</div>
 														</PopoverContent>
@@ -1200,8 +1175,7 @@ export default function MCPClientSheet({
 												{form.watch("allow_on_all_virtual_keys") && (
 													<p className="text-muted-foreground flex items-center gap-1 text-xs">
 														<Info className="h-3 w-3 shrink-0" />
-														Configuring access for a user here overrides the <span className="font-medium">Allow on All Users</span>
-														&nbsp;setting for that user.
+														{t("mcp.sheet.userAccessOverrideHint")}
 													</p>
 												)}
 											</div>
@@ -1211,8 +1185,8 @@ export default function MCPClientSheet({
 													<Table>
 														<TableHeader>
 															<TableRow>
-																<TableHead>User</TableHead>
-																<TableHead>Allowed Tools</TableHead>
+																<TableHead>{t("mcp.sheet.userColumn")}</TableHead>
+																<TableHead>{t("mcp.sheet.allowedToolsColumn")}</TableHead>
 																<TableHead className="w-12"></TableHead>
 															</TableRow>
 														</TableHeader>
@@ -1241,10 +1215,10 @@ export default function MCPClientSheet({
 																			}}
 																			placeholder={
 																				vc.tools_to_execute.includes("*")
-																					? "All tools allowed"
+																					? t("mcp.sheet.allToolsAllowed")
 																					: vc.tools_to_execute.length === 0
-																						? "No tools allowed"
-																						: "Select tools..."
+																						? t("mcp.sheet.noToolsAllowed")
+																						: t("mcp.sheet.selectTools")
 																			}
 																			maxCount={3}
 																			className="bg-background dark:bg-input/30 border-input text-foreground hover:bg-accent hover:text-accent-foreground rounded-sm font-normal"
@@ -1269,11 +1243,11 @@ export default function MCPClientSheet({
 												</div>
 											) : form.watch("allow_on_all_virtual_keys") ? (
 												<div className="text-muted-foreground rounded-sm border p-6 text-center">
-													<p className="text-sm">All users can access this MCP server unless a user has an explicit override.</p>
+													<p className="text-sm">{t("mcp.sheet.allUsersAccess")}</p>
 												</div>
 											) : (
 												<div className="text-muted-foreground rounded-sm border p-6 text-center">
-													<p className="text-sm">No users have access to this MCP server</p>
+													<p className="text-sm">{t("mcp.sheet.noUsersAccess")}</p>
 												</div>
 											)}
 										</div>
@@ -1283,14 +1257,14 @@ export default function MCPClientSheet({
 
 							<div className="bg-card sticky bottom-0 z-10 flex justify-end gap-2 border-t px-8 py-4">
 								<Button type="button" variant="outline" onClick={onClose}>
-									Cancel
+									{t("common.actions.cancel")}
 								</Button>
 								<Button
 									type="submit"
 									disabled={isUpdating || (!form.formState.isDirty && !vkConfigsDirty) || !hasUpdateMCPClientAccess}
 									isLoading={isUpdating}
 								>
-									Save Changes
+									{t("common.actions.saveChanges")}
 								</Button>
 							</div>
 						</form>
@@ -1301,12 +1275,12 @@ export default function MCPClientSheet({
 						open={!!oauthFlow}
 						onClose={() => setOauthFlow(null)}
 						onSuccess={() => {
-							toast({ title: "Success", description: "MCP client OAuth credentials updated successfully" });
+							toast({ title: t("mcp.success"), description: t("mcp.sheet.oauthUpdated") });
 							onSubmitSuccess();
 							onClose();
 						}}
 						onError={(error) => {
-							toast({ title: "Error", description: error, variant: "destructive" });
+							toast({ title: t("mcp.error"), description: error, variant: "destructive" });
 						}}
 						authorizeUrl={oauthFlow.authorizeUrl}
 						oauthConfigId={oauthFlow.oauthConfigId}
@@ -1318,13 +1292,11 @@ export default function MCPClientSheet({
 			<AlertDialog open={!!pendingNavDirection} onOpenChange={(open) => !open && setPendingNavDirection(null)}>
 				<AlertDialogContent>
 					<AlertDialogHeader>
-						<AlertDialogTitle>Unsaved Changes</AlertDialogTitle>
-						<AlertDialogDescription>
-							You have unsaved changes. Are you sure you want to navigate away? Your changes will be lost.
-						</AlertDialogDescription>
+						<AlertDialogTitle>{t("mcp.sheet.unsavedTitle")}</AlertDialogTitle>
+						<AlertDialogDescription>{t("mcp.sheet.unsavedNavigateDesc")}</AlertDialogDescription>
 					</AlertDialogHeader>
 					<AlertDialogFooter>
-						<AlertDialogCancel onClick={() => setPendingNavDirection(null)}>Cancel</AlertDialogCancel>
+						<AlertDialogCancel onClick={() => setPendingNavDirection(null)}>{t("common.actions.cancel")}</AlertDialogCancel>
 						<AlertDialogAction
 							onClick={() => {
 								const dir = pendingNavDirection;
@@ -1332,7 +1304,7 @@ export default function MCPClientSheet({
 								if (dir) onNavigate?.(dir);
 							}}
 						>
-							Discard Changes
+							{t("mcp.sheet.discardChanges")}
 						</AlertDialogAction>
 					</AlertDialogFooter>
 				</AlertDialogContent>

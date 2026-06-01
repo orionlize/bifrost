@@ -1,6 +1,7 @@
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { LanguageSwitcher } from "@/components/languageSwitcher";
 import { LoginBrandHeader } from "@/components/loginBrandHeader";
 import { useAppDispatch } from "@/lib/store";
 import { configApi, getErrorMessage, sessionApi, useIsAuthEnabledQuery, useLoginMutation } from "@/lib/store/apis";
@@ -12,11 +13,13 @@ import {
 	useLoginRedirectUriFromUrl,
 } from "@/lib/hooks/useLoginRedirectUri";
 import { executePostLoginRedirect } from "@/lib/utils/postLoginRedirect";
+import { useT } from "@/lib/i18n";
 import { useNavigate, useSearch } from "@tanstack/react-router";
 import { Eye, EyeOff, Loader2 } from "lucide-react";
 import { useEffect, useState } from "react";
 
 export default function LoginView() {
+	const t = useT();
 	const [username, setUsername] = useState("");
 	const [password, setPassword] = useState("");
 	const [showPassword, setShowPassword] = useState(false);
@@ -71,7 +74,7 @@ export default function LoginView() {
 			await login({ username, password }).unwrap();
 			const refreshedAuth = await dispatch(sessionApi.endpoints.isAuthEnabled.initiate(undefined, { forceRefetch: true })).unwrap();
 			if (!refreshedAuth.has_valid_token) {
-				setErrorMessage("Login succeeded but the session was not established. Please try again.");
+				setErrorMessage(t("auth.sessionNotEstablished"));
 				return;
 			}
 			await dispatch(configApi.endpoints.getCoreConfig.initiate({}, { forceRefetch: true })).unwrap();
@@ -90,6 +93,9 @@ export default function LoginView() {
 
 	return (
 		<div className="flex min-h-screen items-center justify-center p-4">
+			<div className="absolute top-4 right-4">
+				<LanguageSwitcher />
+			</div>
 			<div className="w-full max-w-md">
 				<div className="border-border bg-card w-full space-y-6 rounded-sm border p-8">
 					<LoginBrandHeader />
@@ -112,7 +118,7 @@ export default function LoginView() {
 									}}
 									data-testid="login-aone-oauth-button"
 								>
-									Sign in with Aone
+									{t("auth.signInWithAone")}
 								</Button>
 							)}
 
@@ -122,7 +128,7 @@ export default function LoginView() {
 										<span className="w-full border-t" />
 									</div>
 									<div className="relative flex justify-center text-xs uppercase">
-										<span className="bg-card text-muted-foreground px-2">Or continue with password</span>
+										<span className="bg-card text-muted-foreground px-2">{t("auth.orContinueWithPassword")}</span>
 									</div>
 								</div>
 							)}
@@ -131,12 +137,12 @@ export default function LoginView() {
 								<>
 									<div className="space-y-2">
 										<Label htmlFor="username" className="text-sm font-medium">
-											Username
+											{t("auth.username")}
 										</Label>
 										<Input
 											id="username"
 											type="text"
-											placeholder="Enter your username"
+											placeholder={t("auth.usernamePlaceholder")}
 											value={username}
 											onChange={(e) => setUsername(e.target.value)}
 											required
@@ -147,13 +153,13 @@ export default function LoginView() {
 
 									<div className="space-y-2">
 										<Label htmlFor="password" className="text-sm font-medium">
-											Password
+											{t("auth.password")}
 										</Label>
 										<div className="relative">
 											<Input
 												id="password"
 												type={showPassword ? "text" : "password"}
-												placeholder="Enter your password"
+												placeholder={t("auth.passwordPlaceholder")}
 												value={password}
 												onChange={(e) => setPassword(e.target.value)}
 												required
@@ -164,7 +170,7 @@ export default function LoginView() {
 												type="button"
 												onClick={() => setShowPassword(!showPassword)}
 												className="text-muted-foreground hover:text-foreground absolute top-1/2 right-3 -translate-y-1/2 transition-colors"
-												aria-label={showPassword ? "Hide password" : "Show password"}
+												aria-label={showPassword ? t("auth.hidePassword") : t("auth.showPassword")}
 											>
 												{showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
 											</button>
@@ -172,7 +178,7 @@ export default function LoginView() {
 									</div>
 
 									<Button type="submit" className="h-9 w-full text-sm" isLoading={isLoading} disabled={isLoading}>
-										{isLoading || isLoggingIn ? "Signing in..." : "Sign in"}
+										{isLoading || isLoggingIn ? t("auth.signingIn") : t("auth.signIn")}
 									</Button>
 								</>
 							)}

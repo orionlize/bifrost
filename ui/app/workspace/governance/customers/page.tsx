@@ -2,6 +2,7 @@ import CustomersTable from "@/app/workspace/governance/views/customerTable";
 import FullPageLoader from "@/components/fullPageLoader";
 import { useDebouncedValue } from "@/hooks/useDebounce";
 import { getErrorMessage, useGetCustomersQuery, useGetTeamsQuery, useGetVirtualKeysQuery } from "@/lib/store";
+import { useT } from "@/lib/i18n";
 import { RbacOperation, RbacResource, useRbac } from "@enterprise/lib";
 import { parseAsSafeString } from "@/lib/queryParamsParser";
 import { parseAsInteger, parseAsString, useQueryStates } from "nuqs";
@@ -12,6 +13,7 @@ const POLLING_INTERVAL = 5000;
 const PAGE_SIZE = 25;
 
 export default function GovernanceCustomersPage() {
+	const t = useT();
 	const hasVirtualKeysAccess = useRbac(RbacResource.VirtualKeys, RbacOperation.View);
 	const hasTeamsAccess = useRbac(RbacResource.Teams, RbacOperation.View);
 	const hasCustomersAccess = useRbac(RbacResource.Customers, RbacOperation.View);
@@ -76,13 +78,13 @@ export default function GovernanceCustomersPage() {
 		if (shownErrorsRef.current.has(errorKey)) return;
 		shownErrorsRef.current.add(errorKey);
 		if (vkError && teamsError && customersError) {
-			toast.error("Failed to load governance data.");
+			toast.error(t("governanceShared.loadFailed"));
 		} else {
-			if (vkError) toast.error(`Failed to load users: ${getErrorMessage(vkError)}`);
-			if (teamsError) toast.error(`Failed to load teams: ${getErrorMessage(teamsError)}`);
-			if (customersError) toast.error(`Failed to load customers: ${getErrorMessage(customersError)}`);
+			if (vkError) toast.error(t("governanceShared.loadUsersFailed", { message: getErrorMessage(vkError) }));
+			if (teamsError) toast.error(t("governanceShared.loadTeamsFailed", { message: getErrorMessage(teamsError) }));
+			if (customersError) toast.error(t("governanceShared.loadCustomersFailed", { message: getErrorMessage(customersError) }));
 		}
-	}, [vkError, teamsError, customersError]);
+	}, [vkError, teamsError, customersError, t]);
 
 	if (isLoading) {
 		return <FullPageLoader />;

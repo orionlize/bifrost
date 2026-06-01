@@ -10,6 +10,7 @@
 import HeadersForm from "@/components/headersForm";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { useT } from "@/lib/i18n";
 import { getErrorMessage, useCreateMCPClientMutation } from "@/lib/store";
 import { CreateMCPClientRequest } from "@/lib/types/mcp";
 import { Loader2 } from "lucide-react";
@@ -37,6 +38,7 @@ export const MCPHeadersAuthorizer: React.FC<MCPHeadersAuthorizerProps> = ({
 	payload,
 	perUserHeaderKeys,
 }) => {
+	const t = useT();
 	const [status, setStatus] = useState<Status>("confirm");
 	const [errorMessage, setErrorMessage] = useState<string | null>(null);
 	// Set to true when the user cancels so in-flight async callbacks do not
@@ -107,13 +109,13 @@ export const MCPHeadersAuthorizer: React.FC<MCPHeadersAuthorizerProps> = ({
 				}}
 			>
 				<DialogHeader>
-					<DialogTitle>{status === "confirm" ? "Test Header Configuration" : "Header Authorization"}</DialogTitle>
+					<DialogTitle>{status === "confirm" ? t("mcp.headersAuth.testTitle") : t("mcp.headersAuth.authTitle")}</DialogTitle>
 					<DialogDescription>
-						{status === "confirm" && "A one-time test is needed to verify your header setup."}
-						{status === "input" && "Enter sample values to verify the connection."}
-						{status === "testing" && "Verifying connection..."}
-						{status === "success" && "Verification successful!"}
-						{status === "failed" && "Verification failed"}
+						{status === "confirm" && t("mcp.headersAuth.confirmDescShort")}
+						{status === "input" && t("mcp.headersAuth.inputDesc")}
+						{status === "testing" && t("mcp.headersAuth.testingDesc")}
+						{status === "success" && t("mcp.headersAuth.successDesc")}
+						{status === "failed" && t("mcp.headersAuth.failedDesc")}
 					</DialogDescription>
 				</DialogHeader>
 
@@ -121,21 +123,16 @@ export const MCPHeadersAuthorizer: React.FC<MCPHeadersAuthorizerProps> = ({
 					{status === "confirm" && (
 						<>
 							<div className="text-muted-foreground space-y-3 text-sm">
-								<p>
-									To set up this MCP server, we need to verify that your header configuration is correct and discover the available tools.
-								</p>
-								<p>
-									You will be asked to provide sample values for the required headers. This is a <strong>one-time test</strong> to confirm
-									the setup works. Your sample values will <strong>not</strong> be stored or used for any other purpose.
-								</p>
-								<p>Once verified, each user will submit their own header values when they use this MCP server.</p>
+								<p>{t("mcp.headersAuth.verifyIntro")}</p>
+								<p>{t("mcp.headersAuth.verifySample")}</p>
+								<p>{t("mcp.headersAuth.verifyPerUser")}</p>
 							</div>
 							<div className="flex w-full justify-end space-x-2">
 								<Button onClick={handleCancel} variant="outline" data-testid="per-user-headers-cancel">
-									Cancel
+									{t("common.actions.cancel")}
 								</Button>
 								<Button onClick={handleConfirm} data-testid="per-user-headers-confirm">
-									Continue with Test
+									{t("mcp.headersAuth.continueTest")}
 								</Button>
 							</div>
 						</>
@@ -143,13 +140,11 @@ export const MCPHeadersAuthorizer: React.FC<MCPHeadersAuthorizerProps> = ({
 
 					{status === "input" && (
 						<>
-							<p className="text-muted-foreground text-sm">
-								These values are used only for this verification. They are <strong>not</strong> persisted.
-							</p>
+							<p className="text-muted-foreground text-sm">{t("mcp.headersAuth.inputNotPersisted")}</p>
 							<HeadersForm
 								requiredKeys={perUserHeaderKeys}
 								onSubmit={handleRunTest}
-								submitLabel="Run Test"
+								submitLabel={t("mcp.headersAuth.runTest")}
 								onCancel={handleCancel}
 								testIdPrefix="per-user-headers-admin-test"
 							/>
@@ -160,7 +155,7 @@ export const MCPHeadersAuthorizer: React.FC<MCPHeadersAuthorizerProps> = ({
 						<>
 							<div className="flex flex-col items-center space-y-2">
 								<Loader2 className="text-secondary-foreground h-4 w-4 animate-spin" />
-								<p className="text-muted-foreground text-sm">Verifying connection and discovering tools...</p>
+								<p className="text-muted-foreground text-sm">{t("mcp.headersAuth.verifying")}</p>
 							</div>
 						</>
 					)}
@@ -172,7 +167,7 @@ export const MCPHeadersAuthorizer: React.FC<MCPHeadersAuthorizerProps> = ({
 									<path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
 								</svg>
 							</div>
-							<p className="text-sm text-green-600">MCP server connected successfully!</p>
+							<p className="text-sm text-green-600">{t("mcp.headersAuth.connected")}</p>
 						</div>
 					)}
 
@@ -183,9 +178,9 @@ export const MCPHeadersAuthorizer: React.FC<MCPHeadersAuthorizerProps> = ({
 									<path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
 								</svg>
 							</div>
-							<p className="text-sm text-red-600">{errorMessage || "An error occurred"}</p>
+							<p className="text-sm text-red-600">{errorMessage || t("mcp.headersAuth.errorOccurred")}</p>
 							<Button onClick={handleRetry} variant="outline" data-testid="mcp-headers-authorizer-retry-btn">
-								Retry
+								{t("common.actions.retry")}
 							</Button>
 						</div>
 					)}

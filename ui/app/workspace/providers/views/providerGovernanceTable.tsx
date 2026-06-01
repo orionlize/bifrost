@@ -3,6 +3,7 @@ import { CardHeader, CardTitle } from "@/components/ui/card";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { resetDurationLabels } from "@/lib/constants/governance";
 import { useGetProviderGovernanceQuery } from "@/lib/store";
+import { useT } from "@/lib/i18n";
 import { ModelProvider } from "@/lib/types/config";
 import { cn } from "@/lib/utils";
 import { formatCurrency } from "@/lib/utils/governance";
@@ -13,12 +14,10 @@ interface Props {
 	provider: ModelProvider;
 }
 
-// Helper to format reset duration for display
 const formatResetDuration = (duration: string) => {
 	return resetDurationLabels[duration] || duration;
 };
 
-// Circular progress component
 function CircularProgress({
 	value,
 	max,
@@ -40,7 +39,6 @@ function CircularProgress({
 	return (
 		<div className="relative" style={{ width: size, height: size }}>
 			<svg width={size} height={size} className="-rotate-90 transform">
-				{/* Background circle */}
 				<circle
 					cx={size / 2}
 					cy={size / 2}
@@ -50,7 +48,6 @@ function CircularProgress({
 					strokeWidth={strokeWidth}
 					className="text-muted/70 dark:text-muted/30"
 				/>
-				{/* Progress circle */}
 				<circle
 					cx={size / 2}
 					cy={size / 2}
@@ -78,7 +75,6 @@ function CircularProgress({
 	);
 }
 
-// Metric card component
 function MetricCard({
 	title,
 	value,
@@ -94,7 +90,7 @@ function MetricCard({
 	resetDuration: string;
 	isExhausted: boolean;
 }) {
-	// Compute safe percentage to avoid division by zero
+	const t = useT();
 	const percentage = max > 0 ? Math.round((value / max) * 100) : 0;
 	const clampedPercentage = Math.max(0, Math.min(100, percentage));
 
@@ -106,7 +102,6 @@ function MetricCard({
 				isExhausted ? "border-red-500/30 bg-red-500/5" : "border-border/50 bg-card hover:border-border",
 			)}
 		>
-			{/* Subtle gradient overlay */}
 			<div className="from-primary/5 pointer-events-none absolute inset-0 bg-gradient-to-br to-transparent opacity-0 transition-opacity group-hover:opacity-100" />
 
 			<div className="relative flex items-start justify-between gap-4">
@@ -115,7 +110,7 @@ function MetricCard({
 						<span className="text-muted-foreground text-sm font-medium whitespace-nowrap">{title}</span>
 						{isExhausted && (
 							<Badge variant="destructive" className="text-xs whitespace-nowrap">
-								Exhausted
+								{t("providers.governanceTable.exhausted")}
 							</Badge>
 						)}
 					</div>
@@ -133,13 +128,15 @@ function MetricCard({
 										</span>
 									</div>
 									<div className="text-xs">
-										<span className="text-muted-foreground">Resets {formatResetDuration(resetDuration)}</span>
+										<span className="text-muted-foreground">
+											{t("providers.governanceTable.resets", { duration: formatResetDuration(resetDuration) })}
+										</span>
 									</div>
 								</div>
 							</TooltipTrigger>
 							<TooltipContent side="bottom">
 								<p className="font-medium">
-									{clampedPercentage}% of {title.toLowerCase()} used
+									{t("providers.governanceTable.percentUsed", { percent: clampedPercentage, title: title.toLowerCase() })}
 								</p>
 							</TooltipContent>
 						</Tooltip>
@@ -153,16 +150,14 @@ function MetricCard({
 }
 
 export default function ProviderGovernanceTable({ provider, className }: Props) {
+	const t = useT();
 	const hasViewAccess = useRbac(RbacResource.Governance, RbacOperation.View);
 	const { data: providerGovernanceData, isLoading } = useGetProviderGovernanceQuery(undefined, {
 		skip: !hasViewAccess,
 		pollingInterval: 5000,
 	});
 
-	// Find governance data for this provider
 	const providerGovernance = providerGovernanceData?.providers?.find((p) => p.provider === provider.name);
-
-	// Check if any governance is configured
 	const hasGovernance = providerGovernance?.budget || providerGovernance?.rate_limit;
 
 	if (isLoading) {
@@ -170,7 +165,7 @@ export default function ProviderGovernanceTable({ provider, className }: Props) 
 			<div className={cn("w-full", className)}>
 				<CardHeader className="mb-4 px-0">
 					<CardTitle className="flex items-center justify-between">
-						<div className="flex items-center gap-2">Governance</div>
+						<div className="flex items-center gap-2">{t("providers.governanceTable.title")}</div>
 					</CardTitle>
 				</CardHeader>
 				<div className="flex items-center justify-center py-12">
@@ -180,7 +175,6 @@ export default function ProviderGovernanceTable({ provider, className }: Props) 
 		);
 	}
 
-	// Governance not enabled or no governance configured - don't show the section
 	if (!hasGovernance) {
 		return null;
 	}
@@ -204,15 +198,14 @@ export default function ProviderGovernanceTable({ provider, className }: Props) 
 		<div className={cn("w-full", className)}>
 			<CardHeader className="mb-4 px-0">
 				<CardTitle className="flex items-center justify-between">
-					<div className="flex items-center gap-2">Governance</div>
+					<div className="flex items-center gap-2">{t("providers.governanceTable.title")}</div>
 				</CardTitle>
 			</CardHeader>
 
 			<div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-				{/* Budget Card */}
 				{budget && (
 					<MetricCard
-						title="Budget"
+						title={t("providers.governance.budget")}
 						value={budget.current_usage}
 						max={budget.max_limit}
 						unit="$"
@@ -221,25 +214,23 @@ export default function ProviderGovernanceTable({ provider, className }: Props) 
 					/>
 				)}
 
-				{/* Token Rate Limit Card */}
 				{rateLimit?.token_max_limit && (
 					<MetricCard
-						title="Token Limit"
+						title={t("providers.governance.tokenLimit")}
 						value={rateLimit.token_current_usage}
 						max={rateLimit.token_max_limit}
-						unit="tokens"
+						unit={t("providers.governanceTable.units.tokens")}
 						resetDuration={rateLimit.token_reset_duration || "1h"}
 						isExhausted={isTokenExhausted}
 					/>
 				)}
 
-				{/* Request Rate Limit Card */}
 				{rateLimit?.request_max_limit && (
 					<MetricCard
-						title="Request Limit"
+						title={t("providers.governance.requestLimit")}
 						value={rateLimit.request_current_usage}
 						max={rateLimit.request_max_limit}
-						unit="requests"
+						unit={t("providers.governanceTable.units.requests")}
 						resetDuration={rateLimit.request_reset_duration || "1h"}
 						isExhausted={isRequestExhausted}
 					/>

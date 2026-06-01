@@ -6,12 +6,14 @@ import { RbacOperation, RbacResource, useRbac } from "@enterprise/lib";
 import { parseAsSafeString } from "@/lib/queryParamsParser";
 import { parseAsInteger, parseAsString, useQueryStates } from "nuqs";
 import { useEffect, useRef } from "react";
+import { useT } from "@/lib/i18n";
 import { toast } from "sonner";
 
 const POLLING_INTERVAL = 5000;
 const PAGE_SIZE = 25;
 
 export function TeamsView() {
+	const t = useT();
 	const hasVirtualKeysAccess = useRbac(RbacResource.VirtualKeys, RbacOperation.View);
 	const hasCustomersAccess = useRbac(RbacResource.Customers, RbacOperation.View);
 	const hasTeamsAccess = useRbac(RbacResource.Teams, RbacOperation.View);
@@ -80,7 +82,7 @@ export function TeamsView() {
 		if (shownErrorsRef.current.has(errorKey)) return;
 		shownErrorsRef.current.add(errorKey);
 		if (vkError && customersError && teamsError) {
-			toast.error("Failed to load governance data.");
+			toast.error(t("governanceShared.loadFailed"));
 		} else {
 			if (vkError) toast.error(`Failed to load users: ${getErrorMessage(vkError)}`);
 			if (customersError) toast.error(`Failed to load customers: ${getErrorMessage(customersError)}`);

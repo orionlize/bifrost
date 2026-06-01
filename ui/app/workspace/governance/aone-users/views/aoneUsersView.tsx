@@ -17,10 +17,12 @@ import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle } from "
 import { Switch } from "@/components/ui/switch";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { useDebouncedValue } from "@/hooks/useDebounce";
+import { formatDateShanghai, formatDateTimeShanghai, formatRelativeTimeLocalized } from "@/lib/i18n/dateTime";
+import { aoneUserStatusLabel } from "@/lib/i18n/filterLabels";
+import { useI18n, useT } from "@/lib/i18n";
 import { getErrorMessage } from "@/lib/store";
 import { useGetAoneUserQuery, useListAoneUsersQuery, useUpdateAoneUserMutation } from "@/lib/store/apis/aoneUsersApi";
 import type { AoneUserDetailResponse, AoneUserListItem } from "@/lib/types/aoneUser";
-import { formatDistanceToNow } from "date-fns";
 import {
 	Briefcase,
 	Building2,
@@ -48,17 +50,6 @@ function userInitials(name: string) {
 	return `${parts[0][0] ?? ""}${parts[1][0] ?? ""}`.toUpperCase();
 }
 
-function formatRelativeTime(value?: string) {
-	if (!value) {
-		return "-";
-	}
-	const date = new Date(value);
-	if (Number.isNaN(date.getTime())) {
-		return "-";
-	}
-	return formatDistanceToNow(date, { addSuffix: true });
-}
-
 function resolveDisplayName(user?: Pick<AoneUserListItem, "display_name" | "name" | "id">) {
 	if (!user) {
 		return "";
@@ -74,6 +65,7 @@ function resolveAvatar(user?: Pick<AoneUserListItem, "display_avatar" | "avatar"
 }
 
 export default function AoneUsersView() {
+	const t = useT();
 	const [urlState, setUrlState] = useQueryStates(
 		{
 			search: parseAsString.withDefault(""),
@@ -101,11 +93,11 @@ export default function AoneUsersView() {
 			<header className="space-y-2">
 				<h2 className="flex flex-row items-center gap-2 text-lg font-semibold tracking-tight">
 					<UserRound className="size-4" />
-					Users
+					{t("aone.usersTitle")}
 				</h2>
 				<p className="text-muted-foreground max-w-2xl text-sm">
-					Manage users who sign in through Aone OAuth. Profiles are synced from{" "}
-					<code className="bg-muted rounded px-1.5 py-0.5 text-xs">/api/oauth2/me</code> on each login.
+					{t("aone.usersDescription")}{" "}
+					<code className="bg-muted rounded px-1.5 py-0.5 text-xs">{t("aone.usersDescriptionCode")}</code> {t("aone.usersDescriptionSuffix")}
 				</p>
 			</header>
 
@@ -115,7 +107,7 @@ export default function AoneUsersView() {
 					<Input
 						data-testid="aone-users-search-input"
 						className="pl-9"
-						placeholder="Search by name, department, or title..."
+						placeholder={t("aone.searchUsers")}
 						value={urlState.search}
 						onChange={(event) => {
 							void setUrlState({ search: event.target.value, offset: 0 });
@@ -125,20 +117,20 @@ export default function AoneUsersView() {
 				<div className="text-muted-foreground flex items-center gap-2 text-sm">
 					<Users className="size-4 shrink-0" />
 					<span>
-						{totalCount} user{totalCount === 1 ? "" : "s"}
-						{isFetching ? " · refreshing..." : ""}
+						{totalCount === 1 ? t("aone.userCount", { count: totalCount }) : t("aone.usersCount", { count: totalCount })}
+						{isFetching ? t("aone.refreshing") : ""}
 					</span>
 				</div>
 			</div>
 
 			{isLoading && (
 				<div className="rounded-lg border border-dashed p-10 text-center">
-					<p className="text-muted-foreground text-sm">Loading users...</p>
+					<p className="text-muted-foreground text-sm">{t("aone.loadingUsers")}</p>
 				</div>
 			)}
 			{isError && (
 				<div className="rounded-lg border border-red-200 bg-red-50 p-4 text-sm text-red-600 dark:border-red-900/40 dark:bg-red-950/20 dark:text-red-400">
-					Failed to load users: {getErrorMessage(error)}
+					{t("aone.loadUsersFailed", { message: getErrorMessage(error) })}
 				</div>
 			)}
 
@@ -147,8 +139,8 @@ export default function AoneUsersView() {
 					<div className="bg-muted mx-auto mb-4 flex size-12 items-center justify-center rounded-full">
 						<Users className="text-muted-foreground size-5" />
 					</div>
-					<p className="text-sm font-medium">No Aone users yet</p>
-					<p className="text-muted-foreground mt-1 text-sm">Users appear here after they sign in with Aone OAuth for the first time.</p>
+					<p className="text-sm font-medium">{t("aone.emptyUsersTitle")}</p>
+					<p className="text-muted-foreground mt-1 text-sm">{t("aone.emptyUsersDescription")}</p>
 				</div>
 			)}
 
@@ -157,13 +149,13 @@ export default function AoneUsersView() {
 					<Table>
 						<TableHeader>
 							<TableRow className="bg-muted/40 hover:bg-muted/40">
-								<TableHead className="pl-4">User</TableHead>
-								<TableHead>Department</TableHead>
-								<TableHead>Title</TableHead>
-								<TableHead>Status</TableHead>
-								<TableHead>Last login</TableHead>
-								<TableHead className="text-right">Logins</TableHead>
-								<TableHead className="pr-4 text-right">Enabled</TableHead>
+								<TableHead className="pl-4">{t("aone.tableUser")}</TableHead>
+								<TableHead>{t("aone.tableDepartment")}</TableHead>
+								<TableHead>{t("aone.tableTitle")}</TableHead>
+								<TableHead>{t("aone.tableStatus")}</TableHead>
+								<TableHead>{t("aone.tableLastLogin")}</TableHead>
+								<TableHead className="text-right">{t("aone.tableLogins")}</TableHead>
+								<TableHead className="pr-4 text-right">{t("aone.tableEnabled")}</TableHead>
 							</TableRow>
 						</TableHeader>
 						<TableBody>
@@ -185,7 +177,11 @@ export default function AoneUsersView() {
 			{totalCount > PAGE_SIZE && (
 				<div className="flex items-center justify-between gap-4">
 					<p className="text-muted-foreground text-sm">
-						Showing {urlState.offset + 1}-{Math.min(urlState.offset + PAGE_SIZE, totalCount)} of {totalCount}
+						{t("aone.showingRange", {
+							from: urlState.offset + 1,
+							to: Math.min(urlState.offset + PAGE_SIZE, totalCount),
+							total: totalCount,
+						})}
 					</p>
 					<div className="flex gap-2">
 						<Button
@@ -199,7 +195,7 @@ export default function AoneUsersView() {
 							}}
 						>
 							<ChevronLeft className="size-4" />
-							Previous
+							{t("aone.previous")}
 						</Button>
 						<Button
 							type="button"
@@ -211,7 +207,7 @@ export default function AoneUsersView() {
 								void setUrlState({ offset: urlState.offset + PAGE_SIZE });
 							}}
 						>
-							Next
+							{t("aone.next")}
 							<ChevronRight className="size-4" />
 						</Button>
 					</div>
@@ -229,6 +225,8 @@ export default function AoneUsersView() {
 }
 
 function AoneUserRow({ user, selected, onSelect }: { user: AoneUserListItem; selected: boolean; onSelect: () => void }) {
+	const { locale } = useI18n();
+	const t = useT();
 	const displayName = resolveDisplayName(user);
 	const avatar = resolveAvatar(user);
 
@@ -259,11 +257,11 @@ function AoneUserRow({ user, selected, onSelect }: { user: AoneUserListItem; sel
 			<TableCell className="text-sm">{user.job_title || "-"}</TableCell>
 			<TableCell>
 				<div className="flex flex-wrap gap-1.5">
-					{user.is_disabled ? <Badge variant="destructive">Disabled</Badge> : null}
-					<Badge variant={user.status === "ACTIVE" ? "default" : "secondary"}>{user.status || "UNKNOWN"}</Badge>
+					{user.is_disabled ? <Badge variant="destructive">{t("aone.disabled")}</Badge> : null}
+					<Badge variant={user.status === "ACTIVE" ? "default" : "secondary"}>{aoneUserStatusLabel(t, user.status)}</Badge>
 				</div>
 			</TableCell>
-			<TableCell className="text-sm">{formatRelativeTime(user.last_login_at)}</TableCell>
+			<TableCell className="text-sm">{formatRelativeTimeLocalized(user.last_login_at, locale)}</TableCell>
 			<TableCell className="text-right text-sm tabular-nums">{user.login_count}</TableCell>
 			<TableCell className="pr-4 text-right" onClick={(event) => event.stopPropagation()}>
 				<AoneUserEnableSwitch user={user} />
@@ -273,6 +271,7 @@ function AoneUserRow({ user, selected, onSelect }: { user: AoneUserListItem; sel
 }
 
 function AoneUserEnableSwitch({ user }: { user: AoneUserListItem }) {
+	const t = useT();
 	const [updateAoneUser, { isLoading }] = useUpdateAoneUserMutation();
 	const [dialogOpen, setDialogOpen] = useState(false);
 	const [nextEnabled, setNextEnabled] = useState(!user.is_disabled);
@@ -283,7 +282,7 @@ function AoneUserEnableSwitch({ user }: { user: AoneUserListItem }) {
 				id: user.id,
 				body: { is_disabled: !nextEnabled },
 			}).unwrap();
-			toast.success(nextEnabled ? "User enabled" : "User disabled");
+			toast.success(nextEnabled ? t("aone.userEnabled") : t("aone.userDisabled"));
 			setDialogOpen(false);
 		} catch (mutationError) {
 			toast.error(getErrorMessage(mutationError));
@@ -297,7 +296,7 @@ function AoneUserEnableSwitch({ user }: { user: AoneUserListItem }) {
 					checked={!user.is_disabled}
 					disabled={isLoading}
 					data-testid={`aone-user-enabled-switch-${user.id}`}
-					aria-label={user.is_disabled ? "Enable user" : "Disable user"}
+					aria-label={user.is_disabled ? t("aone.enableUserAria") : t("aone.disableUserAria")}
 					onCheckedChange={(checked) => {
 						setNextEnabled(checked);
 						setDialogOpen(true);
@@ -307,15 +306,13 @@ function AoneUserEnableSwitch({ user }: { user: AoneUserListItem }) {
 			<AlertDialog open={dialogOpen} onOpenChange={setDialogOpen}>
 				<AlertDialogContent>
 					<AlertDialogHeader>
-						<AlertDialogTitle>{nextEnabled ? "Enable user" : "Disable user"}</AlertDialogTitle>
+						<AlertDialogTitle>{nextEnabled ? t("aone.enableUser") : t("aone.disableUser")}</AlertDialogTitle>
 						<AlertDialogDescription>
-							{nextEnabled
-								? "This will allow the user to sign in again and reactivate their personal API key."
-								: "This will block sign-in, clear active sessions, and deactivate the user's personal API key."}
+							{nextEnabled ? t("aone.enableDescription") : t("aone.disableDescription")}
 						</AlertDialogDescription>
 					</AlertDialogHeader>
 					<AlertDialogFooter>
-						<AlertDialogCancel>Cancel</AlertDialogCancel>
+						<AlertDialogCancel>{t("governanceShared.cancel")}</AlertDialogCancel>
 						<AlertDialogAction
 							onClick={(event: React.MouseEvent<HTMLButtonElement>) => {
 								event.preventDefault();
@@ -324,7 +321,7 @@ function AoneUserEnableSwitch({ user }: { user: AoneUserListItem }) {
 							disabled={isLoading}
 							className={nextEnabled ? undefined : "bg-destructive text-destructive-foreground hover:bg-destructive/90"}
 						>
-							{nextEnabled ? "Enable user" : "Disable user"}
+							{nextEnabled ? t("aone.enableUser") : t("aone.disableUser")}
 						</AlertDialogAction>
 					</AlertDialogFooter>
 				</AlertDialogContent>
@@ -334,6 +331,8 @@ function AoneUserEnableSwitch({ user }: { user: AoneUserListItem }) {
 }
 
 function AoneUserDetailSheet({ userId, onClose }: { userId: string; onClose: () => void }) {
+	const { locale } = useI18n();
+	const t = useT();
 	const { data, isLoading, isError, error } = useGetAoneUserQuery(userId, {
 		skip: !userId,
 	});
@@ -355,14 +354,14 @@ function AoneUserDetailSheet({ userId, onClose }: { userId: string; onClose: () 
 		<Sheet open={Boolean(userId)} onOpenChange={(open) => !open && onClose()}>
 			<SheetContent className="flex w-full flex-col gap-0 overflow-hidden p-0 pt-4 sm:max-w-lg" data-testid="aone-user-detail-sheet">
 				<SheetHeader className="flex flex-col items-start px-6 pb-2" headerClassName="mb-0">
-					<SheetTitle>User details</SheetTitle>
-					<SheetDescription>Aone OAuth profile synced from the identity provider.</SheetDescription>
+					<SheetTitle>{t("aone.detailTitle")}</SheetTitle>
+					<SheetDescription>{t("aone.detailDescription")}</SheetDescription>
 				</SheetHeader>
 
 				<div className="flex min-h-0 flex-1 flex-col overflow-y-auto px-6 pb-6">
 					{isLoading && (
 						<div className="mt-4 rounded-lg border border-dashed p-8 text-center">
-							<p className="text-muted-foreground text-sm">Loading user...</p>
+							<p className="text-muted-foreground text-sm">{t("aone.loadingUser")}</p>
 						</div>
 					)}
 					{isError && (
@@ -375,28 +374,34 @@ function AoneUserDetailSheet({ userId, onClose }: { userId: string; onClose: () 
 						<div className="mt-4 space-y-4">
 							<UserProfileHero data={data} displayName={displayName} avatar={avatar} departmentPath={departmentPath} />
 
-							<DetailSection title="Account" icon={<ShieldCheck className="size-4" />}>
-								<DetailRow label="User ID" value={data.user.id} mono />
-								<DetailRow label="Last login" value={formatRelativeTime(data.last_login_at)} />
-								<DetailRow label="Login count" value={String(data.login_count)} />
-								<DetailRow label="First seen" value={formatRelativeTime(data.record_created_at)} />
+							<DetailSection title={t("aone.sectionAccount")} icon={<ShieldCheck className="size-4" />}>
+								<DetailRow label={t("aone.labelUserId")} value={data.user.id} mono />
+								<DetailRow label={t("aone.labelLastLogin")} value={formatRelativeTimeLocalized(data.last_login_at, locale)} />
+								<DetailRow label={t("aone.labelLoginCount")} value={String(data.login_count)} />
+								<DetailRow label={t("aone.labelFirstSeen")} value={formatRelativeTimeLocalized(data.record_created_at, locale)} />
 							</DetailSection>
 
 							{data.dingtalk && (
-								<DetailSection title="DingTalk profile" icon={<Briefcase className="size-4" />}>
-									<DetailRow label="Name" value={data.dingtalk.profile.name} />
-									<DetailRow label="Title" value={data.dingtalk.profile.title} />
-									<DetailRow label="Job number" value={data.dingtalk.profile.jobNumber} />
-									<DetailRow label="Mobile" value={data.dingtalk.profile.mobile} />
-									<DetailRow label="Workplace" value={data.dingtalk.profile.workPlace} />
-									<DetailRow label="Telephone" value={data.dingtalk.profile.telephone} />
-									<DetailRow label="Hired date" value={data.dingtalk.profile.hiredDate} />
-									<DetailRow label="Synced at" value={formatRelativeTime(data.dingtalk.syncedAt)} />
+								<DetailSection title={t("aone.sectionDingTalk")} icon={<Briefcase className="size-4" />}>
+									<DetailRow label={t("aone.labelName")} value={data.dingtalk.profile.name} />
+									<DetailRow label={t("aone.labelTitle")} value={data.dingtalk.profile.title} />
+									<DetailRow label={t("aone.labelJobNumber")} value={data.dingtalk.profile.jobNumber} />
+									<DetailRow label={t("aone.labelMobile")} value={data.dingtalk.profile.mobile} />
+									<DetailRow label={t("aone.labelWorkplace")} value={data.dingtalk.profile.workPlace} />
+									<DetailRow label={t("aone.labelTelephone")} value={data.dingtalk.profile.telephone} />
+									<DetailRow
+										label={t("aone.labelHiredDate")}
+										value={formatDateShanghai(data.dingtalk.profile.hiredDate, locale)}
+									/>
+									<DetailRow
+										label={t("aone.labelSyncedAt")}
+										value={formatDateTimeShanghai(data.dingtalk.syncedAt, locale)}
+									/>
 								</DetailSection>
 							)}
 
 							{departments.length > 0 && (
-								<DetailSection title="Departments" icon={<Building2 className="size-4" />}>
+								<DetailSection title={t("aone.sectionDepartments")} icon={<Building2 className="size-4" />}>
 									{departmentPath ? <p className="text-muted-foreground mb-3 text-sm">{departmentPath}</p> : null}
 									<div className="flex flex-wrap gap-2">
 										{departments.map((dept) => (
@@ -409,7 +414,7 @@ function AoneUserDetailSheet({ userId, onClose }: { userId: string; onClose: () 
 							)}
 
 							{data.application && (
-								<DetailSection title="Application" icon={<ShieldCheck className="size-4" />}>
+								<DetailSection title={t("aone.sectionApplication")} icon={<ShieldCheck className="size-4" />}>
 									<div className="mb-3 flex items-center gap-3">
 										{data.application.logo ? (
 											<img src={data.application.logo} alt={data.application.name} className="size-10 rounded-md border object-cover" />
@@ -423,7 +428,7 @@ function AoneUserDetailSheet({ userId, onClose }: { userId: string; onClose: () 
 											<p className="text-muted-foreground text-xs">{data.application.id}</p>
 										</div>
 									</div>
-									<DetailRow label="Application ID" value={data.application.id} mono />
+									<DetailRow label={t("aone.labelApplicationId")} value={data.application.id} mono />
 								</DetailSection>
 							)}
 						</div>
@@ -445,6 +450,7 @@ function UserProfileHero({
 	avatar?: string;
 	departmentPath: string;
 }) {
+	const t = useT();
 	return (
 		<div className="bg-muted/40 rounded-xl border p-5">
 			<div className="flex items-start gap-4">
@@ -457,8 +463,8 @@ function UserProfileHero({
 						<p className="truncate text-lg font-semibold">{displayName}</p>
 					</div>
 					<div className="flex flex-wrap gap-2">
-						{data.is_disabled ? <Badge variant="destructive">Disabled</Badge> : null}
-						<Badge variant={data.user.status === "ACTIVE" ? "default" : "secondary"}>{data.user.status}</Badge>
+						{data.is_disabled ? <Badge variant="destructive">{t("aone.disabled")}</Badge> : null}
+						<Badge variant={data.user.status === "ACTIVE" ? "default" : "secondary"}>{aoneUserStatusLabel(t, data.user.status)}</Badge>
 						{data.dingtalk?.profile.title ? <Badge variant="outline">{data.dingtalk.profile.title}</Badge> : null}
 					</div>
 				</div>

@@ -5,7 +5,9 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { ProviderIconType, RenderProviderIcon } from "@/lib/constants/icons";
-import { ProviderLabels } from "@/lib/constants/logs";
+import { getProviderLabel } from "@/lib/constants/logs";
+import { useT } from "@/lib/i18n";
+import { useNavDescription, useNavTitle } from "@/lib/i18n/useNavTitle";
 import { Info } from "lucide-react";
 
 function formatCost(dollars: number) {
@@ -44,11 +46,14 @@ export default function ModelCatalogTable({
 	totalCost24h,
 	isLoadingModels,
 }: ModelCatalogTableProps) {
+	const t = useT();
+	const pageTitle = useNavTitle("modelCatalog");
+	const pageDescription = useNavDescription("modelCatalog");
 	const summaryCards = [
-		{ label: "Total Providers", value: totalProviders.toLocaleString() },
-		{ label: "Total Models", value: totalModels.toLocaleString() },
-		{ label: "Total Requests (24h)", value: totalRequests24h.toLocaleString() },
-		{ label: "Total Cost (24h)", value: formatCost(totalCost24h) },
+		{ label: t("modelCatalog.stats.totalProviders"), value: totalProviders.toLocaleString() },
+		{ label: t("modelCatalog.stats.totalModels"), value: totalModels.toLocaleString() },
+		{ label: t("modelCatalog.stats.totalRequests24h"), value: totalRequests24h.toLocaleString() },
+		{ label: t("modelCatalog.stats.totalCost24h"), value: formatCost(totalCost24h) },
 	];
 
 	return (
@@ -68,8 +73,8 @@ export default function ModelCatalogTable({
 			{/* Header + Filter */}
 			<div className="flex items-center justify-between">
 				<div>
-					<h2 className="text-lg font-semibold">Model Catalog</h2>
-					<p className="text-muted-foreground text-sm">Overview of all configured providers, models, and usage.</p>
+					<h2 className="text-lg font-semibold">{pageTitle}</h2>
+					<p className="text-muted-foreground text-sm">{pageDescription}</p>
 				</div>
 				<Select
 					value={providerFilter || "all"}
@@ -77,13 +82,13 @@ export default function ModelCatalogTable({
 					data-testid="model-catalog-provider-filter"
 				>
 					<SelectTrigger className="w-[200px]" data-testid="model-catalog-provider-trigger">
-						<SelectValue placeholder="All Providers" />
+						<SelectValue placeholder={t("modelCatalog.allProviders")} />
 					</SelectTrigger>
 					<SelectContent>
-						<SelectItem value="all">All Providers</SelectItem>
+						<SelectItem value="all">{t("modelCatalog.allProviders")}</SelectItem>
 						{providers.map((p) => (
 							<SelectItem key={p} value={p}>
-								{ProviderLabels[p as keyof typeof ProviderLabels] || p}
+								{getProviderLabel(p)}
 							</SelectItem>
 						))}
 					</SelectContent>
@@ -101,29 +106,29 @@ export default function ModelCatalogTable({
 					</colgroup>
 					<TableHeader>
 						<TableRow>
-							<TableHead>Provider</TableHead>
+							<TableHead>{t("tables.provider")}</TableHead>
 							<TableHead>
 								<TooltipProvider>
 									<div className="flex items-center gap-1">
-										Models
+										{t("modelCatalog.columns.models")}
 										<Tooltip>
 											<TooltipTrigger data-testid="model-catalog-models-info-trigger">
 												<Info className="text-muted-foreground h-3.5 w-3.5" />
 											</TooltipTrigger>
-											<TooltipContent side="bottom">Models used in the last 30 days</TooltipContent>
+											<TooltipContent side="bottom">{t("modelCatalog.columns.modelsTooltip")}</TooltipContent>
 										</Tooltip>
 									</div>
 								</TooltipProvider>
 							</TableHead>
-							<TableHead className="text-right">Total Traffic (24h)</TableHead>
-							<TableHead className="text-right">Total Cost (24h)</TableHead>
+							<TableHead className="text-right">{t("modelCatalog.columns.totalTraffic24h")}</TableHead>
+							<TableHead className="text-right">{t("modelCatalog.columns.totalCost24h")}</TableHead>
 						</TableRow>
 					</TableHeader>
 					<TableBody>
 						{rows.length === 0 ? (
 							<TableRow>
 								<TableCell colSpan={4} className="h-24 text-center">
-									<span className="text-muted-foreground text-sm">No matching providers found.</span>
+									<span className="text-muted-foreground text-sm">{t("modelCatalog.noMatchingProviders")}</span>
 								</TableCell>
 							</TableRow>
 						) : (
@@ -137,13 +142,11 @@ export default function ModelCatalogTable({
 												className="h-4 w-4 shrink-0"
 											/>
 											<span className="truncate font-medium">
-												{row.isCustom
-													? row.providerName
-													: ProviderLabels[row.providerName as keyof typeof ProviderLabels] || row.providerName}
+												{row.isCustom ? row.providerName : getProviderLabel(row.providerName)}
 											</span>
 											{row.isCustom && (
 												<Badge variant="secondary" className="text-muted-foreground shrink-0 px-1.5 py-0.5 text-[10px] font-bold">
-													CUSTOM
+													{t("providers.customBadge")}
 												</Badge>
 											)}
 										</div>
@@ -156,7 +159,7 @@ export default function ModelCatalogTable({
 												<Skeleton className="h-5 w-20 rounded-full" />
 											</div>
 										) : (
-											<ModelsUsedCell models={row.modelsUsed} />
+											<ModelsUsedCell models={row.modelsUsed} moreLabel={(count) => t("modelCatalog.moreModels", { count })} />
 										)}
 									</TableCell>
 									<TableCell className="text-right font-mono text-sm">{row.totalTraffic24h.toLocaleString()}</TableCell>
@@ -171,7 +174,7 @@ export default function ModelCatalogTable({
 	);
 }
 
-function ModelsUsedCell({ models: rawModels }: { models: string[] }) {
+function ModelsUsedCell({ models: rawModels, moreLabel }: { models: string[]; moreLabel: (count: number) => string }) {
 	const models = Array.from(new Set(rawModels.filter(Boolean)));
 	if (models.length === 0) {
 		return <span className="text-muted-foreground text-sm">-</span>;
@@ -193,7 +196,7 @@ function ModelsUsedCell({ models: rawModels }: { models: string[] }) {
 					<Tooltip>
 						<TooltipTrigger data-testid="model-catalog-models-overflow-trigger">
 							<Badge variant="outline" className="text-xs font-normal">
-								+{remaining} more
+								{moreLabel(remaining)}
 							</Badge>
 						</TooltipTrigger>
 						<TooltipContent side="bottom" className="max-w-xs">

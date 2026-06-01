@@ -60,6 +60,7 @@ type BaseGovernancePlugin interface {
 	GetGovernanceStore() GovernanceStore
 	ReloadUserGroups(ctx context.Context) error
 	GetUserGroupUsage(ctx context.Context, groupID string) []UserGroupMemberUsage
+	ResetUserGroupMemberUsage(ctx context.Context, groupID, identity string) error
 }
 
 // GovernancePlugin implements the main governance plugin with hierarchical budget system
@@ -1097,6 +1098,28 @@ func (p *GovernancePlugin) applyRoutingRules(ctx *schemas.BifrostContext, req *s
 	return body, decision, nil
 }
 
+// resolveIncomingKeyID returns the provider key ID pinned on the request, if any.
+// Explicit x-bf-api-key-id wins; x-bf-api-key name is resolved against the provider's keys.
+func (p *GovernancePlugin) resolveIncomingKeyID(ctx *schemas.BifrostContext, provider schemas.ModelProvider) string {
+	if keyID := strings.TrimSpace(bifrost.GetStringFromContext(ctx, schemas.BifrostContextKeyAPIKeyID)); keyID != "" {
+		return keyID
+	}
+	keyName := strings.TrimSpace(bifrost.GetStringFromContext(ctx, schemas.BifrostContextKeyAPIKeyName))
+	if keyName == "" || p.inMemoryStore == nil {
+		return ""
+	}
+	pc, ok := p.inMemoryStore.GetConfiguredProviders()[provider]
+	if !ok {
+		return ""
+	}
+	for _, key := range pc.Keys {
+		if strings.EqualFold(key.Name, keyName) || strings.EqualFold(key.ID, keyName) {
+			return key.ID
+		}
+	}
+	return ""
+}
+
 // applyTieredDegradationToRequest evaluates user-group degradation tiers for the
 // calling identity and, when an active tier substitutes the requested model,
 // rewrites the model/provider (and cross-model fallbacks for terminal tiers) on the
@@ -1126,7 +1149,8 @@ func (p *GovernancePlugin) applyTieredDegradationToRequest(ctx *schemas.BifrostC
 	}
 
 	// Identity is keyed by VK ID — consistent with the usage tracker's RecordUsage.
-	result := p.userGroups.ResolveDegradation(vk.ID, vk.ID, string(provider), model)
+	incomingKeyID := p.resolveIncomingKeyID(ctx, provider)
+	result := p.userGroups.ResolveDegradation(vk.ID, vk.ID, string(provider), model, incomingKeyID)
 	if result == nil {
 		return
 	}
@@ -1170,9 +1194,19 @@ func (p *GovernancePlugin) applyTieredDegradationToRequest(ctx *schemas.BifrostC
 			// suspenders measure for any provider re-resolution that reads it.
 			ctx.SetValue(schemas.BifrostContextKeyAvailableProviders, []schemas.ModelProvider{schemas.ModelProvider(newProvider)})
 		}
+		if result.KeyID != "" {
+			ctx.SetValue(schemas.BifrostContextKeyAPIKeyID, result.KeyID)
+		}
 
+		logMsg := fmt.Sprintf("Tiered degradation (group=%s, tier=%d): %s/%s -> %s/%s", result.GroupName, result.TierOrder, provider, model, newProvider, targetModel)
+		if result.KeyID != "" {
+			logMsg += fmt.Sprintf(" (key=%s)", result.KeyID)
+		}
+		ctx.AppendRoutingEngineLog(schemas.RoutingEngineGovernance, schemas.LogLevelInfo, logMsg)
+	} else if result.KeyID != "" {
+		ctx.SetValue(schemas.BifrostContextKeyAPIKeyID, result.KeyID)
 		ctx.AppendRoutingEngineLog(schemas.RoutingEngineGovernance, schemas.LogLevelInfo,
-			fmt.Sprintf("Tiered degradation (group=%s, tier=%d): %s/%s -> %s/%s", result.GroupName, result.TierOrder, provider, model, newProvider, targetModel))
+			fmt.Sprintf("Tiered degradation (group=%s, tier=%d): pinned key %s", result.GroupName, result.TierOrder, result.KeyID))
 	}
 
 	// Terminal tiers attach cross-model fallbacks for substitution by core inference.
@@ -1991,6 +2025,14 @@ func (p *GovernancePlugin) GetUserGroupUsage(ctx context.Context, groupID string
 		return nil
 	}
 	return p.userGroups.GroupMemberUsage(groupID)
+}
+
+// ResetUserGroupMemberUsage clears window counters for one member of a group.
+func (p *GovernancePlugin) ResetUserGroupMemberUsage(ctx context.Context, groupID, identity string) error {
+	if p.userGroups == nil {
+		return fmt.Errorf("user group manager not configured")
+	}
+	return p.userGroups.ResetMemberUsage(ctx, groupID, identity)
 }
 
 // GenerateVirtualKey is a helper function

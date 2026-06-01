@@ -25,6 +25,7 @@ import { getErrorMessage } from "@/lib/store";
 import { useDeleteRoutingRuleMutation, useUpdateRoutingRuleMutation } from "@/lib/store/apis/routingRulesApi";
 import { RoutingRule, RoutingTarget } from "@/lib/types/routingRules";
 import { getPriorityBadgeClass, getScopeLabel, truncateCELExpression } from "@/lib/utils/routingRules";
+import { useT } from "@/lib/i18n";
 import { ChevronLeft, ChevronRight, Edit, MoreHorizontal, Search, Trash2 } from "lucide-react";
 import { useState } from "react";
 import { toast } from "sonner";
@@ -121,6 +122,7 @@ export function RoutingRulesTable({
 	limit,
 	onOffsetChange,
 }: RoutingRulesTableProps) {
+	const t = useT();
 	const [deleteRuleId, setDeleteRuleId] = useState<string | null>(null);
 	const [deleteRoutingRule, { isLoading: isDeleting }] = useDeleteRoutingRuleMutation();
 	const [updateRoutingRule] = useUpdateRoutingRuleMutation();
@@ -130,7 +132,7 @@ export function RoutingRulesTable({
 
 		try {
 			await deleteRoutingRule(deleteRuleId).unwrap();
-			toast.success("Routing rule deleted successfully");
+			toast.success(t("routing.deletedSuccess"));
 			setDeleteRuleId(null);
 		} catch (error: unknown) {
 			toast.error(getErrorMessage(error));
@@ -143,13 +145,13 @@ export function RoutingRulesTable({
 				<Table>
 					<TableHeader>
 						<TableRow>
-							<TableHead>Name</TableHead>
-							<TableHead>Targets</TableHead>
-							<TableHead>Scope</TableHead>
-							<TableHead className="text-right">Priority</TableHead>
-							<TableHead>Expression</TableHead>
-							<TableHead>Enabled</TableHead>
-							<TableHead className="text-right">Actions</TableHead>
+							<TableHead>{t("tables.name")}</TableHead>
+							<TableHead>{t("tables.targets")}</TableHead>
+							<TableHead>{t("tables.scope")}</TableHead>
+							<TableHead className="text-right">{t("tables.priority")}</TableHead>
+							<TableHead>{t("tables.expression")}</TableHead>
+							<TableHead>{t("tables.status")}</TableHead>
+							<TableHead className="text-right">{t("tables.actions")}</TableHead>
 						</TableRow>
 					</TableHeader>
 					<TableBody>
@@ -176,8 +178,8 @@ export function RoutingRulesTable({
 				<div className="relative max-w-sm flex-1">
 					<Search className="text-muted-foreground absolute top-1/2 left-3 h-4 w-4 -translate-y-1/2" />
 					<Input
-						aria-label="Search routing rules by name"
-						placeholder="Search by name..."
+						aria-label={t("routing.searchAria")}
+						placeholder={t("routing.searchPlaceholder")}
 						value={search}
 						onChange={(e) => onSearchChange(e.target.value)}
 						className="pl-9"
@@ -190,20 +192,20 @@ export function RoutingRulesTable({
 				<Table>
 					<TableHeader>
 						<TableRow className="bg-muted/50">
-							<TableHead className="font-semibold">Name</TableHead>
-							<TableHead className="font-semibold">Targets</TableHead>
-							<TableHead className="font-semibold">Scope</TableHead>
-							<TableHead className="text-right font-semibold">Priority</TableHead>
-							<TableHead className="font-semibold">Expression</TableHead>
-							<TableHead className="font-semibold">Status</TableHead>
-							<TableHead className="text-right font-semibold">Actions</TableHead>
+							<TableHead className="font-semibold">{t("tables.name")}</TableHead>
+							<TableHead className="font-semibold">{t("tables.targets")}</TableHead>
+							<TableHead className="font-semibold">{t("tables.scope")}</TableHead>
+							<TableHead className="text-right font-semibold">{t("tables.priority")}</TableHead>
+							<TableHead className="font-semibold">{t("tables.expression")}</TableHead>
+							<TableHead className="font-semibold">{t("tables.status")}</TableHead>
+							<TableHead className="text-right font-semibold">{t("tables.actions")}</TableHead>
 						</TableRow>
 					</TableHeader>
 					<TableBody>
 						{sortedRules.length === 0 ? (
 							<TableRow>
 								<TableCell colSpan={7} className="h-24 text-center">
-									<span className="text-muted-foreground text-sm">No matching routing rules found.</span>
+									<span className="text-muted-foreground text-sm">{t("routing.noMatch")}</span>
 								</TableCell>
 							</TableRow>
 						) : (
@@ -246,7 +248,7 @@ export function RoutingRulesTable({
 														toast.success(`Rule ${checked ? "enabled" : "disabled"} successfully`);
 													})
 													.catch((err) => {
-														toast.error("Failed to update rule", { description: getErrorMessage(err) });
+														toast.error(t("routing.updateFailed"), { description: getErrorMessage(err) });
 													});
 											}}
 										/>
@@ -273,7 +275,11 @@ export function RoutingRulesTable({
 			{totalCount > 0 && (
 				<div className="flex items-center justify-between px-2">
 					<p className="text-muted-foreground text-sm">
-						Showing {offset + 1}-{Math.min(offset + limit, totalCount)} of {totalCount}
+						{t("shared.pagination.showing", {
+							from: offset + 1,
+							to: Math.min(offset + limit, totalCount),
+							total: totalCount,
+						})}
 					</p>
 					<div className="flex gap-2">
 						<Button
@@ -284,7 +290,7 @@ export function RoutingRulesTable({
 							data-testid="routing-rules-pagination-prev-btn"
 						>
 							<ChevronLeft className="mr-1 h-4 w-4" />
-							Previous
+							{t("shared.pagination.previous")}
 						</Button>
 						<Button
 							variant="outline"
@@ -293,7 +299,7 @@ export function RoutingRulesTable({
 							onClick={() => onOffsetChange(offset + limit)}
 							data-testid="routing-rules-pagination-next-btn"
 						>
-							Next
+							{t("shared.pagination.next")}
 							<ChevronRight className="ml-1 h-4 w-4" />
 						</Button>
 					</div>
@@ -303,15 +309,15 @@ export function RoutingRulesTable({
 			<AlertDialog open={!!deleteRuleId} onOpenChange={(open) => !open && setDeleteRuleId(null)}>
 				<AlertDialogContent>
 					<AlertDialogHeader>
-						<AlertDialogTitle>Delete Routing Rule</AlertDialogTitle>
+						<AlertDialogTitle>{t("routing.deleteDialog.title")}</AlertDialogTitle>
 						<AlertDialogDescription>
-							Are you sure you want to delete &quot;{ruleToDelete?.name}&quot;? This action cannot be undone.
+							{t("routing.deleteDialog.description", { name: ruleToDelete?.name ?? "" })}
 						</AlertDialogDescription>
 					</AlertDialogHeader>
 					<AlertDialogFooter>
-						<AlertDialogCancel disabled={isDeleting}>Cancel</AlertDialogCancel>
+						<AlertDialogCancel disabled={isDeleting}>{t("common.actions.cancel")}</AlertDialogCancel>
 						<AlertDialogAction onClick={handleDelete} disabled={isDeleting} className="bg-destructive hover:bg-destructive/90">
-							{isDeleting ? "Deleting..." : "Delete"}
+							{isDeleting ? t("common.actions.deleting") : t("common.actions.delete")}
 						</AlertDialogAction>
 					</AlertDialogFooter>
 				</AlertDialogContent>

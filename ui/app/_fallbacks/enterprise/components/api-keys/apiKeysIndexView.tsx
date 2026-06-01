@@ -18,6 +18,7 @@ import { NoPermissionView } from "@/components/noPermissionView";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { useCopyToClipboard } from "@/hooks/useCopyToClipboard";
 import { useIsLocalAdminSession } from "@/hooks/useIsLocalAdminSession";
+import { useT } from "@/lib/i18n";
 import { getErrorMessage, useGetCoreConfigQuery } from "@/lib/store";
 import {
 	useCreateGlobalApiKeyMutation,
@@ -32,6 +33,7 @@ import { useMemo, useState } from "react";
 import { toast } from "sonner";
 
 export default function APIKeysView() {
+	const t = useT();
 	const { data: bifrostConfig, isLoading: configLoading } = useGetCoreConfigQuery({ fromDB: true });
 	const { data: authStatus, isLoading: authLoading } = useIsAuthEnabledQuery();
 	const isLocalAdmin = useIsLocalAdminSession();
@@ -53,7 +55,7 @@ export default function APIKeysView() {
 	};
 
 	if (configLoading || authLoading) {
-		return <div>Loading...</div>;
+		return <div>{t("common.actions.loading")}</div>;
 	}
 
 	if (authStatus?.is_auth_enabled && !isLocalAdmin) {
@@ -66,9 +68,9 @@ export default function APIKeysView() {
 				<InfoIcon className="text-muted h-4 w-4" />
 				<AlertDescription>
 					<p className="text-md text-muted-foreground">
-						To create global API keys, enable dashboard authentication first.{" "}
+						{t("apiKeys.authRequired")}{" "}
 						<Link to="/workspace/config/security" className="text-md text-primary underline">
-							Configure Security Settings
+							{t("apiKeys.configureSecurity")}
 						</Link>
 						.
 					</p>
@@ -80,7 +82,7 @@ export default function APIKeysView() {
 	const handleCreate = async () => {
 		const name = newKeyName.trim();
 		if (!name) {
-			toast.error("Please enter a name for the API key.");
+			toast.error(t("apiKeys.nameRequired"));
 			return;
 		}
 		try {
@@ -88,7 +90,7 @@ export default function APIKeysView() {
 			setCreatedToken(result.token);
 			resetCreateForm();
 			setCreateDialogOpen(false);
-			toast.success("Global API key created.");
+			toast.success(t("apiKeys.createdSuccess"));
 		} catch (error) {
 			toast.error(getErrorMessage(error));
 		}
@@ -97,7 +99,7 @@ export default function APIKeysView() {
 	const handleToggleActive = async (id: string, isActive: boolean) => {
 		try {
 			await updateGlobalApiKey({ id, is_active: isActive }).unwrap();
-			toast.success(isActive ? "API key enabled." : "API key disabled.");
+			toast.success(isActive ? t("apiKeys.enabled") : t("apiKeys.disabled"));
 		} catch (error) {
 			toast.error(getErrorMessage(error));
 		}
@@ -110,7 +112,7 @@ export default function APIKeysView() {
 		try {
 			await deleteGlobalApiKey(deleteTargetId).unwrap();
 			setDeleteTargetId(null);
-			toast.success("API key deleted.");
+			toast.success(t("apiKeys.deleted"));
 		} catch (error) {
 			toast.error(getErrorMessage(error));
 		}
@@ -119,9 +121,9 @@ export default function APIKeysView() {
 	return (
 		<div className="mx-auto w-full max-w-5xl space-y-6">
 			<div>
-				<h2 className="text-lg font-semibold tracking-tight">API Keys</h2>
+				<h2 className="text-lg font-semibold tracking-tight">{t("apiKeys.title")}</h2>
 				<p className="text-muted-foreground text-sm">
-					Create global API keys for admin and dashboard API access. Use them as{" "}
+					{t("apiKeys.description")}{" "}
 					<code className="bg-muted rounded px-1 py-0.5 text-xs">Authorization: Bearer &lt;token&gt;</code>.
 				</p>
 			</div>
@@ -129,10 +131,7 @@ export default function APIKeysView() {
 			<Alert variant="default">
 				<InfoIcon className="text-muted h-4 w-4" />
 				<AlertDescription>
-					<p className="text-muted-foreground text-sm">
-						Global API keys grant full admin access to dashboard and management APIs. Usage is always attributed to the admin user. Store
-						them securely — the full token is only shown once at creation.
-					</p>
+					<p className="text-muted-foreground text-sm">{t("apiKeys.infoAlert")}</p>
 				</AlertDescription>
 			</Alert>
 
@@ -140,30 +139,30 @@ export default function APIKeysView() {
 				<div className="flex items-center justify-end border-b px-4 py-3">
 					<Button type="button" onClick={() => setCreateDialogOpen(true)} data-testid="global-api-key-create-button">
 						<Plus className="h-4 w-4" />
-						Create API Key
+						{t("apiKeys.createApiKey")}
 					</Button>
 				</div>
 				<Table>
 					<TableHeader>
 						<TableRow>
-							<TableHead>Name</TableHead>
-							<TableHead>Prefix</TableHead>
-							<TableHead>Status</TableHead>
-							<TableHead>Created</TableHead>
-							<TableHead className="w-[120px]">Actions</TableHead>
+							<TableHead>{t("tables.name")}</TableHead>
+							<TableHead>{t("apiKeys.prefix")}</TableHead>
+							<TableHead>{t("tables.status")}</TableHead>
+							<TableHead>{t("apiKeys.created")}</TableHead>
+							<TableHead className="w-[120px]">{t("tables.actions")}</TableHead>
 						</TableRow>
 					</TableHeader>
 					<TableBody>
 						{isLoading || isFetching ? (
 							<TableRow>
 								<TableCell colSpan={5} className="text-muted-foreground py-8 text-center">
-									Loading API keys...
+									{t("apiKeys.loading")}
 								</TableCell>
 							</TableRow>
 						) : apiKeys.length === 0 ? (
 							<TableRow>
 								<TableCell colSpan={5} className="text-muted-foreground py-8 text-center">
-									No global API keys yet.
+									{t("apiKeys.empty")}
 								</TableCell>
 							</TableRow>
 						) : (
@@ -174,7 +173,9 @@ export default function APIKeysView() {
 										<code className="text-xs">{apiKey.token_prefix}</code>
 									</TableCell>
 									<TableCell>
-										<Badge variant={apiKey.is_active ? "default" : "secondary"}>{apiKey.is_active ? "Active" : "Disabled"}</Badge>
+										<Badge variant={apiKey.is_active ? "default" : "secondary"}>
+											{apiKey.is_active ? t("shared.status.active") : t("shared.status.disabled")}
+										</Badge>
 									</TableCell>
 									<TableCell>{new Date(apiKey.created_at).toLocaleString()}</TableCell>
 									<TableCell>
@@ -185,7 +186,7 @@ export default function APIKeysView() {
 												size="icon"
 												disabled={isUpdating}
 												onClick={() => void handleToggleActive(apiKey.id, !apiKey.is_active)}
-												title={apiKey.is_active ? "Disable API key" : "Enable API key"}
+												title={apiKey.is_active ? t("apiKeys.disableKey") : t("apiKeys.enableKey")}
 												data-testid={`global-api-key-toggle-${apiKey.id}`}
 											>
 												<Power className="h-4 w-4" />
@@ -195,7 +196,7 @@ export default function APIKeysView() {
 												variant="ghost"
 												size="icon"
 												onClick={() => setDeleteTargetId(apiKey.id)}
-												title="Delete API key"
+												title={t("apiKeys.deleteKey")}
 												data-testid={`global-api-key-delete-${apiKey.id}`}
 											>
 												<Trash2 className="h-4 w-4" />
@@ -220,15 +221,15 @@ export default function APIKeysView() {
 			>
 				<DialogContent className="sm:max-w-[520px]">
 					<DialogHeader>
-						<DialogTitle>Create API Key</DialogTitle>
-						<DialogDescription>Enter a name for the key. The token is shown only once after you confirm creation.</DialogDescription>
+						<DialogTitle>{t("apiKeys.createTitle")}</DialogTitle>
+						<DialogDescription>{t("apiKeys.createDesc")}</DialogDescription>
 					</DialogHeader>
 					<div className="space-y-4">
 						<div className="space-y-2">
-							<Label htmlFor="global-api-key-name">Key name</Label>
+							<Label htmlFor="global-api-key-name">{t("apiKeys.keyName")}</Label>
 							<Input
 								id="global-api-key-name"
-								placeholder="e.g. CI automation"
+								placeholder={t("apiKeys.keyNamePlaceholder")}
 								value={newKeyName}
 								onChange={(event) => setNewKeyName(event.target.value)}
 								data-testid="global-api-key-name-input"
@@ -245,7 +246,7 @@ export default function APIKeysView() {
 							disabled={isCreating}
 							data-testid="global-api-key-create-cancel"
 						>
-							Cancel
+							{t("common.actions.cancel")}
 						</Button>
 						<Button
 							type="button"
@@ -253,7 +254,7 @@ export default function APIKeysView() {
 							disabled={isCreating || newKeyName.trim() === ""}
 							data-testid="global-api-key-create-confirm"
 						>
-							{isCreating ? <Loader2 className="h-4 w-4 animate-spin" /> : "Create"}
+							{isCreating ? <Loader2 className="h-4 w-4 animate-spin" /> : t("common.actions.create")}
 						</Button>
 					</DialogFooter>
 				</DialogContent>
@@ -264,9 +265,9 @@ export default function APIKeysView() {
 					<AlertDialogHeader>
 						<AlertDialogTitle className="flex items-center gap-2">
 							<KeyRound className="h-5 w-5" />
-							API Key Created
+							{t("apiKeys.createdDialogTitle")}
 						</AlertDialogTitle>
-						<AlertDialogDescription>Copy this token now. You will not be able to see it again.</AlertDialogDescription>
+						<AlertDialogDescription>{t("apiKeys.createdDialogDesc")}</AlertDialogDescription>
 					</AlertDialogHeader>
 					<div className="relative">
 						<Button
@@ -276,7 +277,7 @@ export default function APIKeysView() {
 							onClick={() => {
 								if (createdToken) {
 									void copyToClipboard(createdToken);
-									toast.success("Copied to clipboard.");
+									toast.success(t("apiKeys.copied"));
 								}
 							}}
 						>
@@ -285,7 +286,7 @@ export default function APIKeysView() {
 						<pre className="bg-muted overflow-x-auto rounded p-3 pr-12 font-mono text-sm break-all whitespace-pre-wrap">{createdToken}</pre>
 					</div>
 					<AlertDialogFooter>
-						<AlertDialogAction onClick={() => setCreatedToken(null)}>Done</AlertDialogAction>
+						<AlertDialogAction onClick={() => setCreatedToken(null)}>{t("apiKeys.done")}</AlertDialogAction>
 					</AlertDialogFooter>
 				</AlertDialogContent>
 			</AlertDialog>
@@ -293,15 +294,13 @@ export default function APIKeysView() {
 			<AlertDialog open={deleteTargetId != null} onOpenChange={(open) => !open && setDeleteTargetId(null)}>
 				<AlertDialogContent>
 					<AlertDialogHeader>
-						<AlertDialogTitle>Delete API Key</AlertDialogTitle>
-						<AlertDialogDescription>
-							This permanently removes the key. Applications using it will lose access immediately.
-						</AlertDialogDescription>
+						<AlertDialogTitle>{t("apiKeys.deleteTitle")}</AlertDialogTitle>
+						<AlertDialogDescription>{t("apiKeys.deleteDesc")}</AlertDialogDescription>
 					</AlertDialogHeader>
 					<AlertDialogFooter>
-						<AlertDialogCancel disabled={isDeleting}>Cancel</AlertDialogCancel>
+						<AlertDialogCancel disabled={isDeleting}>{t("common.actions.cancel")}</AlertDialogCancel>
 						<AlertDialogAction onClick={() => void handleDelete()} disabled={isDeleting}>
-							Delete
+							{t("common.actions.delete")}
 						</AlertDialogAction>
 					</AlertDialogFooter>
 				</AlertDialogContent>

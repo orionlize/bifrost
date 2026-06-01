@@ -1073,3 +1073,30 @@ func TestApplyNonStreamingOutputToEntryContentLoggingEnabled(t *testing.T) {
 		t.Error("expected OutputMessageParsed to be set when contentLoggingEnabled=true")
 	}
 }
+
+func TestEnsureLocalAdminUserPair(t *testing.T) {
+	t.Run("prepends admin when missing", func(t *testing.T) {
+		pairs := EnsureLocalAdminUserPair([]KeyPair{{ID: "user-1", Name: "Alice"}}, "")
+		if len(pairs) != 2 || pairs[0].ID != schemas.LocalAdminUserID {
+			t.Fatalf("expected admin first, got %#v", pairs)
+		}
+	})
+
+	t.Run("does not duplicate admin", func(t *testing.T) {
+		pairs := EnsureLocalAdminUserPair([]KeyPair{{ID: schemas.LocalAdminUserID, Name: schemas.LocalAdminUserName}}, "")
+		if len(pairs) != 1 {
+			t.Fatalf("expected single admin entry, got %#v", pairs)
+		}
+	})
+
+	t.Run("respects search query", func(t *testing.T) {
+		pairs := EnsureLocalAdminUserPair(nil, "alice")
+		if len(pairs) != 0 {
+			t.Fatalf("expected no admin when search does not match, got %#v", pairs)
+		}
+		pairs = EnsureLocalAdminUserPair(nil, "adm")
+		if len(pairs) != 1 || pairs[0].ID != schemas.LocalAdminUserID {
+			t.Fatalf("expected admin when search matches, got %#v", pairs)
+		}
+	})
+}

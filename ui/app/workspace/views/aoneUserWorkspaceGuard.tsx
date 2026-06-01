@@ -13,7 +13,7 @@ export function AoneUserWorkspaceGuard({ children }: { children: React.ReactNode
 			return;
 		}
 		if (!isWorkspacePathAllowedForAoneUser(pathname)) {
-			navigate({ to: "/workspace/quick-start", replace: true });
+			navigate({ to: "/workspace/prompt-repo", replace: true });
 		}
 	}, [isAoneUserSession, navigate, pathname]);
 

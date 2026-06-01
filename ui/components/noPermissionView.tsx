@@ -1,3 +1,4 @@
+import { useT } from "@/lib/i18n";
 import { cn } from "@/lib/utils";
 import { ShieldX } from "lucide-react";
 
@@ -7,7 +8,17 @@ interface NoPermissionViewProps {
 	align?: "middle" | "top";
 }
 
+const ENTITY_KEY_MAP: Record<string, string> = {
+	configuration: "shared.noPermission.entities.configuration",
+	"API keys": "shared.noPermission.entities.apiKeys",
+	"custom pricing": "shared.noPermission.entities.customPricing",
+};
+
 export function NoPermissionView({ entity, className, align = "middle" }: NoPermissionViewProps) {
+	const t = useT();
+	const entityKey = ENTITY_KEY_MAP[entity];
+	const entityLabel = entityKey ? t(entityKey) : entity;
+
 	return (
 		<div
 			className={cn(
@@ -20,10 +31,8 @@ export function NoPermissionView({ entity, className, align = "middle" }: NoPerm
 				<ShieldX className="h-16 w-16" strokeWidth={1} />
 			</div>
 			<div className="flex flex-col items-center gap-1">
-				<h1 className="text-muted-foreground text-xl font-medium">You don't have permission to view {entity}</h1>
-				<p className="text-muted-foreground mt-2 max-w-[400px] text-sm font-normal">
-					Contact your administrator to request access to this resource.
-				</p>
+				<h1 className="text-muted-foreground text-xl font-medium">{t("shared.noPermission.title", { entity: entityLabel })}</h1>
+				<p className="text-muted-foreground mt-2 max-w-[400px] text-sm font-normal">{t("shared.noPermission.description")}</p>
 			</div>
 		</div>
 	);

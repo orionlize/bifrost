@@ -2,7 +2,11 @@
 package handlers
 
 import (
+	"context"
+	"errors"
 	"fmt"
+	"strings"
+	"time"
 
 	"github.com/bytedance/sonic"
 	"github.com/google/uuid"
@@ -16,8 +20,10 @@ import (
 // UserGroupTierMappingRequest is a single "source model -> downgraded model" entry.
 type UserGroupTierMappingRequest struct {
 	SourceProvider *string `json:"source_provider,omitempty"`
+	SourceKeyID    *string `json:"source_key_id,omitempty"`
 	SourceModel    string  `json:"source_model"`
 	TargetProvider *string `json:"target_provider,omitempty"`
+	TargetKeyID    *string `json:"target_key_id,omitempty"`
 	TargetModel    string  `json:"target_model"`
 }
 
@@ -74,6 +80,11 @@ type SetUserGroupMembersRequest struct {
 	VirtualKeyIDs []string `json:"virtual_key_ids"`
 }
 
+// ResetUserGroupMemberUsageRequest clears window counters for one group member.
+type ResetUserGroupMemberUsageRequest struct {
+	Identity string `json:"identity"`
+}
+
 // validateUserGroupTiers validates tier thresholds and mappings.
 func validateUserGroupTiers(tiers []UserGroupTierRequest) error {
 	for i, t := range tiers {
@@ -92,6 +103,17 @@ func validateUserGroupTiers(tiers []UserGroupTierRequest) error {
 	return nil
 }
 
+func normalizeOptionalKeyID(s *string) *string {
+	if s == nil {
+		return nil
+	}
+	trimmed := strings.TrimSpace(*s)
+	if trimmed == "" {
+		return nil
+	}
+	return &trimmed
+}
+
 // buildUserGroupTiers converts tier request DTOs to table rows for a group.
 func buildUserGroupTiers(groupID string, tiers []UserGroupTierRequest) []configstoreTables.TableUserGroupTier {
 	out := make([]configstoreTables.TableUserGroupTier, 0, len(tiers))
@@ -103,8 +125,10 @@ func buildUserGroupTiers(groupID string, tiers []UserGroupTierRequest) []configs
 				ID:             uuid.NewString(),
 				TierID:         tierID,
 				SourceProvider: m.SourceProvider,
+				SourceKeyID:    normalizeOptionalKeyID(m.SourceKeyID),
 				SourceModel:    m.SourceModel,
 				TargetProvider: m.TargetProvider,
+				TargetKeyID:    normalizeOptionalKeyID(m.TargetKeyID),
 				TargetModel:    m.TargetModel,
 			})
 		}
@@ -380,6 +404,12 @@ func (h *GovernanceHandler) getUserGroupUsage(ctx *fasthttp.RequestCtx) {
 		return
 	}
 
+	if h.tokenUsageSummarizer != nil {
+		if group, loadErr := h.loadUserGroupWithRelations(ctx, id); loadErr == nil {
+			h.reconcileUserGroupUsageFromLogs(ctx, usage, group)
+		}
+	}
+
 	// Best-effort enrichment with virtual key names for display.
 	names := make(map[string]string)
 	db := h.configStore.ScopedDB(ctx)
@@ -413,6 +443,90 @@ func (h *GovernanceHandler) getUserGroupUsage(ctx *fasthttp.RequestCtx) {
 		"usage": enriched,
 		"count": len(enriched),
 	})
+}
+
+// resetUserGroupMemberUsage handles POST /api/governance/user-groups/{group_id}/usage/reset
+func (h *GovernanceHandler) resetUserGroupMemberUsage(ctx *fasthttp.RequestCtx) {
+	groupID, _ := ctx.UserValue("group_id").(string)
+
+	var req ResetUserGroupMemberUsageRequest
+	if err := sonic.Unmarshal(ctx.PostBody(), &req); err != nil {
+		SendError(ctx, 400, "Invalid JSON")
+		return
+	}
+	identity := strings.TrimSpace(req.Identity)
+	if identity == "" {
+		SendError(ctx, 400, "identity is required")
+		return
+	}
+
+	if err := h.governanceManager.ResetUserGroupMemberUsage(ctx, groupID, identity); err != nil {
+		switch {
+		case errors.Is(err, governance.ErrUserGroupNotFound):
+			SendError(ctx, 404, "User group not found")
+		case errors.Is(err, governance.ErrUserGroupMemberNotFound):
+			SendError(ctx, 404, "Member not found in user group")
+		default:
+			SendError(ctx, 500, fmt.Sprintf("Failed to reset user group usage: %v", err))
+		}
+		return
+	}
+
+	SendJSON(ctx, map[string]interface{}{
+		"message": "User group member usage reset successfully",
+	})
+}
+
+// reconcileUserGroupUsageFromLogs merges per-window token_used with log aggregates
+// over the same wall-clock window users see in Logs/Dashboard (e.g. last 5h).
+// The live governance counter is preserved when it exceeds the log total.
+func (h *GovernanceHandler) reconcileUserGroupUsageFromLogs(ctx context.Context, usage []governance.UserGroupMemberUsage, group *configstoreTables.TableUserGroup) {
+	if h.tokenUsageSummarizer == nil || group == nil {
+		return
+	}
+	now := time.Now()
+	for i := range usage {
+		member := &usage[i]
+		var maxPct float64
+		for j := range member.Windows {
+			w := &member.Windows[j]
+			windowStart, end, ok := governance.WindowUsageRange(group, w.Window, now)
+			if !ok {
+				continue
+			}
+			counter := w.TokenUsed
+			if governance.ShouldUseGovernanceCounterForDisplay(windowStart, w.LastReset) {
+				w.TokenUsed = counter
+			} else {
+				start := governance.LogUsageRangeStart(windowStart, w.LastReset)
+				tokens, err := h.tokenUsageSummarizer.SumVirtualKeyTokens(ctx, member.Identity, start, end)
+				if err != nil {
+					continue
+				}
+				w.TokenUsed = governance.ReconcileTokenUsage(counter, tokens)
+			}
+			if w.TokenLimit != nil && *w.TokenLimit > 0 {
+				w.PercentUsed = float64(w.TokenUsed) / float64(*w.TokenLimit) * 100
+			} else {
+				w.PercentUsed = 0
+			}
+			if w.PercentUsed > maxPct {
+				maxPct = w.PercentUsed
+			}
+		}
+		member.UsagePercent = maxPct
+		if tier := governance.ActiveTierForUsagePercent(group, maxPct); tier != nil {
+			order := tier.TierOrder
+			threshold := tier.ThresholdPct
+			member.ActiveTierOrder = &order
+			member.ActiveTierThreshold = &threshold
+			member.ActiveTierTerminal = tier.IsTerminal
+		} else {
+			member.ActiveTierOrder = nil
+			member.ActiveTierThreshold = nil
+			member.ActiveTierTerminal = false
+		}
+	}
 }
 
 // setUserGroupMembers handles PUT /api/governance/user-groups/{group_id}/members
