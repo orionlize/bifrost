@@ -6,7 +6,10 @@
  * - Dynamic port resolution
  * - URL generation for API calls and WebSocket connections
  * - Automatic protocol detection (http/https, ws/wss)
+ * - Optional subpath deployments via BIFROST_BASE_PATH
  */
+
+import { withBasePath } from "@/lib/utils/basePath";
 
 interface PortConfig {
 	port: string;
@@ -74,14 +77,14 @@ export function getApiBaseUrl(): string {
 	// server are included on every request. In dev, Vite proxies `/api` to the Go
 	// backend; in prod, the Go server serves both UI and API on one origin.
 	if (typeof window !== "undefined") {
-		return "/api";
+		return withBasePath("/api");
 	}
 
 	const config = getPortConfig();
 	if (config.isDevelopment) {
-		return `${config.baseUrl}/api`;
+		return `${config.baseUrl}${withBasePath("/api")}`;
 	}
-	return "/api";
+	return withBasePath("/api");
 }
 
 /**
@@ -89,14 +92,15 @@ export function getApiBaseUrl(): string {
  */
 export function getWebSocketUrl(path: string = ""): string {
 	const cleanPath = path.startsWith("/") ? path : `/${path}`;
+	const prefixedPath = withBasePath(cleanPath);
 
 	if (typeof window !== "undefined") {
 		const wsProtocol = window.location.protocol === "https:" ? "wss:" : "ws:";
-		return `${wsProtocol}//${window.location.host}${cleanPath}`;
+		return `${wsProtocol}//${window.location.host}${prefixedPath}`;
 	}
 
 	const config = getPortConfig();
-	return `${config.wsUrl}${cleanPath}`;
+	return `${config.wsUrl}${prefixedPath}`;
 }
 
 /**
@@ -124,15 +128,15 @@ export function isDevelopmentMode(): boolean {
  * Generate a complete URL for a specific endpoint
  */
 export function getEndpointUrl(endpoint: string): string {
-	const cleanEndpoint = endpoint.startsWith("/") ? endpoint : `/${endpoint}`;
+	const prefixedEndpoint = withBasePath(endpoint.startsWith("/") ? endpoint : `/${endpoint}`);
 
 	if (typeof window !== "undefined") {
-		return cleanEndpoint;
+		return prefixedEndpoint;
 	}
 
 	const config = getPortConfig();
 	if (config.isDevelopment) {
-		return `${config.baseUrl}${cleanEndpoint}`;
+		return `${config.baseUrl}${prefixedEndpoint}`;
 	}
-	return cleanEndpoint;
+	return prefixedEndpoint;
 }

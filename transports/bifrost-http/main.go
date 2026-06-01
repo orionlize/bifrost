@@ -99,12 +99,14 @@ func init() {
 	if defaultLogLevel == "" {
 		defaultLogLevel = bifrostServer.DefaultLogLevel
 	}
+	defaultBasePath := os.Getenv("BIFROST_BASE_PATH")
 	// Initializing server
 	server = bifrostServer.NewBifrostHTTPServer(Version, uiContent)
 	// Updating server properties from flags
 	flag.StringVar(&server.Port, "port", bifrostServer.DefaultPort, "Port to run the server on")
 	flag.StringVar(&server.Host, "host", defaultHost, "Host to bind the server to (default: localhost, override with BIFROST_HOST env var)")
 	flag.StringVar(&server.AppDir, "app-dir", bifrostServer.DefaultAppDir, "Application data directory (contains config.json and logs)")
+	flag.StringVar(&server.BasePath, "base-path", defaultBasePath, "URL path prefix for UI and dashboard API routes (override with BIFROST_BASE_PATH env var)")
 	flag.StringVar(&server.LogLevel, "log-level", defaultLogLevel, "Logger level (debug, info, warn, error). Default is info.")
 	flag.StringVar(&server.LogOutputStyle, "log-style", bifrostServer.DefaultLogOutputStyle, "Logger output type (json or pretty). Default is JSON.")
 }
@@ -113,6 +115,7 @@ func init() {
 func main() {
 	// Parse command line flags
 	flag.Parse()
+	server.BasePath = lib.NormalizeBasePath(server.BasePath)
 
 	// Printing version
 	versionLine := fmt.Sprintf("║%s%s%s║", strings.Repeat(" ", (61-2-len(Version))/2), Version, strings.Repeat(" ", (61-2-len(Version)+1)/2))

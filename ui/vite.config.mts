@@ -10,7 +10,30 @@ import checker from "vite-plugin-checker";
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const isEnterpriseBuild = fs.existsSync(path.join(__dirname, "app", "enterprise"));
 
+function normalizeBasePath(value: string | undefined): string {
+	if (!value || value === "/") {
+		return "";
+	}
+	let normalized = value.trim();
+	if (!normalized.startsWith("/")) {
+		normalized = `/${normalized}`;
+	}
+	return normalized.replace(/\/+$/, "");
+}
+
+const bifrostBasePath = normalizeBasePath(process.env.BIFROST_BASE_PATH);
+const viteBase = bifrostBasePath ? `${bifrostBasePath}/` : "/";
+
+function proxyTarget(pathPrefix: string) {
+	return {
+		target: "http://localhost:8080",
+		changeOrigin: true,
+		rewrite: (requestPath: string) => requestPath.replace(new RegExp(`^${pathPrefix}`), ""),
+	};
+}
+
 export default defineConfig({
+	base: viteBase,
 	plugins: [
 		tanstackRouter({
 			target: "react",
@@ -52,27 +75,39 @@ export default defineConfig({
 	define: {
 		"process.env.NODE_ENV": JSON.stringify(process.env.NODE_ENV ?? "production"),
 		"process.env.BIFROST_IS_ENTERPRISE": JSON.stringify(isEnterpriseBuild ? "true" : "false"),
+		"process.env.BIFROST_BASE_PATH": JSON.stringify(bifrostBasePath),
 		"process.env.BIFROST_DISABLE_PROFILER": JSON.stringify(process.env.BIFROST_DISABLE_PROFILER ?? ""),
 		"process.env.BIFROST_ENTERPRISE_TRIAL_EXPIRY": JSON.stringify(process.env.ENTERPRISE_TRIAL_EXPIRY ?? ""),
 		"process.env.BIFROST_PORT": JSON.stringify(process.env.BIFROST_PORT ?? ""),
 	},
 	server: {
 		port: 3000,
-		proxy: {
-			"/api": {
-				target: "http://localhost:8080",
-				changeOrigin: true,
-			},
-			"/v1": {
-				target: "http://localhost:8080",
-				changeOrigin: true,
-			},
-			"/ws": {
-				target: "ws://localhost:8080",
-				ws: true,
-				changeOrigin: true,
-			},
-		},
+		proxy: bifrostBasePath
+			? {
+					[`${bifrostBasePath}/api`]: proxyTarget(bifrostBasePath),
+					[`${bifrostBasePath}/v1`]: proxyTarget(bifrostBasePath),
+					[`${bifrostBasePath}/ws`]: {
+						target: "ws://localhost:8080",
+						ws: true,
+						changeOrigin: true,
+						rewrite: (requestPath: string) => requestPath.replace(new RegExp(`^${bifrostBasePath}`), ""),
+					},
+				}
+			: {
+					"/api": {
+						target: "http://localhost:8080",
+						changeOrigin: true,
+					},
+					"/v1": {
+						target: "http://localhost:8080",
+						changeOrigin: true,
+					},
+					"/ws": {
+						target: "ws://localhost:8080",
+						ws: true,
+						changeOrigin: true,
+					},
+				},
 	},
 	build: {
 		outDir: "out",

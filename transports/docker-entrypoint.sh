@@ -2,6 +2,10 @@
 set -e
 
 APP_DIR=${APP_DIR:-/app/data}
+APP_PORT=${APP_PORT:-8080}
+APP_HOST=${APP_HOST:-0.0.0.0}
+LOG_LEVEL=${LOG_LEVEL:-info}
+LOG_STYLE=${LOG_STYLE:-json}
 
 # Function to fix permissions on mounted volumes
 fix_permissions() {
@@ -78,4 +82,9 @@ if [ $# -gt 1 ]; then
 fi
 
 # Build the command with environment variables and standard arguments
-exec /app/main -app-dir "$APP_DIR" -port "$APP_PORT" -host "$APP_HOST" -log-level "$LOG_LEVEL" -log-style "$LOG_STYLE"
+BASE_PATH_ARGS=""
+if [ -n "$BIFROST_BASE_PATH" ]; then
+    BASE_PATH_ARGS="-base-path $BIFROST_BASE_PATH"
+fi
+
+exec /app/main -app-dir "$APP_DIR" -port "$APP_PORT" -host "$APP_HOST" -log-level "$LOG_LEVEL" -log-style "$LOG_STYLE" $BASE_PATH_ARGS

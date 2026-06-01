@@ -423,7 +423,9 @@ docker-image: build-ui ## Build Docker image (LOCAL=1 to use Dockerfile.local)
 	@$(ECHO) "$(GREEN)Building Docker image...$(NC)"
 	$(eval GIT_SHA=$(shell git rev-parse --short HEAD))
 	$(eval DOCKERFILE=$(if $(LOCAL),transports/Dockerfile.local,transports/Dockerfile))
-	@docker build -f $(DOCKERFILE) -t bifrost -t bifrost:$(GIT_SHA) -t bifrost:latest .
+	@docker build -f $(DOCKERFILE) \
+		--build-arg BIFROST_BASE_PATH=$(BIFROST_BASE_PATH) \
+		-t bifrost -t bifrost:$(GIT_SHA) -t bifrost:latest .
 	@$(ECHO) "$(GREEN)Docker image built: bifrost, bifrost:$(GIT_SHA), bifrost:latest (using $(DOCKERFILE))$(NC)"
 
 docker-run: ## Run Docker container (Usage: make docker-run [CONFIG=path/to/config.json or path/to/dir/])

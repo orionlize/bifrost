@@ -8,6 +8,7 @@ import { prepareDocumentBrandingBeforeLoad } from "@/lib/utils/documentBranding"
 
 prepareDocumentBrandingBeforeLoad();
 
+import { getBasePath } from "@/lib/utils/basePath";
 import { ErrorComponent } from "./__error";
 import { NotFoundComponent } from "./__notFound";
 import { routeTree } from "./routeTree.gen";
@@ -28,6 +29,7 @@ function safeJsonParse(value: string): unknown {
 
 const router = createRouter({
 	routeTree,
+	basepath: getBasePath() || undefined,
 	defaultPreload: "intent",
 	scrollRestoration: true,
 	notFoundMode: "root",

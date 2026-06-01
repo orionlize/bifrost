@@ -125,9 +125,10 @@ type BifrostHTTPServer struct {
 	Version   string
 	UIContent embed.FS
 
-	Port   string
-	Host   string
-	AppDir string
+	Port     string
+	Host     string
+	AppDir   string
+	BasePath string
 
 	LogLevel        string
 	LogOutputStyle  string
@@ -1645,8 +1646,9 @@ func (s *BifrostHTTPServer) Bootstrap(ctx context.Context) error {
 	// Register UI handler
 	s.RegisterUIRoutes()
 	// Create fasthttp server instance
+	routeHandler := handlers.BasePathMiddleware(s.BasePath)(s.Router.Handler)
 	s.Server = &fasthttp.Server{
-		Handler:            handlers.SecurityHeadersMiddleware()(handlers.CorsMiddleware(s.Config)(handlers.RequestDecompressionMiddleware(s.Config)(s.Router.Handler))),
+		Handler:            handlers.SecurityHeadersMiddleware()(handlers.CorsMiddleware(s.Config)(handlers.RequestDecompressionMiddleware(s.Config)(routeHandler))),
 		MaxRequestBodySize: s.Config.ClientConfig.MaxRequestBodySizeMB * 1024 * 1024,
 		ReadBufferSize:     1024 * 64, // 64kb
 	}
@@ -1672,7 +1674,11 @@ func (s *BifrostHTTPServer) Start() error {
 		return fmt.Errorf("failed to create listener on %s: %v", serverAddr, err)
 	}
 	go func() {
-		logger.Info("successfully started bifrost, serving UI on http://%s:%s", s.Host, s.Port)
+		uiURL := fmt.Sprintf("http://%s:%s", s.Host, s.Port)
+		if basePath := lib.NormalizeBasePath(s.BasePath); basePath != "" {
+			uiURL += basePath + "/"
+		}
+		logger.Info("successfully started bifrost, serving UI on %s", uiURL)
 		if err := s.Server.Serve(ln); err != nil {
 			errChan <- err
 		}

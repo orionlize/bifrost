@@ -12,6 +12,10 @@
   # Copy UI source code
   COPY ui/ ./
   
+  # Optional subpath for production deployments (for example /bifrost)
+  ARG BIFROST_BASE_PATH=
+  ENV BIFROST_BASE_PATH=$BIFROST_BASE_PATH
+  
   # Build UI (skip the copy-build step)
   RUN npm run build-enterprise
   # Skip the copy-build step since we'll copy the files in the Go build stage
@@ -71,13 +75,15 @@
   ARG ARG_LOG_LEVEL=info
   ARG ARG_LOG_STYLE=json
   ARG ARG_APP_DIR=/app/data
+  ARG BIFROST_BASE_PATH=
   
   # Environment variables with defaults (can be overridden at runtime)
   ENV APP_PORT=$ARG_APP_PORT \
     APP_HOST=$ARG_APP_HOST \
     LOG_LEVEL=$ARG_LOG_LEVEL \
     LOG_STYLE=$ARG_LOG_STYLE \
-    APP_DIR=$ARG_APP_DIR
+    APP_DIR=$ARG_APP_DIR \
+    BIFROST_BASE_PATH=$BIFROST_BASE_PATH
   
   # Go runtime performance tuning (override at runtime for your workload)
   # GOGC: GC target percentage. Higher = less frequent GC, more memory usage.

@@ -1,0 +1,63 @@
+# Production Docker Compose — builds the image locally from the full repo workspace.
+#
+# Uses transports/Dockerfile.local (not transports/Dockerfile) because self-builds
+# from source require core/framework/plugins modules from the workspace. The
+# published-module Dockerfile is for CI/releases after modules are tagged.
+#
+# Quick start:
+#   docker compose -f docker-compose.prod.yml up -d --build
+#
+# Subpath deployment (UI + dashboard API under /bifrost):
+#   BIFROST_BASE_PATH=/bifrost docker compose -f docker-compose.prod.yml up -d --build
+#
+# Set build/runtime base path via .env:
+#   BIFROST_BASE_PATH=/bifrost
+#
+# Custom host port (container always listens on 8080):
+#   PORT=9090 docker compose -f docker-compose.prod.yml up -d --build
+#
+# Notes:
+# - BIFROST_BASE_PATH must match at build time (UI assets) and runtime (Go route stripping).
+# - /health and /v1/* remain available at the container root for probes and LLM clients.
+
+services:
+  bifrost:
+    build:
+      context: .
+      dockerfile: transports/Dockerfile.local
+      args:
+        BIFROST_BASE_PATH: ${BIFROST_BASE_PATH:-}
+    image: bifrost:prod
+    ports:
+      - "${PORT:-8080}:8080"
+    volumes:
+      - bifrost-data:/app/data
+    environment:
+      APP_PORT: "8080"
+      APP_HOST: 0.0.0.0
+      LOG_LEVEL: info
+      LOG_STYLE: json
+      GOGC: "200"
+      GOMEMLIMIT: 3600MiB
+      BIFROST_BASE_PATH: ${BIFROST_BASE_PATH:-}
+    ulimits:
+      nofile:
+        soft: 65536
+        hard: 65536
+    deploy:
+      resources:
+        limits:
+          cpus: "4"
+          memory: 4G
+        reservations:
+          cpus: "2"
+          memory: 2G
+    healthcheck:
+      test: ["CMD", "wget", "--no-verbose", "--tries=1", "-O", "/dev/null", "http://127.0.0.1:8080/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+    restart: unless-stopped
+
+volumes:
+  bifrost-data:
