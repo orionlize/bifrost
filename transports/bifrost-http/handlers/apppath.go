@@ -22,6 +22,10 @@ func stripAppRoutePrefix(basePath, route string) string {
 	return lib.StripBasePath(basePath, pathPart) + suffix
 }
 
+func defaultAppReturnTo(basePath string) string {
+	return ensureSubpathRedirect(basePath, defaultAoneOAuthReturnTo)
+}
+
 func ensureSubpathRedirect(basePath, target string) string {
 	basePath = lib.NormalizeBasePath(basePath)
 	target = strings.TrimSpace(target)

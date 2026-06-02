@@ -251,6 +251,7 @@ func (h *AoneOAuthHandler) authorize(ctx *fasthttp.RequestCtx) {
 		}
 		oauthRedirectURI = buildOAuthCallbackRedirectURI(configuredCallbackURI, externalRedirectURI)
 	}
+	returnTo = ensureSubpathRedirect(h.basePath, returnTo)
 
 	state, err := h.stateStore.Issue(returnTo, externalRedirectURI, oauthRedirectURI, loginSource, dashboardOriginFromRequest(ctx))
 	if err != nil {
@@ -272,8 +273,9 @@ func (h *AoneOAuthHandler) callback(ctx *fasthttp.RequestCtx) {
 
 	state := string(ctx.QueryArgs().Peek("state"))
 	returnTo, externalRedirectURI, oauthRedirectURI, loginSource, dashboardOrigin, stateValid := h.stateStore.Consume(state)
+	returnTo = ensureSubpathRedirect(h.basePath, returnTo)
 	if !stateValid {
-		h.redirectTo(ctx, aoneOAuthLoginRedirect("", callbackPostLoginRedirect, "", "Invalid or expired OAuth state"))
+		h.redirectTo(ctx, aoneOAuthLoginRedirect("", callbackPostLoginRedirect, "", "Invalid or expired OAuth state", h.basePath))
 		return
 	}
 	if loginSource != loginSourceZdSwitch && callbackPostLoginRedirect != "" {
@@ -289,7 +291,7 @@ func (h *AoneOAuthHandler) callback(ctx *fasthttp.RequestCtx) {
 	if errorParam != "" {
 		errorDescription := string(ctx.QueryArgs().Peek("error_description"))
 		logger.Warn("[aone-oauth] upstream callback error: error=%s description=%s", errorParam, errorDescription)
-		h.redirectTo(ctx, aoneOAuthLoginRedirect(returnTo, externalRedirectURI, loginSource, "Aone authentication was denied or failed"))
+		h.redirectTo(ctx, aoneOAuthLoginRedirect(returnTo, externalRedirectURI, loginSource, "Aone authentication was denied or failed", h.basePath))
 		return
 	}
 
@@ -302,11 +304,11 @@ func (h *AoneOAuthHandler) callback(ctx *fasthttp.RequestCtx) {
 	cfg, err := h.loadConfiguredAoneOAuth(ctx)
 	if err != nil {
 		logger.Error("[aone-oauth] failed to load config during callback: %v", err)
-		h.redirectTo(ctx, aoneOAuthLoginRedirect(returnTo, externalRedirectURI, loginSource, "Aone OAuth is not configured"))
+		h.redirectTo(ctx, aoneOAuthLoginRedirect(returnTo, externalRedirectURI, loginSource, "Aone OAuth is not configured", h.basePath))
 		return
 	}
 	if cfg == nil {
-		h.redirectTo(ctx, aoneOAuthLoginRedirect(returnTo, externalRedirectURI, loginSource, "Aone OAuth is not configured"))
+		h.redirectTo(ctx, aoneOAuthLoginRedirect(returnTo, externalRedirectURI, loginSource, "Aone OAuth is not configured", h.basePath))
 		return
 	}
 
@@ -330,7 +332,7 @@ func (h *AoneOAuthHandler) callback(ctx *fasthttp.RequestCtx) {
 	)
 	if err != nil {
 		logger.Error("[aone-oauth] token exchange failed: %v", err)
-		h.redirectTo(ctx, aoneOAuthLoginRedirect(returnTo, externalRedirectURI, loginSource, "Failed to exchange authorization code"))
+		h.redirectTo(ctx, aoneOAuthLoginRedirect(returnTo, externalRedirectURI, loginSource, "Failed to exchange authorization code", h.basePath))
 		return
 	}
 
@@ -338,11 +340,11 @@ func (h *AoneOAuthHandler) callback(ctx *fasthttp.RequestCtx) {
 		sessionToken, bootstrapErr := h.bootstrapSourceScopedLogin(ctx, client, loginSource, tokenResp)
 		if bootstrapErr != nil {
 			if errors.Is(bootstrapErr, configstore.ErrAoneUserDisabled) {
-				h.redirectTo(ctx, aoneOAuthLoginRedirect(returnTo, externalRedirectURI, loginSource, "Your account has been disabled"))
+				h.redirectTo(ctx, aoneOAuthLoginRedirect(returnTo, externalRedirectURI, loginSource, "Your account has been disabled", h.basePath))
 				return
 			}
 			logger.Error("[aone-oauth] failed to bootstrap zd-switch login: %v", bootstrapErr)
-			h.redirectTo(ctx, aoneOAuthLoginRedirect(returnTo, externalRedirectURI, loginSource, "Failed to complete ZD Switch login"))
+			h.redirectTo(ctx, aoneOAuthLoginRedirect(returnTo, externalRedirectURI, loginSource, "Failed to complete ZD Switch login", h.basePath))
 			return
 		}
 		h.redirectTo(ctx, buildZdSwitchSuccessReturnTo(ctx, sessionToken, cfg.RedirectURI.GetValue(), h.basePath))
@@ -357,7 +359,7 @@ func (h *AoneOAuthHandler) callback(ctx *fasthttp.RequestCtx) {
 		user, upsertErr := h.configStore.UpsertAoneUserFromLogin(ctx, meResp)
 		if upsertErr != nil {
 			if errors.Is(upsertErr, configstore.ErrAoneUserDisabled) {
-				h.redirectTo(ctx, aoneOAuthLoginRedirect(returnTo, externalRedirectURI, loginSource, "Your account has been disabled"))
+				h.redirectTo(ctx, aoneOAuthLoginRedirect(returnTo, externalRedirectURI, loginSource, "Your account has been disabled", h.basePath))
 				return
 			}
 			logger.Warn("[aone-oauth] failed to upsert user profile: %v", upsertErr)
@@ -378,7 +380,7 @@ func (h *AoneOAuthHandler) callback(ctx *fasthttp.RequestCtx) {
 	sessionToken, err := h.createDashboardSessionToken(ctx, aoneUserID, loginSourceDashboard, aoneSessionExpiresAt(tokenResp))
 	if err != nil {
 		logger.Error("[aone-oauth] failed to create dashboard session: %v", err)
-		h.redirectTo(ctx, aoneOAuthLoginRedirect(returnTo, externalRedirectURI, loginSource, "Failed to create session"))
+		h.redirectTo(ctx, aoneOAuthLoginRedirect(returnTo, externalRedirectURI, loginSource, "Failed to create session", h.basePath))
 		return
 	}
 	if aoneUserID != "" {
@@ -392,17 +394,17 @@ func (h *AoneOAuthHandler) callback(ctx *fasthttp.RequestCtx) {
 
 func (h *AoneOAuthHandler) zdSwitchHandoff(ctx *fasthttp.RequestCtx) {
 	if h.configStore == nil {
-		h.redirectTo(ctx, aoneOAuthLoginRedirect("", "", loginSourceZdSwitch, "Config store is not available"))
+		h.redirectTo(ctx, aoneOAuthLoginRedirect("", "", loginSourceZdSwitch, "Config store is not available", h.basePath))
 		return
 	}
 
 	cfg, err := h.loadConfiguredAoneOAuth(ctx)
 	if err != nil {
-		h.redirectTo(ctx, aoneOAuthLoginRedirect("", "", loginSourceZdSwitch, "Failed to load Aone OAuth config"))
+		h.redirectTo(ctx, aoneOAuthLoginRedirect("", "", loginSourceZdSwitch, "Failed to load Aone OAuth config", h.basePath))
 		return
 	}
 	if cfg == nil {
-		h.redirectTo(ctx, aoneOAuthLoginRedirect("", "", loginSourceZdSwitch, "Aone OAuth is not configured"))
+		h.redirectTo(ctx, aoneOAuthLoginRedirect("", "", loginSourceZdSwitch, "Aone OAuth is not configured", h.basePath))
 		return
 	}
 
@@ -418,7 +420,7 @@ func (h *AoneOAuthHandler) zdSwitchHandoff(ctx *fasthttp.RequestCtx) {
 		return
 	}
 	if session.AoneUserID == nil || strings.TrimSpace(*session.AoneUserID) == "" {
-		h.redirectTo(ctx, aoneOAuthLoginRedirect("", "", loginSourceZdSwitch, "ZD Switch requires an Aone user session"))
+		h.redirectTo(ctx, aoneOAuthLoginRedirect("", "", loginSourceZdSwitch, "ZD Switch requires an Aone user session", h.basePath))
 		return
 	}
 
@@ -853,7 +855,7 @@ func dashboardOriginFromRequest(ctx *fasthttp.RequestCtx) string {
 func resolveDashboardReturnTo(returnTo, dashboardOrigin, basePath string) string {
 	returnTo = strings.TrimSpace(returnTo)
 	if returnTo == "" {
-		returnTo = defaultAoneOAuthReturnTo
+		returnTo = defaultAppReturnTo(basePath)
 	}
 	if strings.HasPrefix(returnTo, "http://") || strings.HasPrefix(returnTo, "https://") {
 		return ensureSubpathRedirect(basePath, returnTo)
@@ -894,7 +896,7 @@ func extractRedirectURIFromLoginReferer(ctx *fasthttp.RequestCtx, basePath strin
 func loginCompleteReturnToForRedirectURI(redirectURI, basePath string) string {
 	redirectURI = validateLoginRedirectURI(redirectURI, basePath)
 	if redirectURI == "" {
-		return defaultAoneOAuthReturnTo
+		return defaultAppReturnTo(basePath)
 	}
 	q := url.Values{}
 	q.Set("redirect_uri", redirectURI)
@@ -904,15 +906,15 @@ func loginCompleteReturnToForRedirectURI(redirectURI, basePath string) string {
 func buildLoginCompleteReturnTo(ctx *fasthttp.RequestCtx, redirectURI, basePath string) string {
 	redirectURI = validateLoginRedirectURI(redirectURI, basePath)
 	if redirectURI == "" {
-		return defaultAoneOAuthReturnTo
+		return defaultAppReturnTo(basePath)
 	}
 	origin := dashboardOrigin(ctx)
 	if origin == "" {
-		return lib.WithBasePath(basePath, defaultAoneOAuthReturnTo)
+		return defaultAppReturnTo(basePath)
 	}
 	u, err := url.Parse(origin)
 	if err != nil {
-		return lib.WithBasePath(basePath, defaultAoneOAuthReturnTo)
+		return defaultAppReturnTo(basePath)
 	}
 	u.Path = lib.WithBasePath(basePath, "/login/complete")
 	q := u.Query()
@@ -950,44 +952,46 @@ func resolveAoneOAuthSuccessReturnTo(ctx *fasthttp.RequestCtx, returnTo, redirec
 		return resolveAuthorizeReturnTo(ctx, returnTo, redirectURI, basePath)
 	}
 	if validated := validateLoginRedirectURI(returnTo, basePath); validated != "" && isWorkspaceReturnPath(validated) {
-		return validated
+		return ensureSubpathRedirect(basePath, validated)
 	}
 	if parsed, ok := validateAoneOAuthReturnPath(returnTo, basePath); ok {
-		return parsed
+		return ensureSubpathRedirect(basePath, parsed)
 	}
-	return defaultAoneOAuthReturnTo
+	return defaultAppReturnTo(basePath)
 }
 
 func parseAoneOAuthReturnTo(raw, redirectURI, basePath string) string {
 	raw = strings.TrimSpace(raw)
 	if raw == "" {
-		return defaultAoneOAuthReturnTo
+		return defaultAppReturnTo(basePath)
 	}
 	if strings.HasPrefix(raw, "/") {
 		canonical := stripAppRoutePrefix(basePath, raw)
 		if isAllowedAoneOAuthReturnPath(canonical) {
-			return canonical
+			return ensureSubpathRedirect(basePath, canonical)
 		}
-		return defaultAoneOAuthReturnTo
+		return defaultAppReturnTo(basePath)
 	}
 	parsed, err := url.Parse(raw)
 	if err != nil || (parsed.Scheme != "http" && parsed.Scheme != "https") || parsed.Host == "" {
-		return defaultAoneOAuthReturnTo
+		return defaultAppReturnTo(basePath)
 	}
 	if !isAllowedAoneOAuthReturnPath(lib.StripBasePath(basePath, parsed.Path)) {
-		return defaultAoneOAuthReturnTo
+		return defaultAppReturnTo(basePath)
 	}
 	if strings.EqualFold(parsed.Hostname(), "localhost") {
+		applySubpathToURLPath(parsed, basePath)
 		return parsed.String()
 	}
 	redirect, err := url.Parse(redirectURI)
 	if err != nil || redirect.Host == "" {
-		return defaultAoneOAuthReturnTo
+		return defaultAppReturnTo(basePath)
 	}
 	if strings.EqualFold(parsed.Hostname(), redirect.Hostname()) {
+		applySubpathToURLPath(parsed, basePath)
 		return parsed.String()
 	}
-	return defaultAoneOAuthReturnTo
+	return defaultAppReturnTo(basePath)
 }
 
 func validateAoneOAuthReturnPath(raw, basePath string) (string, bool) {
@@ -1029,24 +1033,24 @@ func isAllowedAoneOAuthReturnPath(path string) bool {
 		strings.HasPrefix(path, defaultAoneOAuthReturnTo+"#")
 }
 
-func aoneOAuthLoginRedirect(returnTo, redirectURI, loginSource, message string) string {
+func aoneOAuthLoginRedirect(returnTo, redirectURI, loginSource, message, basePath string) string {
 	q := url.Values{}
 	q.Set("error", message)
 	if loginSource == loginSourceZdSwitch {
 		q.Set("source", loginSourceZdSwitch)
-		return "/login?" + q.Encode()
+		return ensureSubpathRedirect(basePath, "/login?"+q.Encode())
 	}
-	if validated := validateLoginRedirectURI(redirectURI, ""); validated != "" {
+	if validated := validateLoginRedirectURI(redirectURI, basePath); validated != "" {
 		q.Set("redirect_uri", validated)
-		return "/login?" + q.Encode()
+		return ensureSubpathRedirect(basePath, "/login?"+q.Encode())
 	}
-	if parsed, ok := validateAoneOAuthReturnPath(returnTo, ""); ok {
+	if parsed, ok := validateAoneOAuthReturnPath(returnTo, basePath); ok {
 		if u, err := url.Parse(parsed); err == nil && u.Scheme != "" && u.Host != "" {
-			u.Path = "/login"
+			u.Path = lib.WithBasePath(basePath, "/login")
 			u.RawQuery = q.Encode()
 			u.Fragment = ""
 			return u.String()
 		}
 	}
-	return "/login?" + q.Encode()
+	return ensureSubpathRedirect(basePath, "/login?"+q.Encode())
 }

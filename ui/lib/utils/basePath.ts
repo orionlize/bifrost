@@ -10,8 +10,12 @@ export function normalizeBasePath(path: string | undefined): string {
 	return normalized.replace(/\/+$/, "");
 }
 
-/** Build-time base path injected by Vite from BIFROST_BASE_PATH. */
+/** Base path for subpath deployments (from Vite `base` / BIFROST_BASE_PATH at build time). */
 export function getBasePath(): string {
+	const fromVite = normalizeBasePath(import.meta.env.BASE_URL);
+	if (fromVite) {
+		return fromVite;
+	}
 	return normalizeBasePath(process.env.BIFROST_BASE_PATH ?? "");
 }
 

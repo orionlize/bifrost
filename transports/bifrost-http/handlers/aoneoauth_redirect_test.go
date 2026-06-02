@@ -93,24 +93,24 @@ func TestValidateLoginRedirectURI(t *testing.T) {
 }
 
 func TestAoneOAuthLoginRedirectUsesFrontendOrigin(t *testing.T) {
-	got := aoneOAuthLoginRedirect("http://localhost:8080/workspace", "", "", "failed")
-	want := "http://localhost:8080/login?error=failed"
+	got := aoneOAuthLoginRedirect("http://localhost:8080/workspace", "", "", "failed", "/bifrost")
+	want := "http://localhost:8080/bifrost/login?error=failed"
 	if got != want {
 		t.Fatalf("got %q, want %q", got, want)
 	}
 }
 
 func TestAoneOAuthLoginRedirectPreservesRedirectURI(t *testing.T) {
-	got := aoneOAuthLoginRedirect("", "https://app.example.com/callback", "", "failed")
-	want := "/login?error=failed&redirect_uri=https%3A%2F%2Fapp.example.com%2Fcallback"
+	got := aoneOAuthLoginRedirect("", "https://app.example.com/callback", "", "failed", "/bifrost")
+	want := "/bifrost/login?error=failed&redirect_uri=https%3A%2F%2Fapp.example.com%2Fcallback"
 	if got != want {
 		t.Fatalf("got %q, want %q", got, want)
 	}
 }
 
 func TestAoneOAuthLoginRedirectPreservesZdSwitchSource(t *testing.T) {
-	got := aoneOAuthLoginRedirect("", "", loginSourceZdSwitch, "failed")
-	want := "/login?error=failed&source=zd-switch"
+	got := aoneOAuthLoginRedirect("", "", loginSourceZdSwitch, "failed", "/bifrost")
+	want := "/bifrost/login?error=failed&source=zd-switch"
 	if got != want {
 		t.Fatalf("got %q, want %q", got, want)
 	}
@@ -357,6 +357,33 @@ func TestResolveDashboardReturnToWithBasePath(t *testing.T) {
 	got := resolveDashboardReturnTo("/workspace", "http://localhost:8080", "/bifrost")
 	want := "http://localhost:8080/bifrost/workspace"
 	if got != want {
+		t.Fatalf("got %q, want %q", got, want)
+	}
+}
+
+func TestParseAoneOAuthReturnToAppliesBasePath(t *testing.T) {
+	redirectURI := "http://localhost:8080/bifrost/api/aone/oauth/callback"
+	got := parseAoneOAuthReturnTo("http://localhost:8080/workspace", redirectURI, "/bifrost")
+	want := "http://localhost:8080/bifrost/workspace"
+	if got != want {
+		t.Fatalf("got %q, want %q", got, want)
+	}
+}
+
+func TestResolveAoneOAuthSuccessReturnToAppliesBasePath(t *testing.T) {
+	ctx := &fasthttp.RequestCtx{}
+	got := resolveAoneOAuthSuccessReturnTo(ctx, "/workspace", "", "/bifrost")
+	want := "/bifrost/workspace"
+	if got != want {
+		t.Fatalf("got %q, want %q", got, want)
+	}
+}
+
+func TestDefaultAppReturnTo(t *testing.T) {
+	if got, want := defaultAppReturnTo("/bifrost"), "/bifrost/workspace"; got != want {
+		t.Fatalf("got %q, want %q", got, want)
+	}
+	if got, want := defaultAppReturnTo(""), "/workspace"; got != want {
 		t.Fatalf("got %q, want %q", got, want)
 	}
 }
