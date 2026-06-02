@@ -1236,7 +1236,7 @@ func (s *BifrostHTTPServer) RegisterAPIRoutes(ctx context.Context, callbacks Ser
 	configHandler := handlers.NewConfigHandler(callbacks, s.Config)
 	pluginsHandler := handlers.NewPluginsHandler(callbacks, s.Config.ConfigStore)
 	sessionHandler := handlers.NewSessionHandler(s.Config.ConfigStore, s.WSTicketStore)
-	aoneOAuthHandler := handlers.NewAoneOAuthHandler(s.Config.ConfigStore, s.AoneOAuthStateStore, s)
+	aoneOAuthHandler := handlers.NewAoneOAuthHandler(s.Config.ConfigStore, s.AoneOAuthStateStore, s, s.BasePath)
 	aoneUsersHandler := handlers.NewAoneUsersHandler(s.Config.ConfigStore, s)
 	aoneDevicesHandler := handlers.NewAoneDevicesHandler(s.Config.ConfigStore, s)
 	globalAPIKeysHandler := handlers.NewGlobalAPIKeysHandler(s.Config.ConfigStore)

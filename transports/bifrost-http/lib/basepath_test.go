@@ -26,3 +26,24 @@ func TestNormalizeBasePath(t *testing.T) {
 		})
 	}
 }
+
+func TestStripBasePath(t *testing.T) {
+	if got := StripBasePath("/bifrost", "/bifrost/login"); got != "/login" {
+		t.Fatalf("StripBasePath = %q, want /login", got)
+	}
+	if got := StripBasePath("", "/login"); got != "/login" {
+		t.Fatalf("StripBasePath empty base = %q, want /login", got)
+	}
+}
+
+func TestWithBasePath(t *testing.T) {
+	if got := WithBasePath("/bifrost", "/workspace"); got != "/bifrost/workspace" {
+		t.Fatalf("WithBasePath = %q, want /bifrost/workspace", got)
+	}
+	if got := WithBasePath("/bifrost", "/login/complete?redirect_uri=x"); got != "/bifrost/login/complete?redirect_uri=x" {
+		t.Fatalf("WithBasePath query = %q", got)
+	}
+	if got := WithBasePath("/bifrost", "/bifrost/workspace"); got != "/bifrost/workspace" {
+		t.Fatalf("WithBasePath idempotent = %q", got)
+	}
+}
