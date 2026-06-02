@@ -113,14 +113,25 @@ export const baseRoutingFields: CELFieldDefinition[] = [
 	},
 	{
 		name: "global_api_key_id",
-		label: "Admin API Key",
+		label: "Admin API Key (ID)",
 		placeholder: "Select admin API key",
 		inputType: "select",
 		valueEditorType: (operator: string) =>
 			operator === "matches" ? "text" : operator === "in" || operator === "notIn" ? "select" : "select",
 		operators: ["=", "!=", "in", "notIn", "matches", "null", "notNull"],
 		defaultOperator: "=",
-		description: "Match requests authenticated with a global admin API key (bf-ak-). Use 'is not empty' to match any admin key.",
+		description: "Match requests authenticated with a global admin API key (bf-ak-) by key ID.",
+	},
+	{
+		name: "global_api_key_name",
+		label: "Admin API Key (Name)",
+		placeholder: "Select admin API key",
+		inputType: "select",
+		valueEditorType: (operator: string) =>
+			operator === "matches" ? "text" : operator === "in" || operator === "notIn" ? "select" : "select",
+		operators: ["=", "!=", "in", "notIn", "matches", "null", "notNull"],
+		defaultOperator: "=",
+		description: "Match requests authenticated with a global admin API key (bf-ak-) by key name.",
 	},
 	{
 		name: "params",
@@ -171,6 +182,14 @@ export function getRoutingFields(
 				}))
 			: [{ name: "_no_global_api_keys", label: "No admin API keys configured", disabled: true }];
 
+	const globalApiKeyNameValues =
+		globalApiKeys.length > 0
+			? globalApiKeys.map((key) => ({
+					name: key.name,
+					label: key.name,
+				}))
+			: [{ name: "_no_global_api_keys", label: "No admin API keys configured", disabled: true }];
+
 	// Create metric options for scope input: providers + models
 	const scopeOptions = [
 		{ name: "", label: "(provider-level)" }, // Empty scope for provider-level
@@ -202,6 +221,12 @@ export function getRoutingFields(
 			return {
 				...field,
 				values: globalApiKeyValues,
+			};
+		}
+		if (field.name === "global_api_key_name") {
+			return {
+				...field,
+				values: globalApiKeyNameValues,
 			};
 		}
 		if (field.name === "tokens_used" || field.name === "request" || field.name === "budget_used") {

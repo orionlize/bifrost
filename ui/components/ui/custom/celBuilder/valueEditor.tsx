@@ -218,6 +218,8 @@ export function ValueEditor({
 
 		// Check if this is a provider field to render icons in trigger
 		const isProviderField = fieldData?.name === "provider";
+		const isGlobalApiKeyIdField = fieldData?.name === "global_api_key_id";
+		const isGlobalApiKeyNameField = fieldData?.name === "global_api_key_name";
 
 		return (
 			<Select value={value || ""} onValueChange={handleOnChange}>
@@ -227,6 +229,10 @@ export function ValueEditor({
 							<RenderProviderIcon provider={value as ProviderIconType} size="sm" className="h-4 w-4" />
 							<span>{getProviderLabel(value)}</span>
 						</div>
+					) : (isGlobalApiKeyIdField || isGlobalApiKeyNameField) && value ? (
+						<span>
+							{(fieldData.values as any[]).find((opt) => (opt as any).name === value)?.label || value}
+						</span>
 					) : (
 						<SelectValue placeholder={fieldData.placeholder || celBuilderT(context, "routing.celBuilder.select")} />
 					)}

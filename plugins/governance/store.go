@@ -13,6 +13,7 @@ import (
 	"github.com/maximhq/bifrost/core/schemas"
 	"github.com/maximhq/bifrost/framework/configstore"
 	configstoreTables "github.com/maximhq/bifrost/framework/configstore/tables"
+	"github.com/maximhq/bifrost/framework/encrypt"
 	"github.com/maximhq/bifrost/framework/modelcatalog"
 	"github.com/maximhq/bifrost/framework/routing"
 	"gorm.io/gorm"
@@ -20,6 +21,11 @@ import (
 
 type EntityWiseBudgets map[string][]*configstoreTables.TableBudget
 type EntityWiseRateLimits map[string][]*configstoreTables.TableRateLimit
+
+type globalAPIKeyRef struct {
+	ID   string
+	Name string
+}
 
 // LocalGovernanceStore provides in-memory cache for governance data with fast, non-blocking access
 type LocalGovernanceStore struct {
@@ -32,6 +38,7 @@ type LocalGovernanceStore struct {
 	modelConfigs sync.Map // string -> *ModelConfig (key: "modelName" or "modelName:provider" -> ModelConfig)
 	providers    sync.Map // string -> *Provider (Provider name -> Provider with preloaded relationships)
 	routingRules sync.Map // string -> []*TableRoutingRule (key: "scope:scopeID" -> rules, scopeID="" for global)
+	globalAPIKeysByHash sync.Map // token SHA-256 hash -> globalAPIKeyRef (active global/admin API keys)
 
 	// Last DB usages for budgets and rate limits
 	LastDBUsagesBudgetsMu            sync.RWMutex       // Last DB usages for budgets
@@ -179,6 +186,9 @@ type GovernanceStore interface {
 	GetScopedRoutingRules(ctx context.Context, scope string, scopeID string) []*configstoreTables.TableRoutingRule
 	UpdateRoutingRuleInMemory(ctx context.Context, rule *configstoreTables.TableRoutingRule) error
 	DeleteRoutingRuleInMemory(ctx context.Context, id string) error
+	// Global/admin API keys (bf-ak-) for routing CEL evaluation
+	LookupGlobalAPIKeyByToken(ctx context.Context, token string) (id string, name string, ok bool)
+	ReloadGlobalAPIKeys(ctx context.Context) error
 	// CollectApplicableGovernanceIDs returns the budget and rate-limit IDs that
 	// govern a request for the given virtual key, provider, and model. The
 	// returned IDs are attached to log entries so that ghost-node usage
@@ -1764,6 +1774,10 @@ func (gs *LocalGovernanceStore) loadFromDatabase(ctx context.Context) error {
 		return fmt.Errorf("failed to load routing rules: %w", err)
 	}
 
+	if err := gs.reloadGlobalAPIKeysLocked(ctx); err != nil {
+		return fmt.Errorf("failed to load global api keys: %w", err)
+	}
+
 	// Rebuild in-memory structures (lock-free)
 	gs.rebuildInMemoryStructures(ctx, customers, teams, virtualKeys, budgets, rateLimits, modelConfigs, providers, routingRules)
 
@@ -3264,6 +3278,53 @@ func (gs *LocalGovernanceStore) GetRoutingProgram(ctx context.Context, rule *con
 	gs.compiledRoutingPrograms.Store(rule.ID, program)
 
 	return program, nil
+}
+
+func (gs *LocalGovernanceStore) reloadGlobalAPIKeysLocked(ctx context.Context) error {
+	gs.globalAPIKeysByHash = sync.Map{}
+	if gs.configStore == nil {
+		return nil
+	}
+	keys, err := gs.configStore.ListGlobalAPIKeys(ctx)
+	if err != nil {
+		return err
+	}
+	for i := range keys {
+		key := keys[i]
+		if !key.IsActive || key.TokenHash == "" {
+			continue
+		}
+		gs.globalAPIKeysByHash.Store(key.TokenHash, globalAPIKeyRef{ID: key.ID, Name: key.Name})
+	}
+	return nil
+}
+
+// ReloadGlobalAPIKeys refreshes the in-memory global/admin API key cache from the config store.
+func (gs *LocalGovernanceStore) ReloadGlobalAPIKeys(ctx context.Context) error {
+	return gs.reloadGlobalAPIKeysLocked(ctx)
+}
+
+// LookupGlobalAPIKeyByToken resolves an active bf-ak- token to its persisted id and name.
+func (gs *LocalGovernanceStore) LookupGlobalAPIKeyByToken(ctx context.Context, token string) (string, string, bool) {
+	token = strings.TrimSpace(token)
+	if token == "" {
+		return "", "", false
+	}
+	hash := encrypt.HashSHA256(token)
+	if raw, ok := gs.globalAPIKeysByHash.Load(hash); ok {
+		if ref, ok := raw.(globalAPIKeyRef); ok {
+			return ref.ID, ref.Name, true
+		}
+	}
+	if gs.configStore == nil {
+		return "", "", false
+	}
+	key, err := gs.configStore.GetActiveGlobalAPIKeyByToken(ctx, token)
+	if err != nil || key == nil {
+		return "", "", false
+	}
+	gs.globalAPIKeysByHash.Store(key.TokenHash, globalAPIKeyRef{ID: key.ID, Name: key.Name})
+	return key.ID, key.Name, true
 }
 
 // GetBudgetAndRateLimitStatus returns the current budget and rate limit status for provider and model combination

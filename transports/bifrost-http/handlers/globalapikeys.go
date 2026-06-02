@@ -1,6 +1,7 @@
 package handlers
 
 import (
+	"context"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -13,12 +14,27 @@ import (
 	"github.com/valyala/fasthttp"
 )
 
-type GlobalAPIKeysHandler struct {
-	configStore configstore.ConfigStore
+// GlobalAPIKeyCacheRefresher reloads in-memory global API key metadata used by routing rules.
+type GlobalAPIKeyCacheRefresher interface {
+	ReloadGlobalAPIKeys(ctx context.Context) error
 }
 
-func NewGlobalAPIKeysHandler(configStore configstore.ConfigStore) *GlobalAPIKeysHandler {
-	return &GlobalAPIKeysHandler{configStore: configStore}
+type GlobalAPIKeysHandler struct {
+	configStore    configstore.ConfigStore
+	cacheRefresher GlobalAPIKeyCacheRefresher
+}
+
+func NewGlobalAPIKeysHandler(configStore configstore.ConfigStore, cacheRefresher GlobalAPIKeyCacheRefresher) *GlobalAPIKeysHandler {
+	return &GlobalAPIKeysHandler{configStore: configStore, cacheRefresher: cacheRefresher}
+}
+
+func (h *GlobalAPIKeysHandler) refreshGlobalAPIKeyCache(ctx context.Context) {
+	if h.cacheRefresher == nil {
+		return
+	}
+	if err := h.cacheRefresher.ReloadGlobalAPIKeys(ctx); err != nil {
+		logger.Warn("failed to reload global api key cache for routing: %v", err)
+	}
 }
 
 func (h *GlobalAPIKeysHandler) RegisterRoutes(r *router.Router, middlewares ...schemas.BifrostHTTPMiddleware) {
@@ -72,6 +88,8 @@ func (h *GlobalAPIKeysHandler) create(ctx *fasthttp.RequestCtx) {
 		return
 	}
 
+	h.refreshGlobalAPIKeyCache(ctx)
+
 	SendJSON(ctx, map[string]any{
 		"api_key": key,
 		"token":   token,
@@ -118,6 +136,8 @@ func (h *GlobalAPIKeysHandler) update(ctx *fasthttp.RequestCtx) {
 		return
 	}
 
+	h.refreshGlobalAPIKeyCache(ctx)
+
 	SendJSON(ctx, map[string]any{"api_key": key})
 }
 
@@ -145,6 +165,8 @@ func (h *GlobalAPIKeysHandler) delete(ctx *fasthttp.RequestCtx) {
 		SendError(ctx, fasthttp.StatusInternalServerError, fmt.Sprintf("Failed to delete API key: %v", err))
 		return
 	}
+
+	h.refreshGlobalAPIKeyCache(ctx)
 
 	SendJSON(ctx, map[string]any{"message": "API key deleted"})
 }

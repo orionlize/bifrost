@@ -26,7 +26,7 @@ export function mergeGlobalApiKeyOptions(apiKeys: GlobalApiKeyOption[], extraVal
 	return Array.from(merged.values());
 }
 
-function normalizeRuleValue(value: RuleType["value"], apiKeys: GlobalApiKeyOption[]): RuleType["value"] {
+function normalizeIdRuleValue(value: RuleType["value"], apiKeys: GlobalApiKeyOption[]): RuleType["value"] {
 	if (value == null || value === "") {
 		return value;
 	}
@@ -43,6 +43,30 @@ function normalizeRuleValue(value: RuleType["value"], apiKeys: GlobalApiKeyOptio
 		return byName?.id ?? trimmed;
 	};
 
+	return normalizeScalarOrArrayValue(value, resolveValue);
+}
+
+function normalizeNameRuleValue(value: RuleType["value"], apiKeys: GlobalApiKeyOption[]): RuleType["value"] {
+	if (value == null || value === "") {
+		return value;
+	}
+
+	const resolveValue = (raw: string): string => {
+		const trimmed = raw.trim();
+		if (!trimmed) {
+			return trimmed;
+		}
+		if (apiKeys.some((key) => key.name === trimmed)) {
+			return trimmed;
+		}
+		const byID = apiKeys.find((key) => key.id === trimmed);
+		return byID?.name ?? trimmed;
+	};
+
+	return normalizeScalarOrArrayValue(value, resolveValue);
+}
+
+function normalizeScalarOrArrayValue(value: RuleType["value"], resolveValue: (raw: string) => string): RuleType["value"] {
 	if (Array.isArray(value)) {
 		return value.map((item) => resolveValue(String(item)));
 	}
@@ -65,7 +89,10 @@ function normalizeRuleValue(value: RuleType["value"], apiKeys: GlobalApiKeyOptio
 	return value;
 }
 
-export function normalizeGlobalApiKeyIdsInQuery(query: RuleGroupType | undefined, apiKeys: GlobalApiKeyOption[]): RuleGroupType | undefined {
+export function normalizeGlobalApiKeyFieldsInQuery(
+	query: RuleGroupType | undefined,
+	apiKeys: GlobalApiKeyOption[],
+): RuleGroupType | undefined {
 	if (!query?.rules?.length || apiKeys.length === 0) {
 		return query;
 	}
@@ -77,15 +104,26 @@ export function normalizeGlobalApiKeyIdsInQuery(query: RuleGroupType | undefined
 				return walk(rule as RuleGroupType);
 			}
 			const typedRule = rule as RuleType;
-			if (typedRule.field !== "global_api_key_id") {
-				return typedRule;
+			if (typedRule.field === "global_api_key_id") {
+				return {
+					...typedRule,
+					value: normalizeIdRuleValue(typedRule.value, apiKeys),
+				};
 			}
-			return {
-				...typedRule,
-				value: normalizeRuleValue(typedRule.value, apiKeys),
-			};
+			if (typedRule.field === "global_api_key_name") {
+				return {
+					...typedRule,
+					value: normalizeNameRuleValue(typedRule.value, apiKeys),
+				};
+			}
+			return typedRule;
 		}),
 	});
 
 	return walk(query);
+}
+
+/** @deprecated Use normalizeGlobalApiKeyFieldsInQuery */
+export function normalizeGlobalApiKeyIdsInQuery(query: RuleGroupType | undefined, apiKeys: GlobalApiKeyOption[]): RuleGroupType | undefined {
+	return normalizeGlobalApiKeyFieldsInQuery(query, apiKeys);
 }

@@ -9,7 +9,7 @@ import { celOperatorsRouting } from "@/lib/config/celOperatorsRouting";
 import type { TranslateFn } from "@/lib/i18n";
 import { useListGlobalApiKeysQuery } from "@/lib/store/apis/globalApiKeysApi";
 import { convertRuleGroupToCEL, validateRegexPattern } from "@/lib/utils/celConverterRouting";
-import { mergeGlobalApiKeyOptions, normalizeGlobalApiKeyIdsInQuery } from "@/lib/utils/globalApiKeyRoutingOptions";
+import { mergeGlobalApiKeyOptions, normalizeGlobalApiKeyFieldsInQuery } from "@/lib/utils/globalApiKeyRoutingOptions";
 import { useMemo } from "react";
 import { RuleGroupType, RuleType } from "react-querybuilder";
 
@@ -96,12 +96,15 @@ export function CELRuleBuilder({
 			id: key.id,
 			name: key.name,
 		}));
-		const referencedValues = collectRuleFieldValues(initialQuery, "global_api_key_id");
+		const referencedValues = [
+			...collectRuleFieldValues(initialQuery, "global_api_key_id"),
+			...collectRuleFieldValues(initialQuery, "global_api_key_name"),
+		];
 		return mergeGlobalApiKeyOptions(fromApi, referencedValues);
 	}, [globalApiKeysData, initialQuery]);
 
 	const normalizedInitialQuery = useMemo(
-		() => normalizeGlobalApiKeyIdsInQuery(initialQuery, globalApiKeyOptions) ?? initialQuery,
+		() => normalizeGlobalApiKeyFieldsInQuery(initialQuery, globalApiKeyOptions) ?? initialQuery,
 		[initialQuery, globalApiKeyOptions],
 	);
 
@@ -113,6 +116,14 @@ export function CELRuleBuilder({
 					...field,
 					label: translate("routing.celBuilder.adminApiKey"),
 					description: translate("routing.celBuilder.adminApiKeyHint"),
+					placeholder: translate("routing.celBuilder.selectAdminApiKey"),
+				};
+			}
+			if (field.name === "global_api_key_name") {
+				return {
+					...field,
+					label: translate("routing.celBuilder.adminApiKeyName"),
+					description: translate("routing.celBuilder.adminApiKeyNameHint"),
 					placeholder: translate("routing.celBuilder.selectAdminApiKey"),
 				};
 			}

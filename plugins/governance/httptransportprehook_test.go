@@ -9,6 +9,7 @@ import (
 	"github.com/maximhq/bifrost/core/schemas"
 	"github.com/maximhq/bifrost/framework/configstore"
 	configstoreTables "github.com/maximhq/bifrost/framework/configstore/tables"
+	"github.com/maximhq/bifrost/framework/encrypt"
 	"github.com/maximhq/bifrost/framework/modelcatalog"
 	"github.com/stretchr/testify/require"
 )
@@ -372,6 +373,15 @@ const testAdminAPIKeyToken = configstore.GlobalAPIKeyPrefix + "testtoken"
 
 type globalAPIKeyLookupConfigStore struct {
 	configstore.ConfigStore
+}
+
+func (s *globalAPIKeyLookupConfigStore) ListGlobalAPIKeys(_ context.Context) ([]configstoreTables.GlobalAPIKey, error) {
+	return []configstoreTables.GlobalAPIKey{{
+		ID:        "gak-test",
+		Name:      "ops-key",
+		TokenHash: encrypt.HashSHA256(testAdminAPIKeyToken),
+		IsActive:  true,
+	}}, nil
 }
 
 func (s *globalAPIKeyLookupConfigStore) GetActiveGlobalAPIKeyByToken(_ context.Context, token string) (*configstoreTables.GlobalAPIKey, error) {

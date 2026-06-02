@@ -707,6 +707,19 @@ func (s *BifrostHTTPServer) GetGovernanceData(ctx context.Context) *governance.G
 	return governancePlugin.GetGovernanceStore().GetGovernanceData(ctx)
 }
 
+// ReloadGlobalAPIKeys reloads global/admin API key metadata into the governance store for routing CEL.
+func (s *BifrostHTTPServer) ReloadGlobalAPIKeys(ctx context.Context) error {
+	governancePluginName := governance.PluginName
+	if name, ok := s.Ctx.Value(schemas.BifrostContextKeyGovernancePluginName).(string); ok && name != "" {
+		governancePluginName = name
+	}
+	governancePlugin, err := lib.FindPluginAs[governance.BaseGovernancePlugin](s.Config, governancePluginName)
+	if err != nil {
+		return fmt.Errorf("governance plugin not found: %w", err)
+	}
+	return governancePlugin.GetGovernanceStore().ReloadGlobalAPIKeys(ctx)
+}
+
 // ReloadRoutingRule reloads a routing rule from the database into the governance store
 func (s *BifrostHTTPServer) ReloadRoutingRule(ctx context.Context, id string) error {
 	governancePluginName := governance.PluginName
@@ -1239,7 +1252,7 @@ func (s *BifrostHTTPServer) RegisterAPIRoutes(ctx context.Context, callbacks Ser
 	aoneOAuthHandler := handlers.NewAoneOAuthHandler(s.Config.ConfigStore, s.AoneOAuthStateStore, s, s.BasePath)
 	aoneUsersHandler := handlers.NewAoneUsersHandler(s.Config.ConfigStore, s)
 	aoneDevicesHandler := handlers.NewAoneDevicesHandler(s.Config.ConfigStore, s)
-	globalAPIKeysHandler := handlers.NewGlobalAPIKeysHandler(s.Config.ConfigStore)
+	globalAPIKeysHandler := handlers.NewGlobalAPIKeysHandler(s.Config.ConfigStore, s)
 	promptsHandler := handlers.NewPromptsHandler(s.Config.ConfigStore, promptsReloader)
 	featureFlagsHandler := handlers.NewFeatureFlagsHandler(s.Config.FeatureFlags, s.Config.ConfigStore)
 	// Going ahead with API handlers

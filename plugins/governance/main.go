@@ -429,7 +429,10 @@ func (p *GovernancePlugin) HTTPTransportPreHook(ctx *schemas.BifrostContext, req
 	if virtualKeyValue != nil {
 		virtualKey, ok = p.store.GetVirtualKey(ctx, *virtualKeyValue)
 		if !ok || virtualKey == nil || !virtualKey.IsActiveValue() {
-			return nil, nil
+			if !hasRoutingRules {
+				return nil, nil
+			}
+			virtualKey = nil
 		}
 	}
 
@@ -968,11 +971,10 @@ func (p *GovernancePlugin) resolveGlobalAPIKeyForRouting(ctx *schemas.BifrostCon
 	if token == "" {
 		return "", ""
 	}
-	key, err := p.configStore.GetActiveGlobalAPIKeyByToken(ctx, token)
-	if err != nil || key == nil {
-		return "", ""
+	if id, name, ok := p.store.LookupGlobalAPIKeyByToken(ctx, token); ok {
+		return id, name
 	}
-	return key.ID, key.Name
+	return "", ""
 }
 
 // applyRoutingRules evaluates routing rules and returns both the modified payload AND the routing decision.
@@ -1033,6 +1035,7 @@ func (p *GovernancePlugin) applyRoutingRules(ctx *schemas.BifrostContext, req *s
 	}
 
 	globalAPIKeyID, globalAPIKeyName := p.resolveGlobalAPIKeyForRouting(ctx, req)
+	p.logger.Debug("[Governance] routing global api key context: id=%q name=%q", globalAPIKeyID, globalAPIKeyName)
 
 	// Build routing context
 	routingCtx := &RoutingContext{
