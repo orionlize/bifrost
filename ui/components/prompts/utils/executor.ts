@@ -1,6 +1,7 @@
 import { Message, type CompletionUsage, type ToolCall, type VariableMap, replaceVariablesInMessages } from "@/lib/message";
 import { getErrorMessage } from "@/lib/store";
 import { getAoneApiKey, fetchAndCacheAoneApiKey } from "@/lib/utils/aoneUserStorage";
+import { getEndpointUrl } from "@/lib/utils/port";
 import type { ModelParams } from "@/lib/types/prompts";
 
 export interface ExecutionConfig {
@@ -96,7 +97,7 @@ export async function executePrompt(
 		}
 
 		const { api_key_id: _, ...requestParams } = config.modelParams;
-		const response = await fetch("/v1/chat/completions", {
+		const response = await fetch(getEndpointUrl("/v1/chat/completions"), {
 			method: "POST",
 			headers,
 			credentials: "include",

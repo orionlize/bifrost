@@ -1,6 +1,6 @@
 import { IS_ENTERPRISE } from "@/lib/constants/config";
 import { BifrostErrorResponse } from "@/lib/types/config";
-import { getApiBaseUrl } from "@/lib/utils/port";
+import { getApiBaseUrl, getEndpointUrl } from "@/lib/utils/port";
 import { createBaseQueryWithRefresh } from "@enterprise/lib/store/utils/baseQueryWithRefresh";
 import { clearOAuthStorage } from "@enterprise/lib/store/utils/tokenManager";
 import { createApi, fetchBaseQuery } from "@reduxjs/toolkit/query/react";
@@ -95,7 +95,7 @@ const baseQueryWithErrorHandling: typeof baseQueryWithRefresh = async (args: any
 			}
 			clearAuthStorage();
 			if (typeof window !== "undefined" && !window.location.pathname.includes("/login")) {
-				window.location.href = "/login";
+				window.location.href = getEndpointUrl("/login");
 			}
 			return result;
 		}

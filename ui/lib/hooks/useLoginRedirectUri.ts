@@ -5,6 +5,7 @@ import {
 	resolveLoginRedirectUriFromUrl,
 	syncLoginRedirectStashFromLocation,
 } from "@/lib/utils/loginGoto";
+import { getEndpointUrl } from "@/lib/utils/port";
 import {
 	getLoginSourceFromSearch,
 	LOGIN_SOURCE_ZD_SWITCH,
@@ -69,7 +70,7 @@ export function buildAoneOAuthAuthorizeUrl(options?: { redirectUri?: string | nu
 	} else if (redirectUri) {
 		params.set("redirect_uri", redirectUri);
 	}
-	return `/api/aone/oauth/authorize?${params.toString()}`;
+	return getEndpointUrl(`/api/aone/oauth/authorize?${params.toString()}`);
 }
 
 export function navigateToAoneOAuthAuthorize(): void {
@@ -77,5 +78,5 @@ export function navigateToAoneOAuthAuthorize(): void {
 }
 
 export function navigateToZdSwitchHandoff(): void {
-	window.location.replace("/api/aone/oauth/zd-switch/handoff");
+	window.location.replace(getEndpointUrl("/api/aone/oauth/zd-switch/handoff"));
 }

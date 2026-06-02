@@ -1,4 +1,5 @@
 import { IS_ENTERPRISE } from "@/lib/constants/config";
+import { getEndpointUrl } from "@/lib/utils/port";
 import { baseApi, clearAuthStorage } from "./baseApi";
 import { setLoggingOut } from "./logoutState";
 import { clearAoneApiKey } from "@/lib/utils/aoneUserStorage";
@@ -78,7 +79,7 @@ export const sessionApi = baseApi.injectEndpoints({
 					// Server logout may fail; still leave the dashboard.
 				} finally {
 					if (typeof window !== "undefined") {
-						window.location.replace("/login");
+						window.location.replace(getEndpointUrl("/login"));
 					}
 				}
 			},

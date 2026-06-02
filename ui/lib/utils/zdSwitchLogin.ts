@@ -1,3 +1,5 @@
+import { stripBasePath } from "@/lib/utils/basePath";
+
 export const LOGIN_SOURCE_ZD_SWITCH = "zd-switch";
 export const LOGIN_ZD_SWITCH_SUCCESS_PATH = "/login/zd-switch/success";
 export const LOGIN_SOURCE_STORAGE_KEY = "bifrost.login.source";
@@ -145,7 +147,7 @@ export function syncLoginSourceStashFromLocation(): void {
 		stashLoginSource(fromUrl);
 		return;
 	}
-	if (typeof window !== "undefined" && window.location.pathname.startsWith("/login")) {
+	if (typeof window !== "undefined" && stripBasePath(window.location.pathname).startsWith("/login")) {
 		clearStashedLoginSource();
 	}
 }

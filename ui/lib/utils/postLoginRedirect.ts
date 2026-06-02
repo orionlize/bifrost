@@ -5,11 +5,12 @@ import {
 	isExternalRedirectUrl,
 	normalizeLoginRedirectUri,
 } from "@/lib/utils/loginGoto";
+import { getEndpointUrl } from "@/lib/utils/port";
 
 export async function executePostLoginRedirect(redirectUri: string): Promise<void> {
 	const normalized = normalizeLoginRedirectUri(redirectUri);
 	if (!normalized) {
-		window.location.replace(DEFAULT_POST_LOGIN_PATH);
+		window.location.replace(getEndpointUrl(DEFAULT_POST_LOGIN_PATH));
 		return;
 	}
 
@@ -24,5 +25,5 @@ export async function executePostLoginRedirect(redirectUri: string): Promise<voi
 		return;
 	}
 
-	window.location.replace(target.startsWith("/") ? `${window.location.origin}${target}` : target);
+	window.location.replace(getEndpointUrl(target));
 }

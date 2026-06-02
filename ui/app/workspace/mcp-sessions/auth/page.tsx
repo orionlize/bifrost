@@ -37,6 +37,7 @@ import {
 } from "@/lib/store";
 import { MCPFlowDetail } from "@/lib/types/mcpSessions";
 import { MCPHeadersFlowDetail } from "@/lib/types/mcpPerUserHeaders";
+import { getEndpointUrl } from "@/lib/utils/port";
 import { Link } from "@tanstack/react-router";
 import { CheckCircle2, ExternalLink, Fingerprint, KeyRound, Loader2, LogIn, ShieldCheck, TriangleAlert, UserRound } from "lucide-react";
 import { useQueryState } from "nuqs";
@@ -73,7 +74,10 @@ function OAuthAuthView() {
 		}
 		return "/workspace/mcp-sessions/auth";
 	}, [flowId]);
-	const loginHref = useMemo(() => `/login?redirect_uri=${encodeURIComponent(loginRedirectUri)}`, [loginRedirectUri]);
+	const loginHref = useMemo(
+		() => getEndpointUrl(`/login?redirect_uri=${encodeURIComponent(loginRedirectUri)}`),
+		[loginRedirectUri],
+	);
 	const showLoginOption = usingTempToken && authState?.is_auth_enabled === true && authState.has_valid_token === false;
 	const showTempTokenSSOWarning = showLoginOption && authState.auth_type === "sso";
 

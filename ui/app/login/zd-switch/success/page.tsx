@@ -7,6 +7,7 @@ import {
 	resolveZdSwitchSuccessParams,
 	stashZdSwitchAuth,
 } from "@/lib/utils/zdSwitchLogin";
+import { getEndpointUrl } from "@/lib/utils/port";
 import { CheckCircle2 } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
 
@@ -97,7 +98,7 @@ export default function ZdSwitchSuccessPage() {
 								variant="outline"
 								className="h-9 w-full text-sm"
 								onClick={() => {
-									window.location.href = `/login?source=zd-switch`;
+									window.location.href = getEndpointUrl("/login?source=zd-switch");
 								}}
 								data-testid="zd-switch-retry-login-button"
 							>

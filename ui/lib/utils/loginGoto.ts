@@ -1,3 +1,5 @@
+import { stripBasePath, withBasePath } from "@/lib/utils/basePath";
+
 export const DEFAULT_POST_LOGIN_PATH = "/workspace";
 export const LOGIN_COMPLETE_PATH = "/login/complete";
 export const LOGIN_REDIRECT_URI_STORAGE_KEY = "bifrost.login.post_login_redirect";
@@ -81,7 +83,7 @@ export function syncLoginRedirectStashFromLocation(): void {
 		stashLoginRedirectUri(fromUrl);
 		return;
 	}
-	if (typeof window !== "undefined" && window.location.pathname.startsWith("/login")) {
+	if (typeof window !== "undefined" && stripBasePath(window.location.pathname).startsWith("/login")) {
 		clearStashedLoginRedirectUri();
 	}
 }
@@ -99,7 +101,7 @@ export function isExternalRedirectUrl(value: string): boolean {
 
 export function buildLoginCompletePath(redirectUri: string): string {
 	const params = new URLSearchParams(buildLoginCompleteSearch(redirectUri));
-	return `${LOGIN_COMPLETE_PATH}?${params.toString()}`;
+	return withBasePath(`${LOGIN_COMPLETE_PATH}?${params.toString()}`);
 }
 
 export function buildLoginCompleteUrl(redirectUri: string): string {

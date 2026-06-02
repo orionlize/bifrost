@@ -2,6 +2,7 @@ import { useLoginRedirectUri } from "@/lib/hooks/useLoginRedirectUri";
 import { useT } from "@/lib/i18n";
 import { useIsAuthEnabledQuery } from "@/lib/store/apis";
 import { DEFAULT_POST_LOGIN_PATH } from "@/lib/utils/loginGoto";
+import { getEndpointUrl } from "@/lib/utils/port";
 import { executePostLoginRedirect } from "@/lib/utils/postLoginRedirect";
 import { useEffect } from "react";
 
@@ -12,7 +13,7 @@ export default function LoginCompletePage() {
 
 	useEffect(() => {
 		if (!redirectUri) {
-			window.location.replace(DEFAULT_POST_LOGIN_PATH);
+			window.location.replace(getEndpointUrl(DEFAULT_POST_LOGIN_PATH));
 			return;
 		}
 		if (isLoading || isFetching || authState === undefined) {
@@ -20,7 +21,7 @@ export default function LoginCompletePage() {
 		}
 
 		if (authState.is_auth_enabled && !authState.has_valid_token) {
-			window.location.replace(`/login?redirect_uri=${encodeURIComponent(redirectUri)}`);
+			window.location.replace(getEndpointUrl(`/login?redirect_uri=${encodeURIComponent(redirectUri)}`));
 			return;
 		}
 
