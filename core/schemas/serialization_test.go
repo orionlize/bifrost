@@ -1354,3 +1354,43 @@ func TestSonic_ChatTool_DeepCopy_NilAnnotationsStaysNil(t *testing.T) {
 
 	assert.Nil(t, copied.Annotations, "Annotations should stay nil when original has none")
 }
+
+// --- image_generation_call (Codex) regression ---
+
+// TestSonic_ImageGenerationCall_StringAction is a regression test for the bug
+// where OpenAI's image_generation_call output item sends "action" as a bare
+// string (e.g. "generate") instead of an object. Previously this failed the
+// whole stream-chunk parse ("failed to peek at type field"), causing Bifrost to
+// drop the response.output_item.done chunk that carries the base64 image and
+// the response.completed chunk — so Codex never received the generated image.
+func TestSonic_ImageGenerationCall_StringAction(t *testing.T) {
+	chunk := `{"type":"response.output_item.done","item":{"id":"ig_abc","type":"image_generation_call","status":"generating","action":"generate","background":"opaque","output_format":"png","quality":"medium","result":"aGVsbG8="}}`
+
+	var resp BifrostResponsesStreamResponse
+	require.NoError(t, Unmarshal([]byte(chunk), &resp), "image_generation_call with string action must parse")
+
+	require.NotNil(t, resp.Item)
+	require.NotNil(t, resp.Item.Type)
+	assert.Equal(t, ResponsesMessageTypeImageGenerationCall, *resp.Item.Type)
+	require.NotNil(t, resp.Item.Status)
+	assert.Equal(t, "generating", *resp.Item.Status)
+
+	// Bare-string action is captured
+	require.NotNil(t, resp.Item.ResponsesToolMessage)
+	require.NotNil(t, resp.Item.Action)
+	require.NotNil(t, resp.Item.Action.ActionStr)
+	assert.Equal(t, "generate", *resp.Item.Action.ActionStr)
+
+	// The image payload and metadata survive
+	require.NotNil(t, resp.Item.ResponsesImageGenerationCall)
+	assert.Equal(t, "aGVsbG8=", resp.Item.ResponsesImageGenerationCall.Result)
+	require.NotNil(t, resp.Item.ResponsesImageGenerationCall.OutputFormat)
+	assert.Equal(t, "png", *resp.Item.ResponsesImageGenerationCall.OutputFormat)
+
+	// Round-trips back out with the image and the string action intact
+	out, err := Marshal(resp)
+	require.NoError(t, err)
+	raw := string(out)
+	assert.Contains(t, raw, `"result":"aGVsbG8="`)
+	assert.Contains(t, raw, `"action":"generate"`)
+}

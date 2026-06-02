@@ -291,6 +291,11 @@ func deepCopyResponsesMessage(original schemas.ResponsesMessage) schemas.Respons
 		if original.ResponsesToolMessage.Action != nil {
 			copy.ResponsesToolMessage.Action = &schemas.ResponsesToolMessageActionStruct{}
 
+			if original.ResponsesToolMessage.Action.ActionStr != nil {
+				actionStr := *original.ResponsesToolMessage.Action.ActionStr
+				copy.ResponsesToolMessage.Action.ActionStr = &actionStr
+			}
+
 			if original.ResponsesToolMessage.Action.ResponsesComputerToolCallAction != nil {
 				copyAction := *original.ResponsesToolMessage.Action.ResponsesComputerToolCallAction
 				// Deep copy Path slice

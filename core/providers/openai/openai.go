@@ -1787,7 +1787,11 @@ func HandleOpenAIResponsesStreaming(
 				}
 			} else {
 				if err := sonic.UnmarshalString(jsonData, &response); err != nil {
-					logger.Warn("Failed to parse stream response: %v", err)
+					rawChunk := jsonData
+					if len(rawChunk) > 4096 {
+						rawChunk = rawChunk[:4096] + "...(truncated)"
+					}
+					logger.Warn("Failed to parse stream response: %v | raw chunk: %s", err, rawChunk)
 					continue
 				}
 

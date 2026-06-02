@@ -1024,6 +1024,11 @@ type ResponsesToolMessage struct {
 }
 
 type ResponsesToolMessageActionStruct struct {
+	// ActionStr holds a plain-string action. Some item types (e.g. OpenAI's
+	// image_generation_call) emit "action" as a bare string like "generate"
+	// instead of an object with a "type" field.
+	ActionStr *string
+
 	ResponsesComputerToolCallAction   *ResponsesComputerToolCallAction
 	ResponsesWebSearchToolCallAction  *ResponsesWebSearchToolCallAction
 	ResponsesWebFetchToolCallAction   *ResponsesWebFetchToolCallAction
@@ -1032,6 +1037,9 @@ type ResponsesToolMessageActionStruct struct {
 }
 
 func (action ResponsesToolMessageActionStruct) MarshalJSON() ([]byte, error) {
+	if action.ActionStr != nil {
+		return MarshalSorted(*action.ActionStr)
+	}
 	if action.ResponsesComputerToolCallAction != nil {
 		return MarshalSorted(action.ResponsesComputerToolCallAction)
 	}
@@ -1051,7 +1059,16 @@ func (action ResponsesToolMessageActionStruct) MarshalJSON() ([]byte, error) {
 }
 
 func (action *ResponsesToolMessageActionStruct) UnmarshalJSON(data []byte) error {
-	// First, peek at the type field to determine which variant to unmarshal
+	// Some item types emit "action" as a bare string (e.g. image_generation_call
+	// sends "action": "generate") rather than an object. Handle that first so a
+	// non-object action does not fail the whole item/stream-chunk parse.
+	var actionStr string
+	if err := Unmarshal(data, &actionStr); err == nil {
+		action.ActionStr = &actionStr
+		return nil
+	}
+
+	// Otherwise, peek at the type field to determine which object variant to unmarshal
 	var typeStruct struct {
 		Type string `json:"type"`
 	}
@@ -1356,6 +1373,14 @@ type ResponsesReasoningSummary struct {
 // ResponsesImageGenerationCall represents an image generation tool call
 type ResponsesImageGenerationCall struct {
 	Result string `json:"result"`
+
+	// Optional metadata emitted by OpenAI on the image_generation_call output item.
+	// Preserved so the item round-trips faithfully back to the client.
+	Background    *string `json:"background,omitempty"`     // "transparent" | "opaque" | "auto"
+	OutputFormat  *string `json:"output_format,omitempty"`  // "png" | "jpeg" | "webp"
+	Quality       *string `json:"quality,omitempty"`        // "low" | "medium" | "high" | "auto"
+	Size          *string `json:"size,omitempty"`           // e.g. "1024x1024"
+	RevisedPrompt *string `json:"revised_prompt,omitempty"` // model-revised prompt
 }
 
 // -----------------------------------------------------------------------------
