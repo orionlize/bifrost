@@ -9,7 +9,6 @@ import { SidebarProvider } from "@/components/ui/sidebar";
 import { useStoreSync } from "@/hooks/useStoreSync";
 import { useAoneCurrentUser } from "@/hooks/useAoneCurrentUser";
 import { WebSocketProvider } from "@/hooks/useWebSocket";
-import { I18nProvider } from "@/lib/i18n";
 import { getErrorMessage, ReduxProvider, useGetCoreConfigQuery, useIsAuthEnabledQuery } from "@/lib/store";
 import { BifrostConfig } from "@/lib/types/config";
 import { RbacProvider } from "@enterprise/lib/contexts/rbacContext";
@@ -150,20 +149,18 @@ function FullPage({ config, children }: { config: BifrostConfig | undefined; chi
 export function ClientLayout({ children }: { children: React.ReactNode }) {
 	return (
 		<ProgressProvider>
-			<I18nProvider>
-				<ThemeProvider attribute="class" defaultTheme="system" enableSystem>
-					<Toaster closeButton />
-					<ReduxProvider>
-						<WebsiteDocumentHead />
-						<NuqsAdapter>
-							<RbacProvider>
-								<AppContent>{children}</AppContent>
-								{process.env.NODE_ENV === "development" && !process.env.BIFROST_DISABLE_PROFILER && <DevProfiler />}
-							</RbacProvider>
-						</NuqsAdapter>
-					</ReduxProvider>
-				</ThemeProvider>
-			</I18nProvider>
+			<ThemeProvider attribute="class" defaultTheme="system" enableSystem>
+				<Toaster closeButton />
+				<ReduxProvider>
+					<WebsiteDocumentHead />
+					<NuqsAdapter>
+						<RbacProvider>
+							<AppContent>{children}</AppContent>
+							{process.env.NODE_ENV === "development" && !process.env.BIFROST_DISABLE_PROFILER && <DevProfiler />}
+						</RbacProvider>
+					</NuqsAdapter>
+				</ReduxProvider>
+			</ThemeProvider>
 		</ProgressProvider>
 	);
 }

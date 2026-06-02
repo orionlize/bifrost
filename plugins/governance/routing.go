@@ -39,6 +39,8 @@ type RoutingContext struct {
 	Provider                 schemas.ModelProvider              // Current provider
 	Model                    string                             // Current model
 	RequestType              string                             // Normalized request type (e.g., "chat_completion", "embedding") from HTTP context
+	GlobalAPIKeyID           string                             // Global/admin API key ID when request authenticated with bf-ak- token
+	GlobalAPIKeyName         string                             // Global/admin API key name when request authenticated with bf-ak- token
 	Fallbacks                []string                           // Fallback chain: ["provider/model", ...]
 	Headers                  map[string]string                  // Request headers for dynamic routing
 	QueryParams              map[string]string                  // Query parameters for dynamic routing
@@ -445,6 +447,10 @@ func extractRoutingVariables(ctx *RoutingContext) (map[string]interface{}, error
 		variables["team_name"] = ""
 	}
 
+	// Global/admin API key context (set when request authenticated with bf-ak- token)
+	variables["global_api_key_id"] = ctx.GlobalAPIKeyID
+	variables["global_api_key_name"] = ctx.GlobalAPIKeyName
+
 	// Extract Customer context if available (from Team or directly from VirtualKey)
 	if ctx.VirtualKey != nil {
 		if ctx.VirtualKey.Team != nil && ctx.VirtualKey.Team.Customer != nil {
@@ -571,6 +577,10 @@ func createCELEnvironment() (*cel.Env, error) {
 		cel.Variable("team_name", cel.StringType),
 		cel.Variable("customer_id", cel.StringType),
 		cel.Variable("customer_name", cel.StringType),
+
+		// Global/admin API key context (bf-ak- authenticated requests)
+		cel.Variable("global_api_key_id", cel.StringType),
+		cel.Variable("global_api_key_name", cel.StringType),
 
 		// Rate limit & budget status (real-time capacity metrics as percentages)
 		cel.Variable("tokens_used", cel.DoubleType),

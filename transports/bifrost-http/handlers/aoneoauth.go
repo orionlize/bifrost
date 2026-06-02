@@ -35,7 +35,7 @@ const (
 	// the refresh token before it lapses.
 	defaultAoneSessionTTL = 12 * time.Hour
 	// adminSessionTTL makes local-admin sessions effectively non-expiring. The
-	// admin is only logged out when another admin logs in or on explicit logout.
+	// admin is only logged out on explicit logout (or when all sessions are flushed).
 	adminSessionTTL = 100 * 365 * 24 * time.Hour
 	zdSwitchOAuthCallbackPath = "/api/aone/oauth/zd-switch/callback"
 	loginZdSwitchSuccessPath  = "/login/zd-switch/success"
@@ -361,11 +361,6 @@ func (h *AoneOAuthHandler) callback(ctx *fasthttp.RequestCtx) {
 			logger.Warn("[aone-oauth] failed to upsert user profile: %v", upsertErr)
 		} else if user != nil {
 			aoneUserID = user.AoneUserID
-			// Persist the OAuth tokens so the dashboard session can be refreshed
-			// server-side against the Aone refresh endpoint when it lapses.
-			if _, tokenErr := h.configStore.UpsertAoneUserOAuthToken(ctx, aoneUserID, loginSourceDashboard, tokenResp); tokenErr != nil {
-				logger.Warn("[aone-oauth] failed to persist oauth tokens for dashboard user=%s: %v", aoneUserID, tokenErr)
-			}
 			if vk, vkErr := h.configStore.EnsureAoneUserVirtualKey(ctx, user.AoneUserID); vkErr != nil {
 				logger.Warn("[aone-oauth] failed to ensure user virtual key: %v", vkErr)
 			} else if vk != nil && h.vkReloader != nil {
@@ -378,10 +373,16 @@ func (h *AoneOAuthHandler) callback(ctx *fasthttp.RequestCtx) {
 		}
 	}
 
-	if _, err := h.createDashboardSessionToken(ctx, aoneUserID, loginSourceDashboard, aoneSessionExpiresAt(tokenResp)); err != nil {
+	sessionToken, err := h.createDashboardSessionToken(ctx, aoneUserID, loginSourceDashboard, aoneSessionExpiresAt(tokenResp))
+	if err != nil {
 		logger.Error("[aone-oauth] failed to create dashboard session: %v", err)
 		ctx.Redirect(aoneOAuthLoginRedirect(returnTo, externalRedirectURI, loginSource, "Failed to create session"), fasthttp.StatusFound)
 		return
+	}
+	if aoneUserID != "" {
+		if err := h.persistSourceScopedOAuthTokens(ctx, aoneUserID, loginSourceDashboard, sessionToken, tokenResp); err != nil {
+			logger.Warn("[aone-oauth] failed to persist oauth tokens for dashboard user=%s: %v", aoneUserID, err)
+		}
 	}
 
 	ctx.Redirect(resolveDashboardReturnTo(returnTo, dashboardOrigin), fasthttp.StatusFound)
@@ -458,10 +459,6 @@ func (h *AoneOAuthHandler) bootstrapSourceScopedLogin(
 		return "", fmt.Errorf("failed to upsert aone user")
 	}
 
-	if err := h.persistSourceScopedOAuthTokens(ctx, user.AoneUserID, loginSource, tokenResp); err != nil {
-		logger.Warn("[aone-oauth] failed to persist oauth tokens for source=%s user=%s: %v", loginSource, user.AoneUserID, err)
-	}
-
 	if vk, vkErr := h.configStore.EnsureAoneUserVirtualKey(ctx, user.AoneUserID); vkErr != nil {
 		return "", fmt.Errorf("ensure user virtual key: %w", vkErr)
 	} else if vk != nil && h.vkReloader != nil {
@@ -472,19 +469,26 @@ func (h *AoneOAuthHandler) bootstrapSourceScopedLogin(
 		}
 	}
 
-	return h.createDashboardSessionToken(ctx, user.AoneUserID, loginSource, aoneSessionExpiresAt(tokenResp))
+	sessionToken, err := h.createDashboardSessionToken(ctx, user.AoneUserID, loginSource, aoneSessionExpiresAt(tokenResp))
+	if err != nil {
+		return "", err
+	}
+	if err := h.persistSourceScopedOAuthTokens(ctx, user.AoneUserID, loginSource, sessionToken, tokenResp); err != nil {
+		logger.Warn("[aone-oauth] failed to persist oauth tokens for source=%s user=%s: %v", loginSource, user.AoneUserID, err)
+	}
+	return sessionToken, nil
 }
 
 func (h *AoneOAuthHandler) persistSourceScopedOAuthTokens(
 	ctx *fasthttp.RequestCtx,
-	aoneUserID, loginSource string,
+	aoneUserID, loginSource, sessionToken string,
 	tokenResp *aoneoauth.TokenResponse,
 ) error {
 	loginSource = validateLoginSource(loginSource)
 	if loginSource == "" || h.configStore == nil {
 		return nil
 	}
-	_, err := h.configStore.UpsertAoneUserOAuthToken(ctx, aoneUserID, loginSource, tokenResp)
+	_, err := h.configStore.UpsertAoneUserOAuthToken(ctx, aoneUserID, loginSource, sessionToken, tokenResp)
 	return err
 }
 

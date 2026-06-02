@@ -849,6 +849,9 @@ func triggerMigrations(ctx context.Context, db *gorm.DB) error {
 	if err := migrationAddAoneDeviceCredentialsTable(ctx, db); err != nil {
 		return err
 	}
+	if err := migrationAddAoneUserOAuthTokenSessionHashColumn(ctx, db); err != nil {
+		return err
+	}
 	if err := migrationAddUserGroupTables(ctx, db); err != nil {
 		return err
 	}
@@ -9358,6 +9361,52 @@ func migrationAddAoneDeviceCredentialsTable(ctx context.Context, db *gorm.DB) er
 	}})
 	if err := m.Migrate(); err != nil {
 		return fmt.Errorf("error running add_aone_device_credentials_table migration: %s", err.Error())
+	}
+	return nil
+}
+
+func migrationAddAoneUserOAuthTokenSessionHashColumn(ctx context.Context, db *gorm.DB) error {
+	m := migrator.New(db, migrator.DefaultOptions, []*migrator.Migration{{
+		ID: "add_aone_user_oauth_token_session_hash_column",
+		Migrate: func(tx *gorm.DB) error {
+			tx = tx.WithContext(ctx)
+			if !tx.Migrator().HasTable(&tables.AoneUserOAuthTokenTable{}) {
+				return nil
+			}
+			if !tx.Migrator().HasColumn(&tables.AoneUserOAuthTokenTable{}, "session_token_hash") {
+				if err := tx.Exec("ALTER TABLE aone_user_oauth_tokens ADD COLUMN session_token_hash VARCHAR(64) NOT NULL DEFAULT ''").Error; err != nil {
+					return fmt.Errorf("failed to add session_token_hash column: %w", err)
+				}
+			}
+			if err := tx.Exec("DROP INDEX IF EXISTS idx_aone_user_oauth_token_user_source").Error; err != nil {
+				return fmt.Errorf("failed to drop legacy aone_user_oauth_tokens unique index: %w", err)
+			}
+			if err := tx.Exec("CREATE UNIQUE INDEX IF NOT EXISTS idx_aone_user_oauth_token_scope ON aone_user_oauth_tokens (aone_user_id, login_source, session_token_hash)").Error; err != nil {
+				return fmt.Errorf("failed to create scoped aone_user_oauth_tokens unique index: %w", err)
+			}
+			return nil
+		},
+		Rollback: func(tx *gorm.DB) error {
+			tx = tx.WithContext(ctx)
+			if !tx.Migrator().HasTable(&tables.AoneUserOAuthTokenTable{}) {
+				return nil
+			}
+			if err := tx.Exec("DROP INDEX IF EXISTS idx_aone_user_oauth_token_scope").Error; err != nil {
+				return fmt.Errorf("failed to drop scoped aone_user_oauth_tokens unique index: %w", err)
+			}
+			if tx.Migrator().HasColumn(&tables.AoneUserOAuthTokenTable{}, "session_token_hash") {
+				if err := tx.Migrator().DropColumn(&tables.AoneUserOAuthTokenTable{}, "SessionTokenHash"); err != nil {
+					return fmt.Errorf("failed to drop session_token_hash column: %w", err)
+				}
+			}
+			if err := tx.Exec("CREATE UNIQUE INDEX IF NOT EXISTS idx_aone_user_oauth_token_user_source ON aone_user_oauth_tokens (aone_user_id, login_source)").Error; err != nil {
+				return fmt.Errorf("failed to restore legacy aone_user_oauth_tokens unique index: %w", err)
+			}
+			return nil
+		},
+	}})
+	if err := m.Migrate(); err != nil {
+		return fmt.Errorf("error running add_aone_user_oauth_token_session_hash_column migration: %s", err.Error())
 	}
 	return nil
 }

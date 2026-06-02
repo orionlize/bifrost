@@ -1013,12 +1013,27 @@ func (p *GovernancePlugin) applyRoutingRules(ctx *schemas.BifrostContext, req *s
 		}
 	}
 
+	globalAPIKeyID := ""
+	if val := ctx.Value(schemas.BifrostContextKeyGlobalAPIKeyID); val != nil {
+		if id, ok := val.(string); ok {
+			globalAPIKeyID = id
+		}
+	}
+	globalAPIKeyName := ""
+	if val := ctx.Value(schemas.BifrostContextKeyGlobalAPIKeyName); val != nil {
+		if name, ok := val.(string); ok {
+			globalAPIKeyName = name
+		}
+	}
+
 	// Build routing context
 	routingCtx := &RoutingContext{
 		VirtualKey:               virtualKey,
 		Provider:                 provider,
 		Model:                    model,
 		RequestType:              requestType,
+		GlobalAPIKeyID:           globalAPIKeyID,
+		GlobalAPIKeyName:         globalAPIKeyName,
 		Headers:                  req.Headers,
 		QueryParams:              req.Query,
 		BudgetAndRateLimitStatus: p.store.GetBudgetAndRateLimitStatus(ctx, model, provider, virtualKey, nil, nil, nil),

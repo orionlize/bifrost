@@ -258,8 +258,8 @@ type ConfigStore interface {
 	DeleteSession(ctx context.Context, token string) error
 	FlushSessions(ctx context.Context) error
 	// DeleteLocalAdminSessions removes every dashboard session that is not bound
-	// to an Aone user (i.e. password/local-admin sessions). Used to enforce a
-	// single active admin session: a fresh admin login invalidates all prior ones.
+	// to an Aone user (i.e. password/local-admin sessions). Used for bulk
+	// revocation (e.g. auth config changes); not called on each admin login.
 	DeleteLocalAdminSessions(ctx context.Context) error
 	// UpdateSessionExpiry extends an existing session's ExpiresAt. Used by the
 	// Aone refresh path to keep the dashboard session aligned with the refreshed
@@ -281,8 +281,11 @@ type ConfigStore interface {
 	RotateAoneUserVirtualKey(ctx context.Context, aoneUserID string) (*tables.TableVirtualKey, error)
 	DeleteAoneUserSessions(ctx context.Context, aoneUserID string) error
 	EnsureAoneUserVirtualKey(ctx context.Context, aoneUserID string) (*tables.TableVirtualKey, error)
-	UpsertAoneUserOAuthToken(ctx context.Context, aoneUserID, loginSource string, tokenResp *aoneoauth.TokenResponse) (*tables.AoneUserOAuthTokenTable, error)
-	GetAoneUserOAuthToken(ctx context.Context, aoneUserID, loginSource string) (*tables.AoneUserOAuthTokenTable, error)
+	UpsertAoneUserOAuthToken(ctx context.Context, aoneUserID, loginSource, sessionToken string, tokenResp *aoneoauth.TokenResponse) (*tables.AoneUserOAuthTokenTable, error)
+	GetAoneUserOAuthToken(ctx context.Context, aoneUserID, loginSource, sessionToken string) (*tables.AoneUserOAuthTokenTable, error)
+	DeleteAoneUserOAuthTokenForSession(ctx context.Context, aoneUserID, loginSource, sessionToken string) error
+	DeleteLegacyAoneUserOAuthToken(ctx context.Context, aoneUserID, loginSource string) error
+	CountActiveAoneUserSessions(ctx context.Context, aoneUserID, loginSource, excludeSessionToken string) (int64, error)
 	DeleteAoneUserOAuthTokens(ctx context.Context, aoneUserID string) error
 	UpsertAoneDeviceAuthorization(ctx context.Context, aoneUserID, deviceFingerprint, deviceName string) (authorizationCode string, err error)
 	GetActiveAoneDeviceAuthorizationByCode(ctx context.Context, authorizationCode string) (*tables.AoneDeviceAuthorizationTable, error)

@@ -142,16 +142,9 @@ func (h *SessionHandler) login(ctx *fasthttp.RequestCtx) {
 		return
 	}
 
-	// Enforce a single active admin session: a fresh admin login invalidates
-	// every prior local-admin session (the previous admin is logged out).
-	// Aone user sessions are untouched.
-	if err := h.configStore.DeleteLocalAdminSessions(ctx); err != nil {
-		logger.Warn("failed to clear existing admin sessions during login: %v", err)
-	}
-
-	// Creating a new session. The admin session does not expire on its own
-	// (effectively non-expiring); it is only invalidated when another admin
-	// logs in (handled above) or on explicit logout.
+	// Creating a new session. Each login gets its own token so multiple browsers
+	// or devices can stay signed in concurrently. The admin session does not expire
+	// on its own (effectively non-expiring); it is only invalidated on explicit logout.
 	now := time.Now()
 	token := uuid.New().String()
 	session := &tables.SessionsTable{
@@ -208,8 +201,27 @@ func (h *SessionHandler) logout(ctx *fasthttp.RequestCtx) {
 	if token != "" {
 		if session, sessErr := h.configStore.GetSession(ctx, token); sessErr == nil && session != nil &&
 			session.AoneUserID != nil && strings.TrimSpace(*session.AoneUserID) != "" {
-			if revokeErr := h.configStore.RevokeAllAoneDeviceAuthorizationsForUser(ctx, strings.TrimSpace(*session.AoneUserID)); revokeErr != nil {
-				logger.Warn("failed to revoke device authorizations during logout: %v", revokeErr)
+			aoneUserID := strings.TrimSpace(*session.AoneUserID)
+			loginSource := strings.TrimSpace(session.LoginSource)
+			if loginSource == "" {
+				loginSource = loginSourceDashboard
+			}
+			otherSessions, countErr := h.configStore.CountActiveAoneUserSessions(ctx, aoneUserID, loginSource, token)
+			if countErr != nil {
+				logger.Warn("failed to count active sessions during logout: %v", countErr)
+			}
+			if session.DeviceAuthorizationID != nil && *session.DeviceAuthorizationID > 0 {
+				if _, revokeErr := h.configStore.SetAoneDeviceAuthorizationStatus(ctx, *session.DeviceAuthorizationID, false); revokeErr != nil {
+					logger.Warn("failed to revoke device authorization during logout: %v", revokeErr)
+				}
+			}
+			if err := h.configStore.DeleteAoneUserOAuthTokenForSession(ctx, aoneUserID, loginSource, token); err != nil {
+				logger.Warn("failed to delete session oauth tokens during logout: %v", err)
+			}
+			if otherSessions == 0 {
+				if err := h.configStore.DeleteLegacyAoneUserOAuthToken(ctx, aoneUserID, loginSource); err != nil {
+					logger.Warn("failed to delete legacy oauth tokens during logout: %v", err)
+				}
 			}
 		}
 		err := h.configStore.DeleteSession(ctx, token)

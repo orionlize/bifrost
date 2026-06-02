@@ -4,12 +4,11 @@
  */
 
 import { Button } from "@/components/ui/button";
-import { useT } from "@/lib/i18n";
+import { celBuilderT, type CelBuilderI18nContext } from "./i18n";
 import { Plus, X } from "lucide-react";
 import { ActionProps } from "react-querybuilder";
 
-export function ActionButton({ handleOnClick, label, className, title }: ActionProps) {
-	const t = useT();
+export function ActionButton({ handleOnClick, label, className, title, context }: ActionProps & { context?: CelBuilderI18nContext }) {
 	const labelStr = typeof label === "string" ? label : "";
 	const labelLower = labelStr.toLowerCase();
 	const isAddButton = labelLower.includes("add");
@@ -26,10 +25,10 @@ export function ActionButton({ handleOnClick, label, className, title }: ActionP
 	const titleStr = typeof title === "string" ? title.trim() : "";
 	const removeAria =
 		titleStr === "Remove rule"
-			? t("routing.celBuilder.removeRule")
+			? celBuilderT(context, "routing.celBuilder.removeRule")
 			: titleStr === "Remove group"
-				? t("routing.celBuilder.removeGroup")
-				: t("routing.celBuilder.remove");
+				? celBuilderT(context, "routing.celBuilder.removeGroup")
+				: celBuilderT(context, "routing.celBuilder.remove");
 	const ariaLabel = iconOnly ? labelStr?.trim() || titleStr || removeAria : undefined;
 
 	return (

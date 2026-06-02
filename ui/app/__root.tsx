@@ -6,7 +6,10 @@ import { Outlet, createRootRoute } from "@tanstack/react-router";
  * ClientLayout, app/login/layout.tsx, app/pprof/layout.tsx) each set up
  * their own ThemeProvider / ReduxProvider / NuqsAdapter / etc.
  *
- * If/when we consolidate provider setup, the providers can move here.
+ * I18nProvider lives in main.tsx (above RouterProvider) so default error/not-found
+ * components and all routes share the same i18n context.
+ *
+ * If/when we consolidate provider setup, the remaining providers can move here.
  */
 export const Route = createRootRoute({
 	component: RootComponent,

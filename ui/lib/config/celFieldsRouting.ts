@@ -112,6 +112,17 @@ export const baseRoutingFields: CELFieldDefinition[] = [
 		description: "Check budget usage as percentage. Checked against max of model and provider configs.",
 	},
 	{
+		name: "global_api_key_id",
+		label: "Admin API Key",
+		placeholder: "Select admin API key",
+		inputType: "select",
+		valueEditorType: (operator: string) =>
+			operator === "matches" ? "text" : operator === "in" || operator === "notIn" ? "select" : "select",
+		operators: ["=", "!=", "in", "notIn", "matches", "null", "notNull"],
+		defaultOperator: "=",
+		description: "Match requests authenticated with a global admin API key (bf-ak-). Use 'is not empty' to match any admin key.",
+	},
+	{
 		name: "params",
 		label: "Query Parameter",
 		placeholder: "e.g., api_key, user_id",
@@ -127,7 +138,13 @@ export const baseRoutingFields: CELFieldDefinition[] = [
  * Provider field values are populated dynamically from available providers
  * Metric options for rate limits and budget are populated from available providers and models
  */
-export function getRoutingFields(providers: string[] = [], models: string[] = []): CELFieldDefinition[] {
+export type GlobalApiKeyOption = { id: string; name: string };
+
+export function getRoutingFields(
+	providers: string[] = [],
+	models: string[] = [],
+	globalApiKeys: GlobalApiKeyOption[] = [],
+): CELFieldDefinition[] {
 	// Create provider field values
 	const providerValues =
 		providers.length > 0
@@ -145,6 +162,14 @@ export function getRoutingFields(providers: string[] = [], models: string[] = []
 					label: model,
 				}))
 			: [];
+
+	const globalApiKeyValues =
+		globalApiKeys.length > 0
+			? globalApiKeys.map((key) => ({
+					name: key.id,
+					label: key.name,
+				}))
+			: [{ name: "_no_global_api_keys", label: "No admin API keys configured", disabled: true }];
 
 	// Create metric options for scope input: providers + models
 	const scopeOptions = [
@@ -171,6 +196,12 @@ export function getRoutingFields(providers: string[] = [], models: string[] = []
 			return {
 				...field,
 				values: modelValues,
+			};
+		}
+		if (field.name === "global_api_key_id") {
+			return {
+				...field,
+				values: globalApiKeyValues,
 			};
 		}
 		if (field.name === "tokens_used" || field.name === "request" || field.name === "budget_used") {

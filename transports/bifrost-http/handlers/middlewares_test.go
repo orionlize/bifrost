@@ -2135,6 +2135,12 @@ func TestApplyGlobalAPIKeyAuth_SetsAdminUserForLogging(t *testing.T) {
 	if userName, ok := ctx.UserValue(schemas.BifrostContextKeyUserName).(string); !ok || userName != schemas.LocalAdminUserName {
 		t.Fatalf("expected user_name %q, got %#v", schemas.LocalAdminUserName, ctx.UserValue(schemas.BifrostContextKeyUserName))
 	}
+	if keyID, ok := ctx.UserValue(schemas.BifrostContextKeyGlobalAPIKeyID).(string); !ok || keyID != "key-1" {
+		t.Fatalf("expected global_api_key_id %q, got %#v", "key-1", ctx.UserValue(schemas.BifrostContextKeyGlobalAPIKeyID))
+	}
+	if keyName, ok := ctx.UserValue(schemas.BifrostContextKeyGlobalAPIKeyName).(string); !ok || keyName != "ci" {
+		t.Fatalf("expected global_api_key_name %q, got %#v", "ci", ctx.UserValue(schemas.BifrostContextKeyGlobalAPIKeyName))
+	}
 
 	bifrostCtx, cancel := lib.ConvertToBifrostContext(ctx, nil)
 	defer cancel()
@@ -2143,5 +2149,11 @@ func TestApplyGlobalAPIKeyAuth_SetsAdminUserForLogging(t *testing.T) {
 	}
 	if got := bifrostCtx.Value(schemas.BifrostContextKeyUserName); got != schemas.LocalAdminUserName {
 		t.Fatalf("expected bifrost context user_name %q, got %#v", schemas.LocalAdminUserName, got)
+	}
+	if got := bifrostCtx.Value(schemas.BifrostContextKeyGlobalAPIKeyID); got != "key-1" {
+		t.Fatalf("expected bifrost context global_api_key_id %q, got %#v", "key-1", got)
+	}
+	if got := bifrostCtx.Value(schemas.BifrostContextKeyGlobalAPIKeyName); got != "ci" {
+		t.Fatalf("expected bifrost context global_api_key_name %q, got %#v", "ci", got)
 	}
 }

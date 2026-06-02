@@ -12,8 +12,9 @@ import (
 // (e.g. /login?source=zd-switch).
 type AoneUserOAuthTokenTable struct {
 	ID               int        `gorm:"primaryKey;autoIncrement" json:"-"`
-	AoneUserID       string     `gorm:"column:aone_user_id;type:varchar(255);not null;uniqueIndex:idx_aone_user_oauth_token_user_source,priority:1" json:"aone_user_id"`
-	LoginSource      string     `gorm:"column:login_source;type:varchar(64);not null;uniqueIndex:idx_aone_user_oauth_token_user_source,priority:2;index" json:"login_source"`
+	AoneUserID         string `gorm:"column:aone_user_id;type:varchar(255);not null;uniqueIndex:idx_aone_user_oauth_token_scope,priority:1" json:"aone_user_id"`
+	LoginSource        string `gorm:"column:login_source;type:varchar(64);not null;uniqueIndex:idx_aone_user_oauth_token_scope,priority:2;index" json:"login_source"`
+	SessionTokenHash   string `gorm:"column:session_token_hash;type:varchar(64);not null;default:'';uniqueIndex:idx_aone_user_oauth_token_scope,priority:3" json:"-"`
 	AccessToken      string     `gorm:"type:text;not null" json:"-"`
 	RefreshToken     string     `gorm:"type:text" json:"-"`
 	TokenType        string     `gorm:"type:varchar(50);not null;default:'Bearer'" json:"token_type"`

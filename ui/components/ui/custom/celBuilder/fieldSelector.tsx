@@ -6,7 +6,7 @@
 
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { useT } from "@/lib/i18n";
+import { celBuilderT, type CelBuilderI18nContext } from "./i18n";
 import { useCallback, useMemo } from "react";
 import { FieldSelectorProps, RuleGroupType, RuleType } from "react-querybuilder";
 
@@ -31,8 +31,7 @@ function updateRuleValueAtPath(query: RuleGroupType, targetPath: number[], newVa
 	return { ...query, rules: newRules };
 }
 
-export function FieldSelector({ value, handleOnChange, options, rule, path, schema }: FieldSelectorProps) {
-	const t = useT();
+export function FieldSelector({ value, handleOnChange, options, rule, path, schema, context }: FieldSelectorProps & { context?: CelBuilderI18nContext }) {
 	// Check if this is a keyValue field (headers/params)
 	const fieldData = useMemo(() => schema?.fields?.find((f) => "value" in f && f.value === value), [schema?.fields, value]);
 	const isKeyValueField = fieldData && "inputType" in fieldData && fieldData.inputType === "keyValue";
@@ -74,7 +73,7 @@ export function FieldSelector({ value, handleOnChange, options, rule, path, sche
 		<div className="flex items-center gap-2">
 			<Select value={value || ""} onValueChange={handleOnChange}>
 				<SelectTrigger className="w-[180px]" data-testid="cel-builder-field-selector-select">
-					<SelectValue placeholder={t("routing.celBuilder.selectField")} />
+					<SelectValue placeholder={celBuilderT(context, "routing.celBuilder.selectField")} />
 				</SelectTrigger>
 				<SelectContent>
 					{options.map((option) => {
@@ -96,13 +95,13 @@ export function FieldSelector({ value, handleOnChange, options, rule, path, sche
 			</Select>
 			{isKeyValueField && (
 				<>
-					<span className="text-muted-foreground text-sm whitespace-nowrap">{t("routing.celBuilder.hasKey")}</span>
+					<span className="text-muted-foreground text-sm whitespace-nowrap">{celBuilderT(context, "routing.celBuilder.hasKey")}</span>
 					<Input
 						type="text"
 						value={headerKey}
 						onChange={(e) => handleKeyChange(e.target.value)}
-						placeholder={t("routing.celBuilder.keyNamePlaceholder", {
-							label: fieldData?.label || t("routing.celBuilder.keyLabel"),
+						placeholder={celBuilderT(context, "routing.celBuilder.keyNamePlaceholder", {
+							label: fieldData?.label || celBuilderT(context, "routing.celBuilder.keyLabel"),
 						})}
 						className="w-[180px]"
 						data-testid="cel-builder-field-selector-key-input"

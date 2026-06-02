@@ -1436,6 +1436,62 @@ func TestExtractRoutingVariables_WithVirtualKey(t *testing.T) {
 	assert.Equal(t, "", variables["team_name"])
 }
 
+// TestExtractRoutingVariables_WithGlobalAPIKey tests extracting global admin API key context
+func TestExtractRoutingVariables_WithGlobalAPIKey(t *testing.T) {
+	ctx := &RoutingContext{
+		Provider:         schemas.OpenAI,
+		Model:            "gpt-4o",
+		GlobalAPIKeyID:   "gak-123",
+		GlobalAPIKeyName: "ops-key",
+	}
+
+	variables, err := extractRoutingVariables(ctx)
+	require.NoError(t, err)
+
+	assert.Equal(t, "gak-123", variables["global_api_key_id"])
+	assert.Equal(t, "ops-key", variables["global_api_key_name"])
+}
+
+// TestEvaluateRoutingRules_GlobalAPIKeyCondition tests routing rule matching on global API key ID
+func TestEvaluateRoutingRules_GlobalAPIKeyCondition(t *testing.T) {
+	store, err := NewLocalGovernanceStore(context.Background(), NewMockLogger(), nil, &configstore.GovernanceConfig{}, nil)
+	require.NoError(t, err)
+
+	engine, err := NewRoutingEngine(store, NewMockLogger(), schemas.Ptr(10))
+	require.NoError(t, err)
+
+	rule := &configstoreTables.TableRoutingRule{
+		ID:            "rule-global-key",
+		Name:          "Admin Key Route",
+		CelExpression: `global_api_key_id == "gak-123"`,
+		Enabled:       bifrost.Ptr(true),
+		Scope:         "global",
+		Priority:      0,
+		Targets: []configstoreTables.TableRoutingTarget{
+			{Provider: bifrost.Ptr("openai"), Model: bifrost.Ptr("gpt-4o-mini"), Weight: 1.0},
+		},
+	}
+	require.NoError(t, store.UpdateRoutingRuleInMemory(context.Background(), rule))
+
+	bgCtx := schemas.NewBifrostContext(context.Background(), time.Now().Add(time.Minute))
+	routingCtx := &RoutingContext{
+		Provider:       schemas.OpenAI,
+		Model:          "gpt-4o",
+		GlobalAPIKeyID: "gak-123",
+	}
+
+	decision, err := engine.EvaluateRoutingRules(bgCtx, routingCtx)
+	require.NoError(t, err)
+	require.NotNil(t, decision)
+	assert.Equal(t, "rule-global-key", decision.MatchedRuleID)
+	assert.Equal(t, "gpt-4o-mini", decision.Model)
+
+	routingCtx.GlobalAPIKeyID = "other-key"
+	decision, err = engine.EvaluateRoutingRules(bgCtx, routingCtx)
+	require.NoError(t, err)
+	assert.Nil(t, decision)
+}
+
 // TestExtractRoutingVariables_WithTeam tests extracting with Team context
 func TestExtractRoutingVariables_WithTeam(t *testing.T) {
 	team := &configstoreTables.TableTeam{

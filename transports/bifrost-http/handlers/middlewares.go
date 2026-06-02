@@ -717,7 +717,7 @@ func refreshDashboardSession(ctx *fasthttp.RequestCtx, store configstore.ConfigS
 // persists the refreshed tokens + extended session expiry. Returns the new
 // session expiry on success.
 func doRefreshAoneSession(ctx context.Context, store configstore.ConfigStore, cfg *configstore.AoneOAuthConfig, aoneUserID, loginSource, token string) (time.Time, error) {
-	tokenRow, err := store.GetAoneUserOAuthToken(ctx, aoneUserID, loginSource)
+	tokenRow, err := store.GetAoneUserOAuthToken(ctx, aoneUserID, loginSource, token)
 	if err != nil {
 		return time.Time{}, err
 	}
@@ -735,7 +735,7 @@ func doRefreshAoneSession(ctx context.Context, store configstore.ConfigStore, cf
 	if strings.TrimSpace(tokenResp.RefreshToken) == "" {
 		tokenResp.RefreshToken = tokenRow.RefreshToken
 	}
-	if _, err := store.UpsertAoneUserOAuthToken(ctx, aoneUserID, loginSource, tokenResp); err != nil {
+	if _, err := store.UpsertAoneUserOAuthToken(ctx, aoneUserID, loginSource, token, tokenResp); err != nil {
 		return time.Time{}, err
 	}
 	newExpiry := aoneSessionExpiresAt(tokenResp)
@@ -996,12 +996,16 @@ func (m *AuthMiddleware) applyDeviceTemporaryCredential(ctx *fasthttp.RequestCtx
 	return true, true
 }
 
-func applyGlobalAPIKeyAuth(ctx *fasthttp.RequestCtx, _ *tables.GlobalAPIKey) {
+func applyGlobalAPIKeyAuth(ctx *fasthttp.RequestCtx, globalKey *tables.GlobalAPIKey) {
 	ctx.SetUserValue(schemas.IsAPIKeyAuthContextKey, true)
 	ctx.SetUserValue(schemas.IsLocalAdminContextKey, true)
 	// Attribute global API key inference usage to the admin user in LLM/MCP logs.
 	ctx.SetUserValue(schemas.BifrostContextKeyUserID, schemas.LocalAdminUserID)
 	ctx.SetUserValue(schemas.BifrostContextKeyUserName, schemas.LocalAdminUserName)
+	if globalKey != nil {
+		ctx.SetUserValue(schemas.BifrostContextKeyGlobalAPIKeyID, globalKey.ID)
+		ctx.SetUserValue(schemas.BifrostContextKeyGlobalAPIKeyName, globalKey.Name)
+	}
 }
 
 // authenticateGlobalAPIKeyIfPresent validates Bearer bf-ak- credentials when they

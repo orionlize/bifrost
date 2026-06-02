@@ -34,10 +34,11 @@ import { SCOPE_LABEL_KEYS, type ScopeKey } from "../tree/views/constants";
 import { normalizeRoutingRuleGroupQuery } from "@/lib/utils/routingRuleGroupQuery";
 import { RbacOperation, RbacResource, useRbac } from "@enterprise/lib";
 import { Plus, Trash2, X } from "lucide-react";
-import { lazy, Suspense, useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { useForm } from "react-hook-form";
 import { RuleGroupType } from "react-querybuilder";
 import { toast } from "sonner";
+import { CELRuleBuilder } from "@/app/workspace/routing-rules/components/celBuilder/celRuleBuilder";
 
 interface RoutingRuleDialogProps {
 	open: boolean;
@@ -50,21 +51,6 @@ const defaultQuery: RuleGroupType = {
 	combinator: "and",
 	rules: [],
 };
-
-// Lazy-load CEL builder (heavy dependency tree).
-const CELRuleBuilderLazy = lazy(() =>
-	import("@/app/workspace/routing-rules/components/celBuilder/celRuleBuilder").then((mod) => ({
-		default: mod.CELRuleBuilder,
-	})),
-);
-function CELRuleBuilder(props: React.ComponentProps<typeof CELRuleBuilderLazy>) {
-	const t = useT();
-	return (
-		<Suspense fallback={<div className="text-sm text-gray-500">{t("routing.sheet.loadingCelBuilder")}</div>}>
-			<CELRuleBuilderLazy {...props} />
-		</Suspense>
-	);
-}
 
 function routingScopeLabel(t: TranslateFn, scope: string): string {
 	const key = SCOPE_LABEL_KEYS[scope as ScopeKey];
@@ -422,6 +408,7 @@ export function RoutingRuleSheet({ open, onOpenChange, editingRule, onSuccess }:
 								providers={availableProviders}
 								models={[]}
 								allowCustomModels={true}
+								translate={t}
 							/>
 						</div>
 

@@ -4500,7 +4500,7 @@ func (s *RDBConfigStore) FlushSessions(ctx context.Context) error {
 }
 
 // DeleteLocalAdminSessions deletes all sessions that are not bound to an Aone user
-// (password/local-admin dashboard sessions).
+// (password/local-admin dashboard sessions). Does not run on each admin login.
 func (s *RDBConfigStore) DeleteLocalAdminSessions(ctx context.Context) error {
 	return s.DB().WithContext(ctx).
 		Where("aone_user_id IS NULL OR aone_user_id = ''").

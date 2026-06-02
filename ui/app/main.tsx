@@ -9,6 +9,7 @@ import { prepareDocumentBrandingBeforeLoad } from "@/lib/utils/documentBranding"
 prepareDocumentBrandingBeforeLoad();
 
 import { getBasePath } from "@/lib/utils/basePath";
+import { I18nProvider } from "@/lib/i18n";
 import { ErrorComponent } from "./__error";
 import { NotFoundComponent } from "./__notFound";
 import { routeTree } from "./routeTree.gen";
@@ -49,6 +50,8 @@ if (!rootEl) throw new Error("Root element #root not found");
 
 createRoot(rootEl).render(
 	<StrictMode>
-		<RouterProvider router={router} />
+		<I18nProvider>
+			<RouterProvider router={router} />
+		</I18nProvider>
 	</StrictMode>,
 );
