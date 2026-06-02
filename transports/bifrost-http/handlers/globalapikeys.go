@@ -33,8 +33,8 @@ func (h *GlobalAPIKeysHandler) list(ctx *fasthttp.RequestCtx) {
 		SendError(ctx, fasthttp.StatusServiceUnavailable, "Config store is not available")
 		return
 	}
-	if !requireLocalAdmin(ctx, h.configStore) {
-		SendError(ctx, fasthttp.StatusForbidden, "Admin access required")
+	if !requireDashboardSession(ctx, h.configStore) {
+		SendError(ctx, fasthttp.StatusForbidden, "Authentication required")
 		return
 	}
 

@@ -1594,6 +1594,35 @@ func (provider *OpenAIProvider) ResponsesStream(ctx *schemas.BifrostContext, pos
 	)
 }
 
+// tryPassthroughTerminalResponsesStreamChunk forwards a terminal SSE event verbatim when
+// structured parsing fails. Clients still receive response.completed/incomplete/failed.
+func tryPassthroughTerminalResponsesStreamChunk(jsonData string, providerName schemas.ModelProvider) (*schemas.BifrostResponsesStreamResponse, bool) {
+	var peek struct {
+		Type           schemas.ResponsesStreamResponseType `json:"type"`
+		SequenceNumber int                                 `json:"sequence_number"`
+	}
+	if err := sonic.UnmarshalString(jsonData, &peek); err != nil || peek.Type == "" {
+		return nil, false
+	}
+	switch peek.Type {
+	case schemas.ResponsesStreamResponseTypeCompleted,
+		schemas.ResponsesStreamResponseTypeIncomplete,
+		schemas.ResponsesStreamResponseTypeFailed:
+	default:
+		return nil, false
+	}
+	rawResponse := jsonData
+	return &schemas.BifrostResponsesStreamResponse{
+		Type:           peek.Type,
+		SequenceNumber: peek.SequenceNumber,
+		ExtraFields: schemas.BifrostResponseExtraFields{
+			RequestType: schemas.ResponsesStreamRequest,
+			Provider:    providerName,
+			RawResponse: rawResponse,
+		},
+	}, true
+}
+
 // HandleOpenAIResponsesStreaming handles streaming for OpenAI-compatible APIs.
 // This shared function reduces code duplication between providers that use the same SSE format.
 func HandleOpenAIResponsesStreaming(
@@ -1786,13 +1815,18 @@ func HandleOpenAIResponsesStreaming(
 					return
 				}
 			} else {
-				if err := sonic.UnmarshalString(jsonData, &response); err != nil {
-					rawChunk := jsonData
-					if len(rawChunk) > 4096 {
-						rawChunk = rawChunk[:4096] + "...(truncated)"
+				if err := schemas.UnmarshalBifrostResponsesStreamResponse(jsonData, &response); err != nil {
+					if passthrough, ok := tryPassthroughTerminalResponsesStreamChunk(jsonData, providerName); ok {
+						response = *passthrough
+						logger.Warn("Failed to parse stream response, forwarding terminal event as raw passthrough: %v", err)
+					} else {
+						rawChunk := jsonData
+						if len(rawChunk) > 4096 {
+							rawChunk = rawChunk[:4096] + "...(truncated)"
+						}
+						logger.Warn("Failed to parse stream response: %v | raw chunk: %s", err, rawChunk)
+						continue
 					}
-					logger.Warn("Failed to parse stream response: %v | raw chunk: %s", err, rawChunk)
-					continue
 				}
 
 				if postResponseConverter != nil {

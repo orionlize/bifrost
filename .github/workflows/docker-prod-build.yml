@@ -16,7 +16,6 @@ on:
         default: true
   push:
     branches:
-      - dev
       - main
     paths:
       - ".github/workflows/docker-prod-build.yml"

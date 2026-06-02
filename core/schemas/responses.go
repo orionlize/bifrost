@@ -1,8 +1,10 @@
 package schemas
 
 import (
+	"encoding/json"
 	"fmt"
 	"reflect"
+	"strconv"
 	"strings"
 	"time"
 
@@ -711,6 +713,61 @@ type ResponsesResponseUsage struct {
 	Iterations          []ResponsesResponseUsage       `json:"iterations,omitempty"`  // iterations field is sent by anthropic
 }
 
+// UnmarshalJSON accepts usage.type as a string or number so provider-specific enums do not fail parsing.
+func (u *ResponsesResponseUsage) UnmarshalJSON(data []byte) error {
+	var raw struct {
+		Type                json.RawMessage               `json:"type,omitempty"`
+		InputTokens         int                           `json:"input_tokens"`
+		InputTokensDetails  *ResponsesResponseInputTokens `json:"input_tokens_details"`
+		OutputTokens        int                           `json:"output_tokens"`
+		OutputTokensDetails *ResponsesResponseOutputTokens `json:"output_tokens_details"`
+		TotalTokens         int                           `json:"total_tokens"`
+		Cost                *BifrostCost                  `json:"cost,omitempty"`
+		Iterations          []ResponsesResponseUsage      `json:"iterations,omitempty"`
+	}
+	if err := Unmarshal(data, &raw); err != nil {
+		return err
+	}
+	u.InputTokens = raw.InputTokens
+	u.InputTokensDetails = raw.InputTokensDetails
+	u.OutputTokens = raw.OutputTokens
+	u.OutputTokensDetails = raw.OutputTokensDetails
+	u.TotalTokens = raw.TotalTokens
+	u.Cost = raw.Cost
+	u.Iterations = raw.Iterations
+	if len(raw.Type) > 0 && string(raw.Type) != "null" {
+		typeStr, err := decodeFlexibleStringValue(raw.Type)
+		if err != nil {
+			return fmt.Errorf("usage.type: %w", err)
+		}
+		u.Type = &typeStr
+	}
+	return nil
+}
+
+func decodeFlexibleStringValue(raw json.RawMessage) (string, error) {
+	if len(raw) == 0 || string(raw) == "null" {
+		return "", nil
+	}
+	var s string
+	if err := json.Unmarshal(raw, &s); err == nil {
+		return s, nil
+	}
+	var b bool
+	if err := json.Unmarshal(raw, &b); err == nil {
+		return strconv.FormatBool(b), nil
+	}
+	var n json.Number
+	if err := json.Unmarshal(raw, &n); err == nil {
+		return n.String(), nil
+	}
+	var f float64
+	if err := json.Unmarshal(raw, &f); err == nil {
+		return strconv.FormatFloat(f, 'f', -1, 64), nil
+	}
+	return "", fmt.Errorf("expected string, bool, or number")
+}
+
 type ResponsesResponseInputTokens struct {
 	TextTokens  int `json:"text_tokens,omitempty"`  // Tokens for text input
 	AudioTokens int `json:"audio_tokens,omitempty"` // Tokens for audio input
@@ -807,6 +864,7 @@ const (
 	ResponsesMessageTypeMCPListTools         ResponsesMessageType = "mcp_list_tools"
 	ResponsesMessageTypeMCPApprovalRequest   ResponsesMessageType = "mcp_approval_request"
 	ResponsesMessageTypeMCPApprovalResponses ResponsesMessageType = "mcp_approval_responses"
+	ResponsesMessageTypeToolSearchCall       ResponsesMessageType = "tool_search_call"
 	ResponsesMessageTypeReasoning            ResponsesMessageType = "reasoning"
 	ResponsesMessageTypeItemReference        ResponsesMessageType = "item_reference"
 	ResponsesMessageTypeRefusal              ResponsesMessageType = "refusal"
@@ -2662,4 +2720,59 @@ func (resp *BifrostResponsesStreamResponse) WithDefaults() *BifrostResponsesStre
 	}
 
 	return result
+}
+
+// NormalizeResponsesStreamJSONForParse coerces "arguments" from object/array to a JSON string when
+// providers send values like "arguments":{} (tool_search_call output_item.added).
+func NormalizeResponsesStreamJSONForParse(jsonData string) (string, error) {
+	var root any
+	if err := Unmarshal([]byte(jsonData), &root); err != nil {
+		return jsonData, err
+	}
+	normalizeResponsesStreamArgumentsValue(root)
+	return MarshalString(root)
+}
+
+func normalizeResponsesStreamArgumentsValue(v any) {
+	m, ok := v.(map[string]any)
+	if !ok {
+		return
+	}
+	if item, ok := m["item"].(map[string]any); ok {
+		coerceArgumentsFieldToJSONString(item)
+	}
+	coerceArgumentsFieldToJSONString(m)
+}
+
+func coerceArgumentsFieldToJSONString(m map[string]any) {
+	args, ok := m["arguments"]
+	if !ok || args == nil {
+		return
+	}
+	if _, ok := args.(string); ok {
+		return
+	}
+	b, err := Marshal(args)
+	if err != nil {
+		return
+	}
+	m["arguments"] = string(b)
+}
+
+// UnmarshalBifrostResponsesStreamResponse decodes a Responses API SSE chunk, retrying after
+// normalizing object-shaped arguments fields.
+func UnmarshalBifrostResponsesStreamResponse(jsonData string, resp *BifrostResponsesStreamResponse) error {
+	if err := Unmarshal([]byte(jsonData), resp); err == nil {
+		return nil
+	} else {
+		parseErr := err
+		normalized, normErr := NormalizeResponsesStreamJSONForParse(jsonData)
+		if normErr != nil {
+			return parseErr
+		}
+		if err := Unmarshal([]byte(normalized), resp); err != nil {
+			return parseErr
+		}
+		return nil
+	}
 }

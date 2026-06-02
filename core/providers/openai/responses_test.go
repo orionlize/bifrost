@@ -1851,3 +1851,28 @@ func valuesEqual(v1, v2 interface{}) bool {
 		return v1 == v2
 	}
 }
+
+func TestTryPassthroughTerminalResponsesStreamChunk(t *testing.T) {
+	raw := `{"type":"response.completed","sequence_number":7,"response":{"status":"completed","usage":{"input_tokens":1,"output_tokens":1,"total_tokens":2}}}`
+
+	passthrough, ok := tryPassthroughTerminalResponsesStreamChunk(raw, schemas.OpenAI)
+	if !ok {
+		t.Fatal("expected terminal event passthrough")
+	}
+	if passthrough.Type != schemas.ResponsesStreamResponseTypeCompleted {
+		t.Fatalf("expected response.completed, got %q", passthrough.Type)
+	}
+	if passthrough.SequenceNumber != 7 {
+		t.Fatalf("expected sequence_number 7, got %d", passthrough.SequenceNumber)
+	}
+	if passthrough.ExtraFields.RawResponse != raw {
+		t.Fatalf("expected raw response passthrough, got %#v", passthrough.ExtraFields.RawResponse)
+	}
+	if passthrough.ExtraFields.Provider != schemas.OpenAI {
+		t.Fatalf("expected provider openai, got %q", passthrough.ExtraFields.Provider)
+	}
+
+	if _, ok := tryPassthroughTerminalResponsesStreamChunk(`{"type":"response.output_text.delta","delta":"hi"}`, schemas.OpenAI); ok {
+		t.Fatal("did not expect passthrough for non-terminal event")
+	}
+}

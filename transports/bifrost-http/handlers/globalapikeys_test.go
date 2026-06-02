@@ -56,6 +56,39 @@ func (m *mockGlobalAPIKeyStore) DeleteGlobalAPIKey(_ context.Context, id string)
 	return configstore.ErrGlobalAPIKeyNotFound
 }
 
+func TestGlobalAPIKeysListAllowsDashboardSession(t *testing.T) {
+	store := &mockGlobalAPIKeyStore{
+		authConfig: &configstore.AuthConfig{IsEnabled: true},
+		keys:       []tables.GlobalAPIKey{{ID: "key-1", Name: "ci", IsActive: true}},
+	}
+	handler := &GlobalAPIKeysHandler{configStore: store}
+	ctx := &fasthttp.RequestCtx{}
+	ctx.SetUserValue(schemas.BifrostContextKeySessionToken, "session-token")
+	ctx.Request.Header.SetMethod(fasthttp.MethodGet)
+	ctx.Request.SetRequestURI("/api/settings/api-keys")
+
+	handler.list(ctx)
+	if ctx.Response.StatusCode() != fasthttp.StatusOK {
+		t.Fatalf("status = %d, want %d body=%s", ctx.Response.StatusCode(), fasthttp.StatusOK, string(ctx.Response.Body()))
+	}
+}
+
+func TestGlobalAPIKeysListRequiresAuthenticationWhenAuthEnabled(t *testing.T) {
+	handler := &GlobalAPIKeysHandler{
+		configStore: &mockGlobalAPIKeyStore{
+			authConfig: &configstore.AuthConfig{IsEnabled: true},
+		},
+	}
+	ctx := &fasthttp.RequestCtx{}
+	ctx.Request.Header.SetMethod(fasthttp.MethodGet)
+	ctx.Request.SetRequestURI("/api/settings/api-keys")
+
+	handler.list(ctx)
+	if ctx.Response.StatusCode() != fasthttp.StatusForbidden {
+		t.Fatalf("status = %d, want %d", ctx.Response.StatusCode(), fasthttp.StatusForbidden)
+	}
+}
+
 func TestGlobalAPIKeysCreateRequiresAdmin(t *testing.T) {
 	handler := &GlobalAPIKeysHandler{
 		configStore: &mockGlobalAPIKeyStore{

@@ -946,18 +946,37 @@ func (p *GovernancePlugin) loadBalanceProvider(ctx *schemas.BifrostContext, req 
 	return body, nil
 }
 
-// applyRoutingRules evaluates routing rules and returns both the modified payload AND the routing decision
-// This allows the caller to determine if marshaling is necessary (only if decision != nil or payload changed)
-// Parameters:
-//   - ctx: Bifrost context
-//   - req: HTTP request
-//   - body: Request body (may be modified if routing rule matches)
-//   - virtualKey: Virtual key configuration (may be nil)
-//
-// Returns:
-//   - map[string]any: The potentially modified request body
-//   - *RoutingDecision: The matched routing decision (nil if no rule matched)
-//   - error: Any error that occurred during evaluation
+// resolveGlobalAPIKeyForRouting returns the admin/global API key id and name for routing CEL.
+// Auth middleware runs after HTTP transport pre-hooks, so routing must resolve bf-ak- tokens
+// from the request when context values are not set yet.
+func (p *GovernancePlugin) resolveGlobalAPIKeyForRouting(ctx *schemas.BifrostContext, req *schemas.HTTPRequest) (string, string) {
+	if val := ctx.Value(schemas.BifrostContextKeyGlobalAPIKeyID); val != nil {
+		if id, ok := val.(string); ok && id != "" {
+			name := ""
+			if nameVal := ctx.Value(schemas.BifrostContextKeyGlobalAPIKeyName); nameVal != nil {
+				if n, ok := nameVal.(string); ok {
+					name = n
+				}
+			}
+			return id, name
+		}
+	}
+	if p.configStore == nil {
+		return "", ""
+	}
+	token := parseGlobalAPIKeyBearerToken(req)
+	if token == "" {
+		return "", ""
+	}
+	key, err := p.configStore.GetActiveGlobalAPIKeyByToken(ctx, token)
+	if err != nil || key == nil {
+		return "", ""
+	}
+	return key.ID, key.Name
+}
+
+// applyRoutingRules evaluates routing rules and returns both the modified payload AND the routing decision.
+// This allows the caller to determine if marshaling is necessary (only if decision != nil or payload changed).
 func (p *GovernancePlugin) applyRoutingRules(ctx *schemas.BifrostContext, req *schemas.HTTPRequest, body map[string]any, virtualKey *configstoreTables.TableVirtualKey) (map[string]any, *RoutingDecision, error) {
 	// Check if the request has a model field
 	modelValue, hasModel := body["model"]
@@ -1013,18 +1032,7 @@ func (p *GovernancePlugin) applyRoutingRules(ctx *schemas.BifrostContext, req *s
 		}
 	}
 
-	globalAPIKeyID := ""
-	if val := ctx.Value(schemas.BifrostContextKeyGlobalAPIKeyID); val != nil {
-		if id, ok := val.(string); ok {
-			globalAPIKeyID = id
-		}
-	}
-	globalAPIKeyName := ""
-	if val := ctx.Value(schemas.BifrostContextKeyGlobalAPIKeyName); val != nil {
-		if name, ok := val.(string); ok {
-			globalAPIKeyName = name
-		}
-	}
+	globalAPIKeyID, globalAPIKeyName := p.resolveGlobalAPIKeyForRouting(ctx, req)
 
 	// Build routing context
 	routingCtx := &RoutingContext{

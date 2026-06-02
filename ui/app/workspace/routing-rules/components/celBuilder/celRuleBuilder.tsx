@@ -4,11 +4,12 @@
  */
 
 import { CELRuleBuilder as BaseCELRuleBuilder } from "@/components/ui/custom/celBuilder";
-import { getRoutingFields, type GlobalApiKeyOption } from "@/lib/config/celFieldsRouting";
+import { getRoutingFields } from "@/lib/config/celFieldsRouting";
 import { celOperatorsRouting } from "@/lib/config/celOperatorsRouting";
 import type { TranslateFn } from "@/lib/i18n";
 import { useListGlobalApiKeysQuery } from "@/lib/store/apis/globalApiKeysApi";
 import { convertRuleGroupToCEL, validateRegexPattern } from "@/lib/utils/celConverterRouting";
+import { mergeGlobalApiKeyOptions, normalizeGlobalApiKeyIdsInQuery } from "@/lib/utils/globalApiKeyRoutingOptions";
 import { useMemo } from "react";
 import { RuleGroupType, RuleType } from "react-querybuilder";
 
@@ -80,19 +81,6 @@ function collectRuleFieldValues(query: RuleGroupType | undefined, fieldName: str
 	return Array.from(values);
 }
 
-function mergeGlobalApiKeyOptions(apiKeys: GlobalApiKeyOption[], extraIds: string[]): GlobalApiKeyOption[] {
-	const merged = new Map<string, GlobalApiKeyOption>();
-	for (const key of apiKeys) {
-		merged.set(key.id, key);
-	}
-	for (const id of extraIds) {
-		if (!merged.has(id)) {
-			merged.set(id, { id, name: id });
-		}
-	}
-	return Array.from(merged.values());
-}
-
 export function CELRuleBuilder({
 	onChange,
 	initialQuery,
@@ -108,9 +96,14 @@ export function CELRuleBuilder({
 			id: key.id,
 			name: key.name,
 		}));
-		const referencedIds = collectRuleFieldValues(initialQuery, "global_api_key_id");
-		return mergeGlobalApiKeyOptions(fromApi, referencedIds);
+		const referencedValues = collectRuleFieldValues(initialQuery, "global_api_key_id");
+		return mergeGlobalApiKeyOptions(fromApi, referencedValues);
 	}, [globalApiKeysData, initialQuery]);
+
+	const normalizedInitialQuery = useMemo(
+		() => normalizeGlobalApiKeyIdsInQuery(initialQuery, globalApiKeyOptions) ?? initialQuery,
+		[initialQuery, globalApiKeyOptions],
+	);
 
 	const fields = useMemo(() => {
 		const baseFields = getRoutingFields(providers, models, globalApiKeyOptions);
@@ -130,7 +123,7 @@ export function CELRuleBuilder({
 	return (
 		<BaseCELRuleBuilder
 			onChange={onChange}
-			initialQuery={initialQuery}
+			initialQuery={normalizedInitialQuery}
 			isLoading={isLoadingGlobalApiKeys}
 			fields={fields}
 			operators={celOperatorsRouting}

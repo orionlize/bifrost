@@ -367,3 +367,70 @@ func TestHTTPTransportPreHook_BedrockNoRoutingRuleStillLoadBalances(t *testing.T
 	require.True(t, ok, "context modelId should be set by governance LB")
 	require.Equal(t, "repro-openai-b/probe-bedrock-model", ctxModelID)
 }
+
+const testAdminAPIKeyToken = configstore.GlobalAPIKeyPrefix + "testtoken"
+
+type globalAPIKeyLookupConfigStore struct {
+	configstore.ConfigStore
+}
+
+func (s *globalAPIKeyLookupConfigStore) GetActiveGlobalAPIKeyByToken(_ context.Context, token string) (*configstoreTables.GlobalAPIKey, error) {
+	if token == testAdminAPIKeyToken {
+		return &configstoreTables.GlobalAPIKey{ID: "gak-test", Name: "ops-key", IsActive: true}, nil
+	}
+	return nil, nil
+}
+
+// TestHTTPTransportPreHook_GlobalAPIKeyRoutingRuleMatchesBeforeAuth verifies admin API key
+// routing conditions work in the transport pre-hook, which runs before auth middleware.
+func TestHTTPTransportPreHook_GlobalAPIKeyRoutingRuleMatchesBeforeAuth(t *testing.T) {
+	logger := NewMockLogger()
+	mockCS := &globalAPIKeyLookupConfigStore{}
+
+	routingRule := configstoreTables.TableRoutingRule{
+		ID:            "rule-global-key",
+		Name:          "Admin Key Route",
+		Enabled:       bifrost.Ptr(true),
+		CelExpression: `global_api_key_id == "gak-test"`,
+		Targets: []configstoreTables.TableRoutingTarget{
+			{
+				RuleID:   "rule-global-key",
+				Provider: bifrost.Ptr("openai"),
+				Model:    bifrost.Ptr("gpt-4o-mini"),
+				Weight:   1.0,
+			},
+		},
+		Scope:    "global",
+		Priority: 0,
+	}
+
+	store, err := NewLocalGovernanceStore(context.Background(), logger, mockCS, &configstore.GovernanceConfig{
+		RoutingRules: []configstoreTables.TableRoutingRule{routingRule},
+	}, nil)
+	require.NoError(t, err)
+
+	plugin, err := InitFromStore(context.Background(), &Config{IsVkMandatory: boolPtr(false)}, logger, store, mockCS, nil, nil, nil)
+	require.NoError(t, err)
+	defer func() {
+		require.NoError(t, plugin.Cleanup())
+	}()
+
+	req := schemas.AcquireHTTPRequest()
+	defer schemas.ReleaseHTTPRequest(req)
+	req.Method = "POST"
+	req.Path = "/v1/chat/completions"
+	req.Headers["Authorization"] = "Bearer " + testAdminAPIKeyToken
+	req.Headers["Content-Type"] = "application/json"
+	req.Body = []byte(`{"model":"openai/gpt-4o","messages":[{"role":"user","content":"hi"}]}`)
+
+	bfCtx := schemas.NewBifrostContext(context.Background(), schemas.NoDeadline)
+	resp, err := plugin.HTTPTransportPreHook(bfCtx, req)
+	require.NoError(t, err)
+	require.Nil(t, resp)
+
+	var payload struct {
+		Model string `json:"model"`
+	}
+	require.NoError(t, json.Unmarshal(req.Body, &payload))
+	require.Equal(t, "openai/gpt-4o-mini", payload.Model)
+}

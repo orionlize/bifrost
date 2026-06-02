@@ -1394,3 +1394,29 @@ func TestSonic_ImageGenerationCall_StringAction(t *testing.T) {
 	assert.Contains(t, raw, `"result":"aGVsbG8="`)
 	assert.Contains(t, raw, `"action":"generate"`)
 }
+
+// TestSonic_ResponsesStream_ToolSearchCallObjectArguments ensures tool_search_call items with object arguments parse.
+func TestSonic_ResponsesStream_ToolSearchCallObjectArguments(t *testing.T) {
+	chunk := `{"type":"response.output_item.added","item":{"id":"tsc_0ada38e3084d06c3016a1eba292f1c81909d15679e42b367d9","type":"tool_search_call","status":"in_progress","arguments":{},"call_id":"call_Fu0Y7M7C0yU4dyKTwn87XdIk","execution":"client"},"output_index":0,"sequence_number":2}`
+
+	var resp BifrostResponsesStreamResponse
+	require.NoError(t, UnmarshalBifrostResponsesStreamResponse(chunk, &resp))
+	require.NotNil(t, resp.Item)
+	require.NotNil(t, resp.Item.Type)
+	assert.Equal(t, ResponsesMessageTypeToolSearchCall, *resp.Item.Type)
+	require.NotNil(t, resp.Item.ResponsesToolMessage)
+	require.NotNil(t, resp.Item.ResponsesToolMessage.Arguments)
+	assert.Equal(t, "{}", *resp.Item.ResponsesToolMessage.Arguments)
+}
+
+// TestSonic_ResponsesCompleted_UsageTypeNumber ensures numeric usage.type does not drop response.completed.
+func TestSonic_ResponsesCompleted_UsageTypeNumber(t *testing.T) {
+	chunk := `{"type":"response.completed","response":{"object":"response","created_at":1,"status":"completed","model":"gpt-5","output":[],"usage":{"input_tokens":100,"input_tokens_details":{"cached_tokens":61312},"output_tokens":50,"total_tokens":150,"type":61312}}}`
+
+	var resp BifrostResponsesStreamResponse
+	require.NoError(t, Unmarshal([]byte(chunk), &resp))
+	require.NotNil(t, resp.Response)
+	require.NotNil(t, resp.Response.Usage)
+	require.NotNil(t, resp.Response.Usage.Type)
+	assert.Equal(t, "61312", *resp.Response.Usage.Type)
+}
