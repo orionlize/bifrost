@@ -644,6 +644,8 @@ func LoadConfig(ctx context.Context, configDirPath string) (*Config, error) {
 		}
 	}
 
+	applyProductionDefaults(&configData)
+
 	// 1. Encryption (before stores so BeforeSave hooks work correctly)
 	if err := initEncryption(&configData); err != nil {
 		return nil, err

@@ -22,6 +22,7 @@ on:
       - ".github/workflows/scripts/smoke-test-docker-prod.sh"
       - ".github/workflows/configs/docker-prod/**"
       - "config.json"
+      - "transports/bifrost-http/lib/proddefaults.go"
       - "docker-compose.prod.yml"
       - "transports/Dockerfile.local"
       - "transports/docker-entrypoint.sh"
@@ -116,10 +117,10 @@ jobs:
       - name: Smoke test container
         env:
           BIFROST_BASE_PATH: ${{ steps.inputs.outputs.bifrost_base_path }}
-          SMOKE_CONFIG_FILE: ${{ github.workspace }}/.github/workflows/configs/docker-prod/config.json
+          BIFROST_ENV: production
         run: |
           chmod +x ./.github/workflows/scripts/smoke-test-docker-prod.sh
-          ./.github/workflows/scripts/smoke-test-docker-prod.sh bifrost:prod-ci 8080 "${SMOKE_CONFIG_FILE}"
+          ./.github/workflows/scripts/smoke-test-docker-prod.sh bifrost:prod-ci 8080
 
       - name: Tag and push to GHCR
         if: steps.inputs.outputs.push_image == 'true'

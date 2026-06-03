@@ -1,25 +1,3 @@
 {
-  "$schema": "https://www.getbifrost.ai/schema",
-  "vector_store": {
-    "enabled": true,
-    "type": "redis",
-    "config": {
-      "addr": "localhost:6379",
-      "username": "",
-      "password": "",
-      "db": 0,
-      "use_tls": false,
-      "insecure_skip_verify": false,
-      "ca_cert_pem": "",
-      "cluster_mode": false,
-      "pool_size": 10,
-      "max_active_conns": 10,
-      "min_idle_conns": 5,
-      "max_idle_conns": 10,
-      "dial_timeout": "5s",
-      "read_timeout": "3s",
-      "write_timeout": "3s",
-      "context_timeout": "10s"
-    }
-  }
+  "$schema": "https://www.getbifrost.ai/schema"
 }

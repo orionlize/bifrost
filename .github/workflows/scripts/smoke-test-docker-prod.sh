@@ -4,13 +4,12 @@ set -euo pipefail
 IMAGE="${1:?image tag required}"
 PORT="${2:-8080}"
 BIFROST_BASE_PATH="${BIFROST_BASE_PATH:-}"
+BIFROST_ENV="${BIFROST_ENV:-}"
 CONFIG_FILE="${3:-}"
 CONTAINER_NAME="bifrost-prod-smoke-${GITHUB_RUN_ID:-local}"
-REDIS_NAME="${CONTAINER_NAME}-redis"
 
 cleanup() {
   docker rm -f "${CONTAINER_NAME}" >/dev/null 2>&1 || true
-  docker rm -f "${REDIS_NAME}" >/dev/null 2>&1 || true
 }
 trap cleanup EXIT
 
@@ -19,25 +18,6 @@ if ! docker run --rm --entrypoint test "${IMAGE}" -f /app/defaults/config.json; 
   exit 1
 fi
 echo "Image contains /app/defaults/config.json"
-
-# config.json uses localhost:6379 for vector_store (same as repo config.json).
-docker run -d \
-  --name "${REDIS_NAME}" \
-  -p 6379:6379 \
-  redis:7-alpine >/dev/null
-
-for attempt in $(seq 1 15); do
-  if docker exec "${REDIS_NAME}" redis-cli ping 2>/dev/null | grep -q PONG; then
-    echo "Redis ready on attempt ${attempt}"
-    break
-  fi
-  if [[ "${attempt}" -eq 15 ]]; then
-    echo "Redis failed to become ready"
-    docker logs "${REDIS_NAME}" 2>&1 | tail -50
-    exit 1
-  fi
-  sleep 1
-done
 
 CONFIG_MOUNT=()
 if [[ -n "${CONFIG_FILE}" ]]; then
@@ -48,12 +28,12 @@ if [[ -n "${CONFIG_FILE}" ]]; then
   CONFIG_MOUNT=(-v "${CONFIG_FILE}:/app/data/config.json:ro")
 fi
 
-# Host networking so localhost:6379 inside the container reaches the Redis sidecar.
 docker run -d \
   --name "${CONTAINER_NAME}" \
-  --network host \
-  -e APP_PORT="${PORT}" \
+  -p "${PORT}:8080" \
+  -e APP_PORT=8080 \
   -e APP_HOST=0.0.0.0 \
+  -e BIFROST_ENV="${BIFROST_ENV}" \
   -e BIFROST_BASE_PATH="${BIFROST_BASE_PATH}" \
   "${CONFIG_MOUNT[@]}" \
   "${IMAGE}"

@@ -22,6 +22,8 @@
 # - config.json is baked into the image at /app/defaults/config.json and copied to
 #   /app/data/config.json on first start (APP_DIR is a volume, so defaults live outside it).
 #   Mount your own config to override: -v ./config.json:/app/data/config.json:ro
+# - Set BIFROST_ENV=production (default in this image) to enable baked-in production
+#   defaults such as the Redis vector store endpoint configured in code.
 
 services:
   bifrost:
@@ -43,6 +45,7 @@ services:
       GOGC: "200"
       GOMEMLIMIT: 3600MiB
       BIFROST_BASE_PATH: ${BIFROST_BASE_PATH:-}
+      BIFROST_ENV: production
     ulimits:
       nofile:
         soft: 65536
