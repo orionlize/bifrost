@@ -232,7 +232,7 @@ func (h *AoneOAuthHandler) authorize(ctx *fasthttp.RequestCtx) {
 		return
 	}
 
-	basePath := h.resolveBasePath(ctx, cfg.RedirectURI.GetValue())
+	basePath := h.effectiveBasePath(ctx, cfg.RedirectURI.GetValue())
 	loginSource := resolveLoginSource(ctx, basePath)
 	externalRedirectURI := ""
 	if loginSource != loginSourceZdSwitch {
@@ -272,7 +272,7 @@ func (h *AoneOAuthHandler) authorize(ctx *fasthttp.RequestCtx) {
 func (h *AoneOAuthHandler) callback(ctx *fasthttp.RequestCtx) {
 	state := string(ctx.QueryArgs().Peek("state"))
 	returnTo, externalRedirectURI, oauthRedirectURI, loginSource, dashboardOrigin, stateValid := h.stateStore.Consume(state)
-	basePath := h.resolveBasePath(ctx, oauthRedirectURI)
+	basePath := h.effectiveBasePath(ctx, oauthRedirectURI)
 	callbackPostLoginRedirect := extractPostLoginRedirectFromCallback(ctx, basePath)
 	returnTo = ensureSubpathRedirect(basePath, returnTo)
 	if !stateValid {
@@ -313,7 +313,7 @@ func (h *AoneOAuthHandler) callback(ctx *fasthttp.RequestCtx) {
 		return
 	}
 	if basePath == "" {
-		basePath = h.resolveBasePath(ctx, cfg.RedirectURI.GetValue())
+		basePath = h.effectiveBasePath(ctx, cfg.RedirectURI.GetValue())
 	}
 
 	client := aoneoauth.NewClient(cfg.BaseURL.GetValue())
@@ -413,7 +413,7 @@ func (h *AoneOAuthHandler) zdSwitchHandoff(ctx *fasthttp.RequestCtx) {
 		return
 	}
 
-	basePath := h.resolveBasePath(ctx, cfg.RedirectURI.GetValue())
+	basePath := h.effectiveBasePath(ctx, cfg.RedirectURI.GetValue())
 	token := dashboardSessionTokenFromRequest(ctx)
 	if token == "" {
 		h.redirectTo(ctx, ensureSubpathRedirect(basePath, "/login?source="+loginSourceZdSwitch))

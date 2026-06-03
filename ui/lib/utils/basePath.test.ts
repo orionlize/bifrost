@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { normalizeBasePath, stripBasePath, withBasePath } from "./basePath";
+import { getBasePath, normalizeBasePath, stripBasePath, withBasePath } from "./basePath";
 
 describe("normalizeBasePath", () => {
 	it("returns empty for root values", () => {
@@ -24,6 +24,14 @@ describe("stripBasePath", () => {
 	it("leaves paths unchanged at site root", () => {
 		process.env.BIFROST_BASE_PATH = "";
 		expect(stripBasePath("/login")).toBe("/login");
+	});
+});
+
+describe("getBasePath", () => {
+	it("prefers runtime injection from the server", () => {
+		window.__BIFROST_BASE_PATH__ = "/zai";
+		expect(getBasePath()).toBe("/zai");
+		delete window.__BIFROST_BASE_PATH__;
 	});
 });
 

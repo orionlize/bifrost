@@ -5,6 +5,7 @@ import {
 	resolveLoginRedirectUriFromUrl,
 	syncLoginRedirectStashFromLocation,
 } from "@/lib/utils/loginGoto";
+import { withBasePath } from "@/lib/utils/basePath";
 import { DEFAULT_POST_LOGIN_PATH } from "@/lib/utils/loginGoto";
 import { getEndpointUrl } from "@/lib/utils/port";
 import {
@@ -75,8 +76,7 @@ export function buildAoneOAuthAuthorizeUrl(options?: { redirectUri?: string | nu
 }
 
 export function navigateToAoneOAuthAuthorize(): void {
-	// Use canonical /workspace; the server applies BIFROST_BASE_PATH on redirect.
-	const redirectUri = resolveLoginRedirectUriForOAuth() ?? DEFAULT_POST_LOGIN_PATH;
+	const redirectUri = resolveLoginRedirectUriForOAuth() ?? withBasePath(DEFAULT_POST_LOGIN_PATH);
 	window.location.href = buildAoneOAuthAuthorizeUrl({ redirectUri });
 }
 

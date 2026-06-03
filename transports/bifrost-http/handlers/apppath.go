@@ -56,13 +56,16 @@ func applySubpathToURLPath(u *url.URL, basePath string) {
 }
 
 func (h *AoneOAuthHandler) redirectTo(ctx *fasthttp.RequestCtx, target string) {
-	ctx.Redirect(ensureSubpathRedirect(h.resolveBasePath(ctx, ""), target), fasthttp.StatusFound)
+	ctx.Redirect(ensureSubpathRedirect(h.effectiveBasePath(ctx, ""), target), fasthttp.StatusFound)
 }
 
-// resolveBasePath returns the configured subpath plus fallbacks from proxy headers,
-// the OAuth callback URL, or the Referer (for example /zai/login → /zai).
-func (h *AoneOAuthHandler) resolveBasePath(ctx *fasthttp.RequestCtx, oauthCallbackURI string) string {
-	return resolveEffectiveBasePath(h.basePath, ctx, oauthCallbackURI)
+// effectiveBasePath prefers the server-configured BIFROST_BASE_PATH, then infers from
+// proxy headers, the OAuth callback URL, or the Referer (for example /zai/login → /zai).
+func (h *AoneOAuthHandler) effectiveBasePath(ctx *fasthttp.RequestCtx, oauthCallbackURI string) string {
+	if h.basePath != "" {
+		return h.basePath
+	}
+	return resolveEffectiveBasePath("", ctx, oauthCallbackURI)
 }
 
 func resolveEffectiveBasePath(configured string, ctx *fasthttp.RequestCtx, oauthCallbackURI string) string {
