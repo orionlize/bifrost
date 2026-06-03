@@ -4,17 +4,19 @@
 # from source require core/framework/plugins modules from the workspace. The
 # published-module Dockerfile is for CI/releases after modules are tagged.
 #
-# Quick start:
+# Quick start (bundled Valkey + semantic cache):
 #   docker compose -f docker-compose.prod.yml up -d --build
 #
 # Subpath deployment (UI + dashboard API under /bifrost):
 #   BIFROST_BASE_PATH=/bifrost docker compose -f docker-compose.prod.yml up -d --build
 #
-# Set build/runtime base path via .env:
-#   BIFROST_BASE_PATH=/bifrost
+# Copy .env.example to .env and adjust as needed:
+#   cp .env.example .env
 #
-# Custom host port (container always listens on 8080):
-#   PORT=9090 docker compose -f docker-compose.prod.yml up -d --build
+# External Valkey/Redis instead of the bundled service:
+#   Set BIFROST_REDIS_ADDR (and credentials) in .env, then either:
+#     - docker compose -f docker-compose.prod.yml up -d --build --scale valkey=0
+#     - or use docker-compose.prod.override.yml to omit the valkey service
 #
 # Notes:
 # - BIFROST_BASE_PATH must match at build time (UI assets) and runtime (Go route stripping).
@@ -22,12 +24,28 @@
 # - config.json is baked into the image at /app/defaults/config.json and copied to
 #   /app/data/config.json on first start (APP_DIR is a volume, so defaults live outside it).
 #   Mount your own config to override: -v ./config.json:/app/data/config.json:ro
-# - Set BIFROST_ENV=production (default in this image) to enable baked-in production
-#   defaults such as the Redis vector store endpoint configured in code.
-# - Redis vector store credentials are read at deploy time from:
-#     BIFROST_REDIS_ADDR, BIFROST_REDIS_USERNAME, BIFROST_REDIS_PASSWORD
+# - BIFROST_ENV=production enables baked-in production defaults:
+#     * Redis/Valkey vector store (type "redis" — use for Valkey endpoints too)
+#     * semantic_cache plugin (direct-hash mode, dimension=1; recommended with Valkey)
+# - Redis/Valkey + semantic cache settings are read at deploy time from environment
+#   variables (see .env.example).
 
 services:
+  valkey:
+    image: valkey/valkey-bundle:9.0.0
+    command: valkey-server --protected-mode no
+    volumes:
+      - valkey-data:/data
+    healthcheck:
+      test: ["CMD", "valkey-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 5s
+    restart: unless-stopped
+    networks:
+      - bifrost-prod
+
   bifrost:
     build:
       context: .
@@ -35,6 +53,9 @@ services:
       args:
         BIFROST_BASE_PATH: ${BIFROST_BASE_PATH:-}
     image: bifrost:prod
+    depends_on:
+      valkey:
+        condition: service_healthy
     ports:
       - "${PORT:-8080}:8080"
     volumes:
@@ -48,9 +69,14 @@ services:
       GOMEMLIMIT: 3600MiB
       BIFROST_BASE_PATH: ${BIFROST_BASE_PATH:-}
       BIFROST_ENV: production
-      BIFROST_REDIS_ADDR: ${BIFROST_REDIS_ADDR:-}
+      BIFROST_REDIS_ADDR: ${BIFROST_REDIS_ADDR:-valkey:6379}
       BIFROST_REDIS_USERNAME: ${BIFROST_REDIS_USERNAME:-}
       BIFROST_REDIS_PASSWORD: ${BIFROST_REDIS_PASSWORD:-}
+      BIFROST_SEMANTIC_CACHE_ENABLED: ${BIFROST_SEMANTIC_CACHE_ENABLED:-true}
+      BIFROST_SEMANTIC_CACHE_TTL: ${BIFROST_SEMANTIC_CACHE_TTL:-300}
+      BIFROST_SEMANTIC_CACHE_THRESHOLD: ${BIFROST_SEMANTIC_CACHE_THRESHOLD:-0.8}
+      BIFROST_SEMANTIC_CACHE_NAMESPACE: ${BIFROST_SEMANTIC_CACHE_NAMESPACE:-bifrost_semantic_cache}
+      BIFROST_SEMANTIC_CACHE_DEFAULT_KEY: ${BIFROST_SEMANTIC_CACHE_DEFAULT_KEY:-bifrost-default}
     ulimits:
       nofile:
         soft: 65536
@@ -69,6 +95,12 @@ services:
       timeout: 10s
       retries: 3
     restart: unless-stopped
+    networks:
+      - bifrost-prod
+
+networks:
+  bifrost-prod:
 
 volumes:
   bifrost-data:
+  valkey-data:

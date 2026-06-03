@@ -3,7 +3,9 @@ package lib
 import (
 	"testing"
 
+	"github.com/maximhq/bifrost/core/schemas"
 	"github.com/maximhq/bifrost/framework/vectorstore"
+	"github.com/maximhq/bifrost/plugins/semanticcache"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -15,6 +17,7 @@ func TestApplyProductionDefaults_OutsideProduction(t *testing.T) {
 	applyProductionDefaults(&configData)
 
 	assert.Nil(t, configData.VectorStoreConfig)
+	assert.Empty(t, configData.Plugins)
 }
 
 func TestApplyProductionDefaults_InProductionWithoutRedisEnv(t *testing.T) {
@@ -25,6 +28,7 @@ func TestApplyProductionDefaults_InProductionWithoutRedisEnv(t *testing.T) {
 	applyProductionDefaults(&configData)
 
 	assert.Nil(t, configData.VectorStoreConfig)
+	assert.Empty(t, configData.Plugins)
 }
 
 func TestApplyProductionDefaults_InProductionWithRedisEnv(t *testing.T) {
@@ -47,9 +51,53 @@ func TestApplyProductionDefaults_InProductionWithRedisEnv(t *testing.T) {
 	assert.Equal(t, "secret", redisConfig.Password.GetValue())
 	assert.True(t, redisConfig.Addr.FromEnv)
 	assert.Equal(t, "env."+productionRedisAddrEnv, redisConfig.Addr.EnvVar)
+
+	require.Len(t, configData.Plugins, 1)
+	assert.Equal(t, semanticcache.PluginName, configData.Plugins[0].Name)
+	assert.True(t, configData.Plugins[0].Enabled)
+
+	pluginConfig, ok := configData.Plugins[0].Config.(map[string]interface{})
+	require.True(t, ok)
+	assert.Equal(t, 1, pluginConfig["dimension"])
+	assert.Equal(t, 300, pluginConfig["ttl"])
+	assert.Equal(t, 0.8, pluginConfig["threshold"])
+	assert.Equal(t, productionSemanticCacheDefaultKeyVal, pluginConfig["default_cache_key"])
+	assert.Equal(t, productionSemanticCacheDefaultNS, pluginConfig["vector_store_namespace"])
 }
 
-func TestApplyProductionDefaults_RespectsExistingConfig(t *testing.T) {
+func TestApplyProductionDefaults_SemanticCacheEnvOverrides(t *testing.T) {
+	t.Setenv(productionEnvKey, productionEnvValue)
+	t.Setenv(productionRedisAddrEnv, "valkey:6379")
+	t.Setenv(productionSemanticCacheTTLEnv, "600")
+	t.Setenv(productionSemanticCacheThresholdEnv, "0.9")
+	t.Setenv(productionSemanticCacheNamespaceEnv, "custom-ns")
+	t.Setenv(productionSemanticCacheDefaultKeyEnv, "custom-key")
+
+	var configData ConfigData
+	applyProductionDefaults(&configData)
+
+	require.Len(t, configData.Plugins, 1)
+	pluginConfig, ok := configData.Plugins[0].Config.(map[string]interface{})
+	require.True(t, ok)
+	assert.Equal(t, 600, pluginConfig["ttl"])
+	assert.Equal(t, 0.9, pluginConfig["threshold"])
+	assert.Equal(t, "custom-ns", pluginConfig["vector_store_namespace"])
+	assert.Equal(t, "custom-key", pluginConfig["default_cache_key"])
+}
+
+func TestApplyProductionDefaults_SemanticCacheDisabled(t *testing.T) {
+	t.Setenv(productionEnvKey, productionEnvValue)
+	t.Setenv(productionRedisAddrEnv, "valkey:6379")
+	t.Setenv(productionSemanticCacheEnabledEnv, "false")
+
+	var configData ConfigData
+	applyProductionDefaults(&configData)
+
+	require.NotNil(t, configData.VectorStoreConfig)
+	assert.Empty(t, configData.Plugins)
+}
+
+func TestApplyProductionDefaults_RespectsExistingVectorStore(t *testing.T) {
 	t.Setenv(productionEnvKey, productionEnvValue)
 	t.Setenv(productionRedisAddrEnv, "ai-redis-ytykne:6379")
 
@@ -62,4 +110,30 @@ func TestApplyProductionDefaults_RespectsExistingConfig(t *testing.T) {
 	applyProductionDefaults(&configData)
 
 	assert.Equal(t, vectorstore.VectorStoreTypeWeaviate, configData.VectorStoreConfig.Type)
+	require.Len(t, configData.Plugins, 1)
+	assert.Equal(t, semanticcache.PluginName, configData.Plugins[0].Name)
+}
+
+func TestApplyProductionDefaults_RespectsExistingSemanticCachePlugin(t *testing.T) {
+	t.Setenv(productionEnvKey, productionEnvValue)
+	t.Setenv(productionRedisAddrEnv, "valkey:6379")
+
+	configData := ConfigData{
+		Plugins: []*schemas.PluginConfig{
+			{
+				Name:    semanticcache.PluginName,
+				Enabled: true,
+				Config: map[string]interface{}{
+					"dimension": 1,
+					"ttl":       120,
+				},
+			},
+		},
+	}
+	applyProductionDefaults(&configData)
+
+	require.Len(t, configData.Plugins, 1)
+	pluginConfig, ok := configData.Plugins[0].Config.(map[string]interface{})
+	require.True(t, ok)
+	assert.Equal(t, 120, pluginConfig["ttl"])
 }
