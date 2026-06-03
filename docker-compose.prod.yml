@@ -1,25 +1,26 @@
-# Production Docker Compose — builds the image locally from the full repo workspace.
-#
-# Uses transports/Dockerfile.local (not transports/Dockerfile) because self-builds
-# from source require core/framework/plugins modules from the workspace. The
-# published-module Dockerfile is for CI/releases after modules are tagged.
+# Production Docker Compose — pulls the pre-built Bifrost image from GHCR.
 #
 # Quick start (bundled Valkey + semantic cache):
-#   docker compose -f docker-compose.prod.yml up -d --build
+#   docker compose -f docker-compose.prod.yml up -d
+#
+# China mirror acceleration (Valkey pull):
+#   docker compose -f docker-compose.prod.yml -f docker-compose.prod.cn.yml up -d
+#   See docker-daemon.mirror.example.json for Docker Engine registry-mirrors.
 #
 # Subpath deployment (UI + dashboard API under /bifrost):
-#   BIFROST_BASE_PATH=/bifrost docker compose -f docker-compose.prod.yml up -d --build
+#   BIFROST_BASE_PATH=/bifrost docker compose -f docker-compose.prod.yml up -d
+#   Note: BIFROST_BASE_PATH must match how the image was built. Use a tag built
+#   with the same base path, or rebuild/publish a custom image.
 #
 # Copy .env.example to .env and adjust as needed:
 #   cp .env.example .env
 #
 # External Valkey/Redis instead of the bundled service:
 #   Set BIFROST_REDIS_ADDR (and credentials) in .env, then either:
-#     - docker compose -f docker-compose.prod.yml up -d --build --scale valkey=0
+#     - docker compose -f docker-compose.prod.yml up -d --scale valkey=0
 #     - or use docker-compose.prod.override.yml to omit the valkey service
 #
 # Notes:
-# - BIFROST_BASE_PATH must match at build time (UI assets) and runtime (Go route stripping).
 # - /health and /v1/* remain available at the container root for probes and LLM clients.
 # - config.json is baked into the image at /app/defaults/config.json and copied to
 #   /app/data/config.json on first start (APP_DIR is a volume, so defaults live outside it).
@@ -29,10 +30,11 @@
 #     * semantic_cache plugin (direct-hash mode, dimension=1; recommended with Valkey)
 # - Redis/Valkey + semantic cache settings are read at deploy time from environment
 #   variables (see .env.example).
+# - Override image: BIFROST_IMAGE=ghcr.io/orionlize/bifrost:prod
 
 services:
   valkey:
-    image: valkey/valkey-bundle:9.0.0
+    image: ${VALKEY_IMAGE:-valkey/valkey-bundle:9.0.0}
     command: valkey-server --protected-mode no
     volumes:
       - valkey-data:/data
@@ -47,12 +49,7 @@ services:
       - bifrost-prod
 
   bifrost:
-    build:
-      context: .
-      dockerfile: transports/Dockerfile.local
-      args:
-        BIFROST_BASE_PATH: ${BIFROST_BASE_PATH:-}
-    image: bifrost:prod
+    image: ${BIFROST_IMAGE:-ghcr.io/orionlize/bifrost:prod}
     depends_on:
       valkey:
         condition: service_healthy
