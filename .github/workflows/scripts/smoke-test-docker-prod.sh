@@ -71,18 +71,19 @@ for attempt in $(seq 1 30); do
   sleep 2
 done
 
-if ! docker logs "${CONTAINER_NAME}" 2>&1 | grep -Fq "Seeding /app/data/config.json from /app/defaults/config.json"; then
-  if [[ -n "${CONFIG_FILE}" ]]; then
-    echo "Using mounted config.json override"
-  else
-    echo "Expected entrypoint to seed /app/data/config.json from image default"
-    docker logs "${CONTAINER_NAME}" 2>&1 | tail -100
-    exit 1
-  fi
+if ! docker exec "${CONTAINER_NAME}" test -f /app/data/config.json; then
+  echo "config.json missing at /app/data/config.json"
+  docker logs "${CONTAINER_NAME}" 2>&1 | tail -100
+  exit 1
 fi
 
-if ! docker logs "${CONTAINER_NAME}" 2>&1 | grep -Fq "loading configuration from: /app/data/config.json"; then
-  echo "config.json was not loaded from /app/data/config.json"
+if [[ -z "${CONFIG_FILE}" ]] && ! docker exec "${CONTAINER_NAME}" test -f /app/defaults/config.json; then
+  echo "Image default config missing at /app/defaults/config.json"
+  exit 1
+fi
+
+if ! docker logs "${CONTAINER_NAME}" 2>&1 | grep -F "loading configuration from: /app/data/config.json" >/dev/null; then
+  echo "Bifrost did not report loading /app/data/config.json"
   docker logs "${CONTAINER_NAME}" 2>&1 | tail -100
   exit 1
 fi
