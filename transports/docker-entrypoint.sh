@@ -42,8 +42,22 @@ fix_permissions() {
     fi
 }
 
+# Seed config.json into APP_DIR on first start. APP_DIR is a Docker volume, so files
+# copied there at image build time are hidden; keep the default at /app/defaults/.
+seed_default_config() {
+    DEFAULT_CONFIG="/app/defaults/config.json"
+    TARGET_CONFIG="$APP_DIR/config.json"
+
+    if [ -f "$DEFAULT_CONFIG" ] && [ ! -f "$TARGET_CONFIG" ]; then
+        echo "Seeding $TARGET_CONFIG from $DEFAULT_CONFIG"
+        cp "$DEFAULT_CONFIG" "$TARGET_CONFIG"
+        chmod 644 "$TARGET_CONFIG" 2>/dev/null || true
+    fi
+}
+
 # Fix permissions before starting the application
 fix_permissions
+seed_default_config
 
 # Parse command line arguments and set environment variables
 parse_args() {

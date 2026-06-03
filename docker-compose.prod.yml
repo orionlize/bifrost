@@ -19,6 +19,9 @@
 # Notes:
 # - BIFROST_BASE_PATH must match at build time (UI assets) and runtime (Go route stripping).
 # - /health and /v1/* remain available at the container root for probes and LLM clients.
+# - config.json is baked into the image at /app/defaults/config.json and copied to
+#   /app/data/config.json on first start (APP_DIR is a volume, so defaults live outside it).
+#   Mount your own config to override: -v ./config.json:/app/data/config.json:ro
 
 services:
   bifrost:
