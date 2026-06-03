@@ -8,6 +8,8 @@ import (
 	"github.com/valyala/fasthttp"
 )
 
+const aoneOAuthCallbackPathSuffix = "/api/aone/oauth/callback"
+
 func stripAppRoutePrefix(basePath, route string) string {
 	route = strings.TrimSpace(route)
 	if route == "" {
@@ -54,5 +56,78 @@ func applySubpathToURLPath(u *url.URL, basePath string) {
 }
 
 func (h *AoneOAuthHandler) redirectTo(ctx *fasthttp.RequestCtx, target string) {
-	ctx.Redirect(ensureSubpathRedirect(h.basePath, target), fasthttp.StatusFound)
+	ctx.Redirect(ensureSubpathRedirect(h.resolveBasePath(ctx, ""), target), fasthttp.StatusFound)
+}
+
+// resolveBasePath returns the configured subpath plus fallbacks from proxy headers,
+// the OAuth callback URL, or the Referer (for example /zai/login → /zai).
+func (h *AoneOAuthHandler) resolveBasePath(ctx *fasthttp.RequestCtx, oauthCallbackURI string) string {
+	return resolveEffectiveBasePath(h.basePath, ctx, oauthCallbackURI)
+}
+
+func resolveEffectiveBasePath(configured string, ctx *fasthttp.RequestCtx, oauthCallbackURI string) string {
+	if bp := lib.NormalizeBasePath(configured); bp != "" {
+		return bp
+	}
+	if bp := basePathFromForwardedHeaders(ctx); bp != "" {
+		return bp
+	}
+	if bp := basePathFromOAuthCallbackURI(oauthCallbackURI); bp != "" {
+		return bp
+	}
+	if bp := basePathFromReferer(ctx); bp != "" {
+		return bp
+	}
+	return ""
+}
+
+func basePathFromForwardedHeaders(ctx *fasthttp.RequestCtx) string {
+	if ctx == nil {
+		return ""
+	}
+	raw := strings.TrimSpace(string(ctx.Request.Header.Peek("X-Forwarded-Prefix")))
+	if raw == "" {
+		return ""
+	}
+	if idx := strings.Index(raw, ","); idx >= 0 {
+		raw = strings.TrimSpace(raw[:idx])
+	}
+	return lib.NormalizeBasePath(raw)
+}
+
+func basePathFromOAuthCallbackURI(raw string) string {
+	raw = strings.TrimSpace(raw)
+	if raw == "" {
+		return ""
+	}
+	parsed, err := url.Parse(raw)
+	if err != nil || parsed.Path == "" {
+		return ""
+	}
+	for _, suffix := range []string{aoneOAuthCallbackPathSuffix, zdSwitchOAuthCallbackPath} {
+		if strings.HasSuffix(parsed.Path, suffix) {
+			return lib.NormalizeBasePath(strings.TrimSuffix(parsed.Path, suffix))
+		}
+	}
+	return ""
+}
+
+func basePathFromReferer(ctx *fasthttp.RequestCtx) string {
+	if ctx == nil {
+		return ""
+	}
+	referer := strings.TrimSpace(string(ctx.Request.Header.Peek("Referer")))
+	if referer == "" {
+		return ""
+	}
+	parsed, err := url.Parse(referer)
+	if err != nil || parsed.Path == "" || parsed.Path == "/" {
+		return ""
+	}
+	for _, marker := range []string{"/login", aoneOAuthCallbackPathSuffix, defaultAoneOAuthReturnTo} {
+		if idx := strings.Index(parsed.Path, marker); idx > 0 {
+			return lib.NormalizeBasePath(parsed.Path[:idx])
+		}
+	}
+	return ""
 }

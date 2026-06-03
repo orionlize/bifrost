@@ -11,7 +11,7 @@ import (
 func TestBuildOAuthCallbackRedirectURI(t *testing.T) {
 	base := "http://localhost:8080/api/aone/oauth/callback"
 	postLogin := "https://app.example.com/callback"
-	got := buildOAuthCallbackRedirectURI(base, postLogin)
+	got := buildOAuthCallbackRedirectURI(base, postLogin, "")
 	want := "http://localhost:8080/api/aone/oauth/callback?post_login_redirect=https%3A%2F%2Fapp.example.com%2Fcallback"
 	if got != want {
 		t.Fatalf("got %q, want %q", got, want)
@@ -25,7 +25,7 @@ func TestBuildOAuthCallbackRedirectURI(t *testing.T) {
 func TestBuildOAuthCallbackRedirectURIEncodesNestedQueryValues(t *testing.T) {
 	base := "http://localhost:8080/api/aone/oauth/callback"
 	postLogin := "https://app.example.com/callback?foo=bar&baz=1"
-	got := buildOAuthCallbackRedirectURI(base, postLogin)
+	got := buildOAuthCallbackRedirectURI(base, postLogin, "")
 	wantPrefix := "http://localhost:8080/api/aone/oauth/callback?post_login_redirect="
 	if !strings.HasPrefix(got, wantPrefix) {
 		t.Fatalf("got %q", got)
@@ -206,7 +206,7 @@ func TestAoneOAuthStateStoreReturnTo(t *testing.T) {
 }
 
 func TestResolveOAuthRedirectURIUsesConfiguredCallback(t *testing.T) {
-	got := buildOAuthCallbackRedirectURI("http://localhost:8080/api/aone/oauth/callback", "")
+	got := buildOAuthCallbackRedirectURI("http://localhost:8080/api/aone/oauth/callback", "", "")
 	want := "http://localhost:8080/api/aone/oauth/callback"
 	if got != want {
 		t.Fatalf("got %q, want %q", got, want)
@@ -331,10 +331,50 @@ func TestBuildOAuthCallbackRedirectURIUsesNormalizedBase(t *testing.T) {
 	ctx.Request.SetHost("localhost:8080")
 	base := resolveAoneOAuthCallbackBaseURI(ctx, "http://localhost:3000/api/aone/oauth/callback", "")
 	postLogin := "https://app.example.com/callback"
-	got := buildOAuthCallbackRedirectURI(base, postLogin)
+	got := buildOAuthCallbackRedirectURI(base, postLogin, "/bifrost")
 	want := "http://localhost:8080/api/aone/oauth/callback?post_login_redirect=https%3A%2F%2Fapp.example.com%2Fcallback"
 	if got != want {
 		t.Fatalf("got %q, want %q", got, want)
+	}
+}
+
+func TestResolveEffectiveBasePathConfiguredZai(t *testing.T) {
+	got := resolveEffectiveBasePath("/zai", nil, "http://localhost:8080/workspace/api/aone/oauth/callback")
+	if got != "/zai" {
+		t.Fatalf("got %q, want /zai", got)
+	}
+	got = resolveAoneOAuthSuccessReturnTo(&fasthttp.RequestCtx{}, "/workspace", "", "/zai")
+	if got != "/zai/workspace" {
+		t.Fatalf("success return got %q, want /zai/workspace", got)
+	}
+}
+
+func TestResolveEffectiveBasePathFromCallbackURI(t *testing.T) {
+	got := resolveEffectiveBasePath("", nil, "http://localhost:8080/bifrost/api/aone/oauth/callback")
+	if got != "/bifrost" {
+		t.Fatalf("got %q, want /bifrost", got)
+	}
+	got = resolveEffectiveBasePath("", nil, "http://localhost:8080/zai/api/aone/oauth/callback")
+	if got != "/zai" {
+		t.Fatalf("got %q, want /zai", got)
+	}
+}
+
+func TestResolveEffectiveBasePathFromReferer(t *testing.T) {
+	ctx := &fasthttp.RequestCtx{}
+	ctx.Request.Header.Set("Referer", "http://localhost:8080/bifrost/login")
+	got := resolveEffectiveBasePath("", ctx, "")
+	if got != "/bifrost" {
+		t.Fatalf("got %q, want /bifrost", got)
+	}
+}
+
+func TestResolveEffectiveBasePathFromForwardedPrefix(t *testing.T) {
+	ctx := &fasthttp.RequestCtx{}
+	ctx.Request.Header.Set("X-Forwarded-Prefix", "/bifrost")
+	got := resolveEffectiveBasePath("", ctx, "")
+	if got != "/bifrost" {
+		t.Fatalf("got %q, want /bifrost", got)
 	}
 }
 
@@ -403,6 +443,17 @@ func TestExtractRedirectURIFromLoginRefererWithBasePath(t *testing.T) {
 	ctx.Request.Header.Set("Referer", "http://localhost:8080/bifrost/login?redirect_uri=https%3A%2F%2Fapp.example.com%2Fcallback")
 	got := extractRedirectURIFromLoginReferer(ctx, "/bifrost")
 	want := "https://app.example.com/callback"
+	if got != want {
+		t.Fatalf("got %q, want %q", got, want)
+	}
+}
+
+func TestAuthorizeFlowDefaultReturnToWithInferredBasePath(t *testing.T) {
+	ctx := &fasthttp.RequestCtx{}
+	ctx.Request.Header.Set("Referer", "http://localhost:8080/bifrost/login")
+	basePath := resolveEffectiveBasePath("", ctx, "http://localhost:8080/bifrost/api/aone/oauth/callback")
+	got := ensureSubpathRedirect(basePath, defaultAoneOAuthReturnTo)
+	want := "/bifrost/workspace"
 	if got != want {
 		t.Fatalf("got %q, want %q", got, want)
 	}
