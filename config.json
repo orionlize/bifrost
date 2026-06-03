@@ -4,9 +4,9 @@
     "enabled": true,
     "type": "redis",
     "config": {
-      "addr": "localhost:6379",
-      "username": "",
-      "password": "",
+      "addr": "ai-redis-srf1ny:6379",
+      "username": "default",
+      "password": "kd7jqevhqpbzx0op",
       "db": 0,
       "use_tls": false,
       "insecure_skip_verify": false,
