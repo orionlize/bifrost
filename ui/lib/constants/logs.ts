@@ -41,6 +41,7 @@ export const EmbeddingSupportedProviders: readonly ProviderName[] = [
 	"fireworks",
 	"gemini",
 	"huggingface",
+	"mimo",
 	"mistral",
 	"nebius",
 	"ollama",

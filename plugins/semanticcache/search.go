@@ -145,7 +145,11 @@ func (plugin *Plugin) generateEmbedding(ctx *schemas.BifrostContext, text string
 	// and may dereference fields on a parent context that has already been
 	// released back to its sync.Pool — see core/schemas.ReleasePluginScope.
 	defer embeddingCtx.Cancel()
-	embeddingCtx.SetValue(schemas.BifrostContextKeySkipPluginPipeline, true)
+	if parentRequestID, ok := ctx.Value(schemas.BifrostContextKeyRequestID).(string); ok && parentRequestID != "" {
+		embeddingCtx.SetValue(schemas.BifrostContextKeyParentRequestID, parentRequestID)
+	}
+	embeddingCtx.SetValue(schemas.BifrostContextKeyRequestID, uuid.New().String())
+	embeddingCtx.SetValue(InternalEmbeddingRequestKey, true)
 	if plugin.embeddingRequestExecutor == nil {
 		return nil, 0, fmt.Errorf("embedding request executor is not configured")
 	}
