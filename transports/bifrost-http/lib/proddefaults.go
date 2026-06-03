@@ -11,6 +11,10 @@ import (
 const (
 	productionEnvKey   = "BIFROST_ENV"
 	productionEnvValue = "production"
+
+	productionRedisAddrEnv     = "BIFROST_REDIS_ADDR"
+	productionRedisUsernameEnv = "BIFROST_REDIS_USERNAME"
+	productionRedisPasswordEnv = "BIFROST_REDIS_PASSWORD"
 )
 
 func isProductionRuntime() bool {
@@ -27,6 +31,10 @@ func applyProductionDefaults(configData *ConfigData) {
 		logger.Info("vector store already configured; skipping production vector store defaults")
 		return
 	}
+	if os.Getenv(productionRedisAddrEnv) == "" {
+		logger.Info("%s not set; skipping production vector store defaults", productionRedisAddrEnv)
+		return
+	}
 	configData.VectorStoreConfig = productionRedisVectorStoreConfig()
 	logger.Info("applied production vector store defaults (redis)")
 }
@@ -37,9 +45,9 @@ func productionRedisVectorStoreConfig() *vectorstore.Config {
 		Enabled: true,
 		Type:    vectorstore.VectorStoreTypeRedis,
 		Config: vectorstore.RedisConfig{
-			Addr:               schemas.NewEnvVar("ai-redis-ytykne:6379"),
-			Username:           schemas.NewEnvVar("default"),
-			Password:           schemas.NewEnvVar("m1cluppekwypk8gq"),
+			Addr:               schemas.NewEnvVar("env." + productionRedisAddrEnv),
+			Username:           schemas.NewEnvVar("env." + productionRedisUsernameEnv),
+			Password:           schemas.NewEnvVar("env." + productionRedisPasswordEnv),
 			DB:                 schemas.NewEnvVar("0"),
 			UseTLS:             falseVar,
 			InsecureSkipVerify: falseVar,

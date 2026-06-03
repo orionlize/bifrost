@@ -24,6 +24,8 @@
 #   Mount your own config to override: -v ./config.json:/app/data/config.json:ro
 # - Set BIFROST_ENV=production (default in this image) to enable baked-in production
 #   defaults such as the Redis vector store endpoint configured in code.
+# - Redis vector store credentials are read at deploy time from:
+#     BIFROST_REDIS_ADDR, BIFROST_REDIS_USERNAME, BIFROST_REDIS_PASSWORD
 
 services:
   bifrost:
@@ -46,6 +48,9 @@ services:
       GOMEMLIMIT: 3600MiB
       BIFROST_BASE_PATH: ${BIFROST_BASE_PATH:-}
       BIFROST_ENV: production
+      BIFROST_REDIS_ADDR: ${BIFROST_REDIS_ADDR:-}
+      BIFROST_REDIS_USERNAME: ${BIFROST_REDIS_USERNAME:-}
+      BIFROST_REDIS_PASSWORD: ${BIFROST_REDIS_PASSWORD:-}
     ulimits:
       nofile:
         soft: 65536

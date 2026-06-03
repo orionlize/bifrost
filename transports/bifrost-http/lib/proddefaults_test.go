@@ -17,8 +17,21 @@ func TestApplyProductionDefaults_OutsideProduction(t *testing.T) {
 	assert.Nil(t, configData.VectorStoreConfig)
 }
 
-func TestApplyProductionDefaults_InProduction(t *testing.T) {
+func TestApplyProductionDefaults_InProductionWithoutRedisEnv(t *testing.T) {
 	t.Setenv(productionEnvKey, productionEnvValue)
+	t.Setenv(productionRedisAddrEnv, "")
+
+	var configData ConfigData
+	applyProductionDefaults(&configData)
+
+	assert.Nil(t, configData.VectorStoreConfig)
+}
+
+func TestApplyProductionDefaults_InProductionWithRedisEnv(t *testing.T) {
+	t.Setenv(productionEnvKey, productionEnvValue)
+	t.Setenv(productionRedisAddrEnv, "ai-redis-ytykne:6379")
+	t.Setenv(productionRedisUsernameEnv, "default")
+	t.Setenv(productionRedisPasswordEnv, "secret")
 
 	var configData ConfigData
 	applyProductionDefaults(&configData)
@@ -31,10 +44,14 @@ func TestApplyProductionDefaults_InProduction(t *testing.T) {
 	require.True(t, ok)
 	assert.Equal(t, "ai-redis-ytykne:6379", redisConfig.Addr.GetValue())
 	assert.Equal(t, "default", redisConfig.Username.GetValue())
+	assert.Equal(t, "secret", redisConfig.Password.GetValue())
+	assert.True(t, redisConfig.Addr.FromEnv)
+	assert.Equal(t, "env."+productionRedisAddrEnv, redisConfig.Addr.EnvVar)
 }
 
 func TestApplyProductionDefaults_RespectsExistingConfig(t *testing.T) {
 	t.Setenv(productionEnvKey, productionEnvValue)
+	t.Setenv(productionRedisAddrEnv, "ai-redis-ytykne:6379")
 
 	configData := ConfigData{
 		VectorStoreConfig: &vectorstore.Config{
