@@ -185,9 +185,11 @@ export default function CachingView() {
 	const handleToggle = async (checked: boolean) => {
 		try {
 			if (semanticCachePlugin) {
+				const editor = toEditorCacheConfig(semanticCachePlugin.config as Partial<EditorCacheConfig>);
+				const payload = buildPayload(editor, inferMode(editor));
 				await updatePlugin({
 					name: SEMANTIC_CACHE_PLUGIN,
-					data: { enabled: checked, config: semanticCachePlugin.config },
+					data: { enabled: checked, config: payload },
 				}).unwrap();
 			} else {
 				if (!checked) return;

@@ -136,6 +136,21 @@ func TestInit_RejectsZeroDimensionWithProvider(t *testing.T) {
 	}
 }
 
+func TestInit_NormalizesStaleProviderForDirectOnlyMode(t *testing.T) {
+	cfg := &Config{Provider: "mimo", EmbeddingModel: "text-embedding-3-small", Dimension: 1}
+	plugin, err := Init(context.Background(), cfg, bifrost.NewDefaultLogger(schemas.LogLevelError), newObservableStore())
+	if err != nil {
+		t.Fatalf("expected direct-only mode with stale provider to init, got %v", err)
+	}
+	if cfg.Provider != "" {
+		t.Fatalf("expected provider to be cleared, got %q", cfg.Provider)
+	}
+	if plugin == nil {
+		t.Fatal("expected non-nil plugin")
+	}
+	_ = plugin.Cleanup()
+}
+
 func TestInit_AllowsDirectOnlyMode(t *testing.T) {
 	// Provider="" + Dimension=1 is the documented direct-only mode.
 	cfg := &Config{Dimension: 1}

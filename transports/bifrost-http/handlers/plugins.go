@@ -12,6 +12,7 @@ import (
 	"github.com/maximhq/bifrost/framework/configstore"
 	configstoreTables "github.com/maximhq/bifrost/framework/configstore/tables"
 	"github.com/maximhq/bifrost/framework/plugins"
+	"github.com/maximhq/bifrost/plugins/semanticcache"
 	"github.com/maximhq/bifrost/transports/bifrost-http/lib"
 	"github.com/valyala/fasthttp"
 )
@@ -66,6 +67,13 @@ type UpdatePluginRequest struct {
 // normalizePluginConfig calls the loaded plugin's MarshalConfigForStorage if it
 // implements ConfigMarshallerPlugin. Returns config unchanged if the plugin is not
 // loaded or does not implement the interface. Returns an error if marshalling fails.
+func (h *PluginsHandler) sanitizePluginConfig(name string, config map[string]any) (map[string]any, error) {
+	if name != semanticcache.PluginName || config == nil {
+		return config, nil
+	}
+	return semanticcache.SanitizeConfigMap(config)
+}
+
 func (h *PluginsHandler) normalizePluginConfig(name string, config map[string]any) (map[string]any, error) {
 	out, err := h.pluginsLoader.NormalizePluginConfig(name, config)
 	if err != nil {
@@ -314,6 +322,11 @@ func (h *PluginsHandler) createPlugin(ctx *fasthttp.RequestCtx) {
 		SendError(ctx, fasthttp.StatusBadRequest, fmt.Sprintf("Invalid plugin configuration: %v", err))
 		return
 	}
+	normalizedConfig, err = h.sanitizePluginConfig(request.Name, normalizedConfig)
+	if err != nil {
+		SendError(ctx, fasthttp.StatusBadRequest, fmt.Sprintf("Invalid plugin configuration: %v", err))
+		return
+	}
 	// Create DB entry first to avoid orphaned in-memory state if DB write fails
 	if err := h.configStore.CreatePlugin(ctx, &configstoreTables.TablePlugin{
 		Name:      request.Name,
@@ -451,6 +464,11 @@ func (h *PluginsHandler) updatePlugin(ctx *fasthttp.RequestCtx) {
 	}
 	// Normalize through the typed plugin config so custom MarshalJSON (e.g. EnvVar → string) runs.
 	mergedConfig, err = h.normalizePluginConfig(name, mergedConfig)
+	if err != nil {
+		SendError(ctx, fasthttp.StatusBadRequest, fmt.Sprintf("Invalid plugin configuration: %v", err))
+		return
+	}
+	mergedConfig, err = h.sanitizePluginConfig(name, mergedConfig)
 	if err != nil {
 		SendError(ctx, fasthttp.StatusBadRequest, fmt.Sprintf("Invalid plugin configuration: %v", err))
 		return

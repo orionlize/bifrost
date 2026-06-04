@@ -261,11 +261,15 @@ func Init(ctx context.Context, config *Config, logger schemas.Logger, store vect
 	if config.Dimension < 0 {
 		return nil, fmt.Errorf("dimension must be non-negative, got %d", config.Dimension)
 	}
+	if config.Dimension == 0 {
+		return nil, fmt.Errorf("dimension must be >= 1, got 0")
+	}
+	config.NormalizeDirectOnly()
 	if err := config.validateEmbeddingMode(); err != nil {
 		return nil, err
 	}
-	if config.Provider != "" && config.Dimension <= 0 {
-		return nil, fmt.Errorf("dimension must be > 0 when provider is set (got dimension=%d, provider=%q)", config.Dimension, config.Provider)
+	if config.Provider != "" && config.Dimension <= 1 {
+		return nil, fmt.Errorf("dimension must be > 1 when provider is set (got dimension=%d, provider=%q)", config.Dimension, config.Provider)
 	}
 	// Set plugin-specific defaults
 	if config.VectorStoreNamespace == "" {

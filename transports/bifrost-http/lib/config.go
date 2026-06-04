@@ -5291,26 +5291,16 @@ func (c *Config) ValidateSemanticCacheConfig(config *schemas.PluginConfig) error
 		return fmt.Errorf("semantic_cache plugin cannot set both 'provider' and 'embedding_url'; use one embedding mode")
 	}
 
+	if hasDimension && dimension == 1 {
+		sanitizeSemanticCacheDirectOnlyConfigMap(configMap)
+		return nil
+	}
+
 	if !providerExists && !hasDirectEmbedding {
-		if hasDimension && dimension == 1 {
-			delete(configMap, "keys")
-			delete(configMap, "embedding_model")
-			delete(configMap, "embedding_url")
-			delete(configMap, "embedding_api_key")
-			return nil
-		}
 		return fmt.Errorf("semantic_cache plugin requires 'provider' or 'embedding_url' for semantic mode (dimension > 1). For direct-only mode, set dimension: 1 and omit both")
 	}
 
 	if provider == "" && !hasDirectEmbedding {
-		if hasDimension && dimension == 1 {
-			delete(configMap, "provider")
-			delete(configMap, "keys")
-			delete(configMap, "embedding_model")
-			delete(configMap, "embedding_url")
-			delete(configMap, "embedding_api_key")
-			return nil
-		}
 		return fmt.Errorf("semantic_cache plugin requires a non-empty 'provider' or 'embedding_url' for semantic mode (dimension > 1). For direct-only mode, set dimension: 1 and omit both")
 	}
 
@@ -5386,6 +5376,14 @@ func semanticCacheConfigEnvVarIsSet(configMap map[string]interface{}, key string
 	default:
 		return false
 	}
+}
+
+func sanitizeSemanticCacheDirectOnlyConfigMap(configMap map[string]interface{}) {
+	delete(configMap, "provider")
+	delete(configMap, "keys")
+	delete(configMap, "embedding_model")
+	delete(configMap, "embedding_url")
+	delete(configMap, "embedding_api_key")
 }
 
 func semanticCacheConfigDimension(configMap map[string]interface{}) (int, bool, error) {

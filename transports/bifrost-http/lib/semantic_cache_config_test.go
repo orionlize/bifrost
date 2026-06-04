@@ -181,8 +181,14 @@ func TestValidateSemanticCacheConfig_ProviderBackedModeDimensionOne(t *testing.T
 	}
 
 	err := config.ValidateSemanticCacheConfig(pluginConfig)
-	require.Error(t, err)
-	require.Contains(t, err.Error(), "requires 'dimension' > 1")
+	require.NoError(t, err)
+
+	configMap, ok := pluginConfig.Config.(map[string]interface{})
+	require.True(t, ok)
+	_, hasProvider := configMap["provider"]
+	require.False(t, hasProvider, "direct-only mode should remove stale provider")
+	_, hasEmbeddingModel := configMap["embedding_model"]
+	require.False(t, hasEmbeddingModel, "direct-only mode should remove stale embedding_model")
 }
 
 func TestValidateSemanticCacheConfig_ProviderBackedModeMissingEmbeddingModel(t *testing.T) {
