@@ -111,6 +111,11 @@ func TestUnmarshalJSON_TTLFormats(t *testing.T) {
 			expected: 300 * time.Second,
 		},
 		{
+			name:     "numeric nanoseconds from encoding/json duration",
+			json:     `{"dimension": 1536, "ttl": 300000000000}`,
+			expected: 300 * time.Second,
+		},
+		{
 			name:     "omitted",
 			json:     `{"dimension": 1536}`,
 			expected: 0,
@@ -127,6 +132,30 @@ func TestUnmarshalJSON_TTLFormats(t *testing.T) {
 				t.Errorf("Expected TTL %v, got %v", tc.expected, config.TTL)
 			}
 		})
+	}
+}
+
+func TestMarshalJSON_TTLAsSeconds(t *testing.T) {
+	cfg := Config{Dimension: 1536, TTL: 5 * time.Minute}
+	data, err := json.Marshal(cfg)
+	if err != nil {
+		t.Fatalf("marshal: %v", err)
+	}
+	var raw map[string]any
+	if err := json.Unmarshal(data, &raw); err != nil {
+		t.Fatalf("unmarshal map: %v", err)
+	}
+	ttl, ok := raw["ttl"].(float64)
+	if !ok || int(ttl) != 300 {
+		t.Fatalf("expected ttl 300 seconds in JSON, got %#v", raw["ttl"])
+	}
+
+	var round Config
+	if err := json.Unmarshal(data, &round); err != nil {
+		t.Fatalf("round-trip unmarshal: %v", err)
+	}
+	if round.TTL != 5*time.Minute {
+		t.Fatalf("expected 5m TTL after round-trip, got %v", round.TTL)
 	}
 }
 

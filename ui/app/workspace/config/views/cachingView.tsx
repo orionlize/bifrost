@@ -33,6 +33,17 @@ const defaultDirectConfig: EditorCacheConfig = {
 	cache_by_provider: true,
 };
 
+/** Go may persist TTL as int64 nanoseconds; the UI edits TTL in seconds. */
+const normalizeTtlSeconds = (ttl: number | undefined): number | undefined => {
+	if (ttl === undefined || Number.isNaN(ttl)) {
+		return undefined;
+	}
+	if (ttl >= 1_000_000_000) {
+		return Math.round(ttl / 1_000_000_000);
+	}
+	return ttl;
+};
+
 const isEmptyConfig = (config: Partial<EditorCacheConfig> | undefined): boolean => {
 	if (!config) return true;
 	const isZero = (v: unknown) => v === undefined || v === null || v === 0 || v === "";
@@ -46,6 +57,7 @@ const toEditorCacheConfig = (config?: Partial<EditorCacheConfig>): EditorCacheCo
 	return {
 		...defaultDirectConfig,
 		...config,
+		ttl: normalizeTtlSeconds(config.ttl) ?? defaultDirectConfig.ttl,
 		embedding_api_key: toEnvVarFormValue(config.embedding_api_key as EnvVar | string | undefined),
 	};
 };

@@ -72,25 +72,72 @@ func (c *Config) UnmarshalJSON(data []byte) error {
 		return nil
 	}
 
-	// Try string first ("1m"); fall back to a JSON number (seconds).
+	ttl, err := parseConfigTTL(aux.TTL)
+	if err != nil {
+		return err
+	}
+	c.TTL = ttl
+	return nil
+}
+
+// ttlNumericNanosecondsThreshold distinguishes JSON TTL numbers stored as
+// seconds (UI/schema) from legacy values written by encoding/json as int64
+// nanoseconds (e.g. 300000000000 for 5m).
+const ttlNumericNanosecondsThreshold = 1_000_000_000
+
+func parseConfigTTL(raw json.RawMessage) (time.Duration, error) {
 	var s string
-	if err := json.Unmarshal(aux.TTL, &s); err == nil {
+	if err := json.Unmarshal(raw, &s); err == nil {
 		d, err := time.ParseDuration(s)
 		if err != nil {
-			return fmt.Errorf("failed to parse TTL duration string '%s': %w", s, err)
+			return 0, fmt.Errorf("failed to parse TTL duration string '%s': %w", s, err)
 		}
-		c.TTL = d
+		if d < 0 {
+			return 0, fmt.Errorf("TTL must be non-negative, got %v", d)
+		}
+		return d, nil
+	}
+
+	var n float64
+	if err := json.Unmarshal(raw, &n); err != nil {
+		return 0, fmt.Errorf("unsupported TTL value: %s", string(raw))
+	}
+	if n < 0 {
+		return 0, fmt.Errorf("TTL must be non-negative, got %v", time.Duration(n))
+	}
+
+	var d time.Duration
+	if n >= ttlNumericNanosecondsThreshold {
+		if n > float64(1<<63-1) {
+			return 0, fmt.Errorf("TTL value out of range: %v", n)
+		}
+		d = time.Duration(int64(n))
 	} else {
-		var seconds float64
-		if err := json.Unmarshal(aux.TTL, &seconds); err != nil {
-			return fmt.Errorf("unsupported TTL value: %s", string(aux.TTL))
+		d = time.Duration(n * float64(time.Second))
+	}
+	if d < 0 {
+		return 0, fmt.Errorf("TTL must be non-negative, got %v", d)
+	}
+	return d, nil
+}
+
+// MarshalJSON emits TTL as whole seconds for API/UI; omits zero so Init defaults apply.
+func (c Config) MarshalJSON() ([]byte, error) {
+	type alias Config
+	aux := struct {
+		*alias
+		TTL *int64 `json:"ttl,omitempty"`
+	}{
+		alias: (*alias)(&c),
+	}
+	if c.TTL > 0 {
+		seconds := int64(c.TTL / time.Second)
+		if seconds == 0 && c.TTL > 0 {
+			seconds = 1
 		}
-		c.TTL = time.Duration(seconds * float64(time.Second))
+		aux.TTL = &seconds
 	}
-	if c.TTL < 0 {
-		return fmt.Errorf("TTL must be non-negative, got %v", c.TTL)
-	}
-	return nil
+	return json.Marshal(aux)
 }
 
 // StreamChunk is one chunk from a streaming response, retained until the
