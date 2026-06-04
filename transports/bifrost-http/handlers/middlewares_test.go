@@ -2205,11 +2205,30 @@ func TestApplyGlobalAPIKeyAuth_SetsAdminUserForLogging(t *testing.T) {
 	}
 }
 
+func TestForwardRequestLogMiddleware_SkipsNonInferenceRequests(t *testing.T) {
+	capture := &httpRequestLogCapture{}
+	SetLogger(capture)
+
+	ctx := &fasthttp.RequestCtx{}
+	ctx.Request.Header.SetMethod("GET")
+	ctx.Request.SetRequestURI("/api/plugins")
+
+	handler := ForwardRequestLogMiddleware()(func(ctx *fasthttp.RequestCtx) {
+		ctx.SetStatusCode(fasthttp.StatusOK)
+	})
+	handler(ctx)
+
+	if capture.msg != "" {
+		t.Fatalf("expected no access log for management route, got message %q", capture.msg)
+	}
+}
+
 func TestForwardRequestLogMiddleware_LogsStructuredHTTPRequest(t *testing.T) {
 	capture := &httpRequestLogCapture{}
 	SetLogger(capture)
 
 	ctx := &fasthttp.RequestCtx{}
+	ctx.SetUserValue(lib.FastHTTPUserValueInferenceForward, true)
 	ctx.Request.Header.SetMethod("POST")
 	ctx.Request.SetRequestURI("/v1/chat/completions")
 	ctx.Request.Header.Set("Authorization", "Bearer secret")

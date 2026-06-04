@@ -1641,6 +1641,7 @@ func (s *BifrostHTTPServer) Bootstrap(ctx context.Context) error {
 	// TransportInterceptor must be inside TracingMiddleware so that the tracing defer
 	// runs AFTER transport post-hooks (capturing HTTPTransportPostHook plugin logs).
 	// Order: Tracing.pre → TransportInterceptor.pre → handler → TransportInterceptor.post → Tracing.defer
+	inferenceMiddlewares = append([]schemas.BifrostHTTPMiddleware{handlers.InferenceForwardMarkerMiddleware()}, inferenceMiddlewares...)
 	inferenceMiddlewares = append([]schemas.BifrostHTTPMiddleware{handlers.TransportInterceptorMiddleware(s.Config)}, inferenceMiddlewares...)
 	inferenceMiddlewares = append([]schemas.BifrostHTTPMiddleware{s.TracingMiddleware.Middleware()}, inferenceMiddlewares...)
 

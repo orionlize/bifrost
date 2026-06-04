@@ -32,6 +32,9 @@ const (
 	// FastHTTPUserValueLargeResponseMode marks requests that streamed a large response body.
 	// It is used by transport middleware to avoid re-buffering response bodies for post-hooks.
 	FastHTTPUserValueLargeResponseMode = "__bifrost_large_response_mode"
+	// FastHTTPUserValueInferenceForward marks requests handled by the inference/forwarding
+	// middleware chain (LLM provider routes). Used to scope HTTP access logs.
+	FastHTTPUserValueInferenceForward = "__bifrost_inference_forward"
 	// FastHTTPUserValueModelCatalogResolution stores model catalog resolution metadata
 	// set by prepare*Request functions when a provider was auto-resolved. Picked up
 	// centrally in ConvertToBifrostContext to add the routing engine log.

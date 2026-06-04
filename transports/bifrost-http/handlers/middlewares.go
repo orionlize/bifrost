@@ -36,6 +36,17 @@ var realtimeTransportPaths = buildRealtimeTransportPathSet()
 
 const forwardRequestLogErrorBodyMaxBytes = 8 * 1024
 
+// InferenceForwardMarkerMiddleware marks the request as an inference/forwarding route so
+// ForwardRequestLogMiddleware emits an access log. Management/UI routes omit this marker.
+func InferenceForwardMarkerMiddleware() schemas.BifrostHTTPMiddleware {
+	return func(next fasthttp.RequestHandler) fasthttp.RequestHandler {
+		return func(ctx *fasthttp.RequestCtx) {
+			ctx.SetUserValue(lib.FastHTTPUserValueInferenceForward, true)
+			next(ctx)
+		}
+	}
+}
+
 // ForwardRequestLogMiddleware logs one structured HTTP access line per request after
 // the handler returns, using the same logger.LogHTTPRequest path as other transport logs.
 func ForwardRequestLogMiddleware() schemas.BifrostHTTPMiddleware {
@@ -52,6 +63,9 @@ func ForwardRequestLogMiddleware() schemas.BifrostHTTPMiddleware {
 
 func writeForwardRequestLog(ctx *fasthttp.RequestCtx, start time.Time) {
 	if logger == nil {
+		return
+	}
+	if marked, ok := ctx.UserValue(lib.FastHTTPUserValueInferenceForward).(bool); !ok || !marked {
 		return
 	}
 
