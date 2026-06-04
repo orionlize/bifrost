@@ -1,45 +1,33 @@
 package handlers
 
 import (
-	"net/url"
-	"strings"
 	"testing"
 
 	"github.com/valyala/fasthttp"
 )
 
-func TestBuildOAuthCallbackRedirectURI(t *testing.T) {
-	base := "http://localhost:8080/api/aone/oauth/callback"
-	postLogin := "https://app.example.com/callback"
-	got := buildOAuthCallbackRedirectURI(base, postLogin, "")
-	want := "http://localhost:8080/api/aone/oauth/callback?post_login_redirect=https%3A%2F%2Fapp.example.com%2Fcallback"
+func TestBuildOAuthCallbackRedirectURIStripsPostLoginQuery(t *testing.T) {
+	base := "http://localhost:8080/api/aone/oauth/callback?post_login_redirect=https%3A%2F%2Fapp.example.com%2Fcallback"
+	got := buildOAuthCallbackRedirectURI(base)
+	want := "http://localhost:8080/api/aone/oauth/callback"
 	if got != want {
 		t.Fatalf("got %q, want %q", got, want)
 	}
-	outer := url.QueryEscape(got)
-	if !strings.Contains(outer, "%3Fpost_login_redirect%3D") {
-		t.Fatalf("outer redirect_uri encoding lost nested query: %q", outer)
-	}
 }
 
-func TestBuildOAuthCallbackRedirectURIEncodesNestedQueryValues(t *testing.T) {
+func TestBuildOAuthCallbackRedirectURIIgnoresPostLoginRedirectArg(t *testing.T) {
 	base := "http://localhost:8080/api/aone/oauth/callback"
-	postLogin := "https://app.example.com/callback?foo=bar&baz=1"
-	got := buildOAuthCallbackRedirectURI(base, postLogin, "")
-	wantPrefix := "http://localhost:8080/api/aone/oauth/callback?post_login_redirect="
-	if !strings.HasPrefix(got, wantPrefix) {
-		t.Fatalf("got %q", got)
-	}
-	innerValue := strings.TrimPrefix(got, wantPrefix)
-	if innerValue != url.QueryEscape(postLogin) {
-		t.Fatalf("inner value %q, want %q", innerValue, url.QueryEscape(postLogin))
+	got := buildOAuthCallbackRedirectURI(base)
+	want := "http://localhost:8080/api/aone/oauth/callback"
+	if got != want {
+		t.Fatalf("got %q, want %q", got, want)
 	}
 }
 
 func TestExtractPostLoginRedirectFromCallback(t *testing.T) {
 	ctx := &fasthttp.RequestCtx{}
 	ctx.URI().SetQueryString("code=abc&state=xyz&post_login_redirect=https%3A%2F%2Fapp.example.com%2Fcb")
-	got := extractPostLoginRedirectFromCallback(ctx)
+	got := extractPostLoginRedirectFromCallback(ctx, "")
 	want := "https://app.example.com/cb"
 	if got != want {
 		t.Fatalf("got %q, want %q", got, want)
@@ -182,7 +170,7 @@ func TestAoneOAuthStateStoreReturnTo(t *testing.T) {
 	store := NewAoneOAuthStateStore()
 	defer store.Stop()
 
-	oauthRedirectURI := "http://localhost:8080/api/aone/oauth/callback?post_login_redirect=https%3A%2F%2Fapp.example.com%2Fcallback"
+	oauthRedirectURI := "http://localhost:8080/api/aone/oauth/callback"
 	state, err := store.Issue("http://localhost:8080/login/complete?redirect_uri=https%3A%2F%2Fapp.example.com%2Fcallback", "https://app.example.com/callback", oauthRedirectURI, "", "")
 	if err != nil {
 		t.Fatalf("issue state: %v", err)
@@ -206,7 +194,7 @@ func TestAoneOAuthStateStoreReturnTo(t *testing.T) {
 }
 
 func TestResolveOAuthRedirectURIUsesConfiguredCallback(t *testing.T) {
-	got := buildOAuthCallbackRedirectURI("http://localhost:8080/api/aone/oauth/callback", "", "")
+	got := buildOAuthCallbackRedirectURI("http://localhost:8080/api/aone/oauth/callback")
 	want := "http://localhost:8080/api/aone/oauth/callback"
 	if got != want {
 		t.Fatalf("got %q, want %q", got, want)
@@ -330,9 +318,8 @@ func TestBuildOAuthCallbackRedirectURIUsesNormalizedBase(t *testing.T) {
 	ctx := &fasthttp.RequestCtx{}
 	ctx.Request.SetHost("localhost:8080")
 	base := resolveAoneOAuthCallbackBaseURI(ctx, "http://localhost:3000/api/aone/oauth/callback", "")
-	postLogin := "https://app.example.com/callback"
-	got := buildOAuthCallbackRedirectURI(base, postLogin, "/bifrost")
-	want := "http://localhost:8080/api/aone/oauth/callback?post_login_redirect=https%3A%2F%2Fapp.example.com%2Fcallback"
+	got := buildOAuthCallbackRedirectURI(base)
+	want := "http://localhost:8080/api/aone/oauth/callback"
 	if got != want {
 		t.Fatalf("got %q, want %q", got, want)
 	}

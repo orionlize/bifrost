@@ -250,7 +250,7 @@ func (h *AoneOAuthHandler) authorize(ctx *fasthttp.RequestCtx) {
 		if externalRedirectURI != "" {
 			returnTo = resolveAuthorizeReturnTo(ctx, returnTo, externalRedirectURI, basePath)
 		}
-		oauthRedirectURI = buildOAuthCallbackRedirectURI(configuredCallbackURI, externalRedirectURI, basePath)
+		oauthRedirectURI = buildOAuthCallbackRedirectURI(configuredCallbackURI)
 	}
 	returnTo = ensureSubpathRedirect(basePath, returnTo)
 
@@ -278,9 +278,6 @@ func (h *AoneOAuthHandler) callback(ctx *fasthttp.RequestCtx) {
 	if !stateValid {
 		h.redirectTo(ctx, aoneOAuthLoginRedirect("", callbackPostLoginRedirect, "", "Invalid or expired OAuth state", basePath))
 		return
-	}
-	if loginSource != loginSourceZdSwitch && callbackPostLoginRedirect != "" {
-		externalRedirectURI = callbackPostLoginRedirect
 	}
 	if loginSource == loginSourceZdSwitch {
 		returnTo = buildZdSwitchSuccessReturnTo(ctx, "", "", basePath)
@@ -323,8 +320,6 @@ func (h *AoneOAuthHandler) callback(ctx *fasthttp.RequestCtx) {
 		} else {
 			oauthRedirectURI = buildOAuthCallbackRedirectURI(
 				resolveAoneOAuthCallbackBaseURI(ctx, cfg.RedirectURI.GetValue(), basePath),
-				externalRedirectURI,
-				basePath,
 			)
 		}
 	}
@@ -783,11 +778,13 @@ func requestHostOrigin(ctx *fasthttp.RequestCtx) string {
 	return scheme + "://" + host
 }
 
-func buildOAuthCallbackRedirectURI(baseRedirectURI, postLoginRedirect, basePath string) string {
+// buildOAuthCallbackRedirectURI returns the redirect_uri registered with Aone and used
+// in token exchange. It must not include post-login query parameters; those are stored
+// in the OAuth state store instead.
+func buildOAuthCallbackRedirectURI(baseRedirectURI string) string {
 	baseRedirectURI = strings.TrimSpace(baseRedirectURI)
-	postLoginRedirect = validateLoginRedirectURI(postLoginRedirect, basePath)
-	if baseRedirectURI == "" || postLoginRedirect == "" {
-		return baseRedirectURI
+	if baseRedirectURI == "" {
+		return ""
 	}
 	baseParsed, err := url.Parse(baseRedirectURI)
 	if err != nil {
@@ -796,16 +793,7 @@ func buildOAuthCallbackRedirectURI(baseRedirectURI, postLoginRedirect, basePath 
 	baseParsed.Fragment = ""
 	baseParsed.RawQuery = ""
 	baseParsed.ForceQuery = false
-
-	innerQuery := url.Values{}
-	innerQuery.Set(postLoginRedirectQueryKey, postLoginRedirect)
-
-	return (&url.URL{
-		Scheme:   baseParsed.Scheme,
-		Host:     baseParsed.Host,
-		Path:     baseParsed.Path,
-		RawQuery: innerQuery.Encode(),
-	}).String()
+	return baseParsed.String()
 }
 
 func extractPostLoginRedirectFromCallback(ctx *fasthttp.RequestCtx, basePath string) string {
