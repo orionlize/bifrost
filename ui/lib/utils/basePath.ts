@@ -1,4 +1,11 @@
-/** Canonical HTTP path prefix for subpath deployments (for example `/bifrost`). */
+declare global {
+	interface Window {
+		/** Injected by the Go server from runtime BIFROST_BASE_PATH when serving index.html. */
+		__BIFROST_BASE_PATH__?: string;
+	}
+}
+
+/** Canonical HTTP path prefix for subpath deployments (for example `/zai`). */
 export function normalizeBasePath(path: string | undefined): string {
 	if (!path || path === "/") {
 		return "";
@@ -10,8 +17,14 @@ export function normalizeBasePath(path: string | undefined): string {
 	return normalized.replace(/\/+$/, "");
 }
 
-/** Base path for subpath deployments (from Vite `base` / BIFROST_BASE_PATH at build time). */
+/** Base path for subpath deployments (runtime injection, Vite base, or build-time env). */
 export function getBasePath(): string {
+	if (typeof window !== "undefined") {
+		const runtime = normalizeBasePath(window.__BIFROST_BASE_PATH__);
+		if (runtime) {
+			return runtime;
+		}
+	}
 	const fromVite = normalizeBasePath(import.meta.env.BASE_URL);
 	if (fromVite) {
 		return fromVite;

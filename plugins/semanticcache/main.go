@@ -226,6 +226,9 @@ const (
 	CacheThresholdKey schemas.BifrostContextKey = "semantic_cache-threshold"  // float64. Per-request override of the semantic similarity threshold.
 	CacheTypeKey      schemas.BifrostContextKey = "semantic_cache-cache_type" // CacheType. Narrow lookup to a single path (direct or semantic).
 	CacheNoStoreKey   schemas.BifrostContextKey = "semantic_cache-no_store"   // bool. Skip writing the response to cache (still served from cache on hit).
+	// InternalEmbeddingRequestKey marks embedding calls issued by this plugin for
+	// semantic search. PreLLMHook skips caching on these; logging still runs.
+	InternalEmbeddingRequestKey schemas.BifrostContextKey = "semantic_cache-internal_embedding"
 )
 
 type CacheType string
@@ -337,6 +340,10 @@ func (plugin *Plugin) HTTPTransportStreamChunkHook(ctx *schemas.BifrostContext, 
 // state on the plugin keyed by request ID for PostLLMHook to consume when
 // the upstream response arrives.
 func (plugin *Plugin) PreLLMHook(ctx *schemas.BifrostContext, req *schemas.BifrostRequest) (*schemas.BifrostRequest, *schemas.LLMPluginShortCircuit, error) {
+	if internal, ok := ctx.Value(InternalEmbeddingRequestKey).(bool); ok && internal {
+		return req, nil, nil
+	}
+
 	cacheKey, ok := plugin.resolveCacheKey(ctx)
 	if !ok {
 		return req, nil, nil

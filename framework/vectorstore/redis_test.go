@@ -1815,3 +1815,41 @@ func TestRedisStore_NamespaceDimensionHandling(t *testing.T) {
 		assert.Empty(t, setup.Store.getNamespaceFieldTypes(testNamespace))
 	})
 }
+
+func TestVectorDimensionFromFTInfoReply_RESP2(t *testing.T) {
+	resp2 := []interface{}{
+		"index_name", "bifrost_semantic_cache",
+		"attributes", []interface{}{
+			[]interface{}{
+				"identifier", "embedding",
+				"attribute", "embedding",
+				"type", "VECTOR",
+				"dim", int64(1536),
+			},
+		},
+	}
+	dim, ok := vectorDimensionFromFTInfoReply(resp2)
+	require.True(t, ok)
+	assert.Equal(t, 1536, dim)
+}
+
+func TestVectorDimensionFromFTInfoReply_RESP3(t *testing.T) {
+	resp3 := map[string]interface{}{
+		"index_name": "bifrost_semantic_cache",
+		"attributes": []interface{}{
+			map[string]interface{}{
+				"identifier": "embedding",
+				"type":       "VECTOR",
+				"dim":        768,
+			},
+		},
+	}
+	dim, ok := vectorDimensionFromFTInfoReply(resp3)
+	require.True(t, ok)
+	assert.Equal(t, 768, dim)
+}
+
+func TestVectorDimensionFromFTInfoReply_MissingAttributes(t *testing.T) {
+	_, ok := vectorDimensionFromFTInfoReply([]interface{}{"index_name", "test"})
+	assert.False(t, ok)
+}

@@ -16,12 +16,14 @@ import (
 // UIHandler handles UI routes.
 type UIHandler struct {
 	uiContent embed.FS
+	basePath  string
 }
 
 // NewUIHandler creates a new UIHandler instance.
-func NewUIHandler(uiContent embed.FS) *UIHandler {
+func NewUIHandler(uiContent embed.FS, basePath string) *UIHandler {
 	return &UIHandler{
 		uiContent: uiContent,
+		basePath:  lib.NormalizeBasePath(basePath),
 	}
 }
 
@@ -42,11 +44,11 @@ func (h *UIHandler) serveDashboard(ctx *fasthttp.RequestCtx) {
 	// Handle .txt files - map from /{page}.txt to /{page}/index.txt
 	if strings.HasSuffix(cleanPath, ".txt") {
 		// Remove .txt extension and add /index.txt
-		basePath := strings.TrimSuffix(cleanPath, ".txt")
-		if basePath == "/" || basePath == "" {
-			basePath = "/index"
+		pathWithoutSuffix := strings.TrimSuffix(cleanPath, ".txt")
+		if pathWithoutSuffix == "/" || pathWithoutSuffix == "" {
+			pathWithoutSuffix = "/index"
 		}
-		cleanPath = basePath + "/index.txt"
+		cleanPath = pathWithoutSuffix + "/index.txt"
 	}
 
 	// Remove leading slash and add ui prefix
@@ -127,6 +129,9 @@ func (h *UIHandler) serveDashboard(ctx *fasthttp.RequestCtx) {
 		ctx.Response.Header.Set("Cache-Control", "public, max-age=31536000, immutable")
 	} else if ext == ".html" {
 		ctx.Response.Header.Set("Cache-Control", "no-cache")
+		if h.basePath != "" {
+			data = injectRuntimeBasePath(data, h.basePath)
+		}
 	} else {
 		ctx.Response.Header.Set("Cache-Control", "public, max-age=3600")
 	}

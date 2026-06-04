@@ -76,18 +76,16 @@ func (s *RedisStore) CreateNamespace(ctx context.Context, namespace string, dime
 	ctx, cancel := withTimeout(ctx, time.Duration(s.config.ContextTimeout))
 	defer cancel()
 
-	// Check if index already exists
+	// Check if index already exists. Parse the raw FT.INFO reply from Do() so we
+	// do not call FTInfo(), which requires UnstableResp3 on go-redis v9.17 with RESP3.
 	infoResult := s.client.Do(ctx, "FT.INFO", namespace)
 	if infoResult.Err() == nil {
-		ftInfo, ftInfoErr := s.client.FTInfo(ctx, namespace).Result()
-		if ftInfoErr != nil {
-			s.logger.Warn(fmt.Sprintf("could not inspect existing index %q for dimension validation (check skipped): %v", namespace, ftInfoErr))
-		} else {
-			for _, attr := range ftInfo.Attributes {
-				if strings.EqualFold(attr.Type, "VECTOR") && attr.Dim > 0 && attr.Dim != dimension {
-					return fmt.Errorf("namespace %q already exists with dimension %d but config requires %d — update vector_store_namespace to a new name or drop the existing index manually", namespace, attr.Dim, dimension)
-				}
+		if existingDim, ok := vectorDimensionFromFTInfoReply(infoResult.Val()); ok {
+			if existingDim > 0 && existingDim != dimension {
+				return fmt.Errorf("namespace %q already exists with dimension %d but config requires %d — update vector_store_namespace to a new name or drop the existing index manually", namespace, existingDim, dimension)
 			}
+		} else {
+			s.logger.Warn(fmt.Sprintf("could not parse vector dimension from existing index %q (dimension check skipped)", namespace))
 		}
 		s.cacheNamespaceFieldTypes(namespace, properties)
 		return nil // Index already exists with matching dimension
@@ -669,6 +667,133 @@ func matchesQueriesForScan(properties map[string]interface{}, queries []Query) b
 		}
 	}
 	return true
+}
+
+// vectorDimensionFromFTInfoReply extracts the DIM of the first VECTOR attribute
+// from an FT.INFO reply (RESP2 flat array or RESP3 map).
+func vectorDimensionFromFTInfoReply(val interface{}) (int, bool) {
+	attrs := ftInfoAttributes(val)
+	if attrs == nil {
+		return 0, false
+	}
+	for _, attr := range attrs {
+		if dim, ok := vectorAttributeDimension(attr); ok {
+			return dim, true
+		}
+	}
+	return 0, false
+}
+
+func ftInfoAttributes(val interface{}) []interface{} {
+	switch top := val.(type) {
+	case []interface{}:
+		for i := 0; i+1 < len(top); i += 2 {
+			key, ok := toString(top[i])
+			if !ok || !strings.EqualFold(key, "attributes") {
+				continue
+			}
+			attrs, ok := top[i+1].([]interface{})
+			if ok {
+				return attrs
+			}
+		}
+	case map[string]interface{}:
+		if attrs, ok := top["attributes"].([]interface{}); ok {
+			return attrs
+		}
+	case map[interface{}]interface{}:
+		if raw, ok := top["attributes"]; ok {
+			if attrs, ok := raw.([]interface{}); ok {
+				return attrs
+			}
+		}
+	}
+	return nil
+}
+
+func vectorAttributeDimension(attr interface{}) (int, bool) {
+	fields := ftInfoKeyValuePairs(attr)
+	isVector := false
+	dim := 0
+	hasDim := false
+	for k, v := range fields {
+		switch k {
+		case "type":
+			if s, ok := toString(v); ok && strings.EqualFold(s, "VECTOR") {
+				isVector = true
+			}
+		case "dim", "dimension":
+			if d, ok := redisReplyInt(v); ok {
+				dim = d
+				hasDim = true
+			}
+		}
+	}
+	if isVector && hasDim {
+		return dim, true
+	}
+	return 0, false
+}
+
+func ftInfoKeyValuePairs(val interface{}) map[string]interface{} {
+	normalized := make(map[string]interface{})
+	switch typed := val.(type) {
+	case []interface{}:
+		for i := 0; i+1 < len(typed); i += 2 {
+			k, ok := toString(typed[i])
+			if !ok {
+				continue
+			}
+			normalized[strings.ToLower(k)] = typed[i+1]
+		}
+	case map[string]interface{}:
+		for k, v := range typed {
+			normalized[strings.ToLower(k)] = v
+		}
+	case map[interface{}]interface{}:
+		for k, v := range typed {
+			ks, ok := toString(k)
+			if !ok {
+				continue
+			}
+			normalized[strings.ToLower(ks)] = v
+		}
+	}
+	return normalized
+}
+
+func redisReplyInt(value interface{}) (int, bool) {
+	switch n := value.(type) {
+	case int:
+		return n, true
+	case int8:
+		return int(n), true
+	case int16:
+		return int(n), true
+	case int32:
+		return int(n), true
+	case int64:
+		return int(n), true
+	case uint:
+		return int(n), true
+	case uint8:
+		return int(n), true
+	case uint16:
+		return int(n), true
+	case uint32:
+		return int(n), true
+	case uint64:
+		return int(n), true
+	case float32:
+		return int(n), true
+	case float64:
+		return int(n), true
+	case string:
+		parsed, err := strconv.Atoi(strings.TrimSpace(n))
+		return parsed, err == nil
+	default:
+		return 0, false
+	}
 }
 
 // parseSearchResults parses FT.SEARCH results into SearchResult slice.

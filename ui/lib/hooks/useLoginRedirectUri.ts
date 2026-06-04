@@ -5,6 +5,8 @@ import {
 	resolveLoginRedirectUriFromUrl,
 	syncLoginRedirectStashFromLocation,
 } from "@/lib/utils/loginGoto";
+import { withBasePath } from "@/lib/utils/basePath";
+import { DEFAULT_POST_LOGIN_PATH } from "@/lib/utils/loginGoto";
 import { getEndpointUrl } from "@/lib/utils/port";
 import {
 	getLoginSourceFromSearch,
@@ -74,7 +76,8 @@ export function buildAoneOAuthAuthorizeUrl(options?: { redirectUri?: string | nu
 }
 
 export function navigateToAoneOAuthAuthorize(): void {
-	window.location.href = buildAoneOAuthAuthorizeUrl();
+	const redirectUri = resolveLoginRedirectUriForOAuth() ?? withBasePath(DEFAULT_POST_LOGIN_PATH);
+	window.location.href = buildAoneOAuthAuthorizeUrl({ redirectUri });
 }
 
 export function navigateToZdSwitchHandoff(): void {

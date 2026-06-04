@@ -471,6 +471,63 @@ func TestResolveCacheTypes_EmitsPluginLogOnInvalidValue(t *testing.T) {
 	}
 }
 
+func TestGenerateEmbedding_UsesDistinctRequestIDAndParentForLogging(t *testing.T) {
+	plugin := newTestPlugin(t, newObservableStore())
+	parentRequestID := "parent-req-123"
+	var capturedCtx *schemas.BifrostContext
+	plugin.SetEmbeddingRequestExecutor(func(ctx *schemas.BifrostContext, _ *schemas.BifrostEmbeddingRequest) (*schemas.BifrostEmbeddingResponse, *schemas.BifrostError) {
+		capturedCtx = ctx
+		return &schemas.BifrostEmbeddingResponse{
+			Data: []schemas.EmbeddingData{{
+				Embedding: schemas.EmbeddingStruct{EmbeddingArray: []float64{0.1, 0.2}},
+			}},
+		}, nil
+	})
+
+	root := newBaseTestContext().WithValue(schemas.BifrostContextKeyRequestID, parentRequestID)
+	_, _, err := plugin.generateEmbedding(root, "hello")
+	if err != nil {
+		t.Fatalf("generateEmbedding failed: %v", err)
+	}
+	if capturedCtx == nil {
+		t.Fatal("expected embedding executor to be called")
+	}
+	if skip, ok := capturedCtx.Value(schemas.BifrostContextKeySkipPluginPipeline).(bool); ok && skip {
+		t.Fatal("internal embedding call must not skip the plugin pipeline (logging should run)")
+	}
+	if got, ok := capturedCtx.Value(InternalEmbeddingRequestKey).(bool); !ok || !got {
+		t.Fatalf("expected InternalEmbeddingRequestKey=true, got %v", capturedCtx.Value(InternalEmbeddingRequestKey))
+	}
+	if got, ok := capturedCtx.Value(schemas.BifrostContextKeyParentRequestID).(string); !ok || got != parentRequestID {
+		t.Fatalf("expected parent request id %q, got %q", parentRequestID, got)
+	}
+	if got, ok := capturedCtx.Value(schemas.BifrostContextKeyRequestID).(string); !ok || got == "" || got == parentRequestID {
+		t.Fatalf("expected distinct child request id, got %q", got)
+	}
+}
+
+func TestPreLLMHook_SkipsInternalEmbeddingRequest(t *testing.T) {
+	plugin := newTestPlugin(t, newObservableStore())
+	req := &schemas.BifrostRequest{
+		RequestType:      schemas.EmbeddingRequest,
+		EmbeddingRequest: CreateEmbeddingRequest([]string{"hello"}),
+	}
+	ctx := newBaseTestContext().
+		WithValue(schemas.BifrostContextKeyRequestID, "child-embedding-req").
+		WithValue(InternalEmbeddingRequestKey, true).
+		WithValue(CacheKey, "should-not-cache")
+
+	if _, sc, err := plugin.PreLLMHook(ctx, req); err != nil {
+		t.Fatalf("PreLLMHook failed: %v", err)
+	}
+	if sc != nil {
+		t.Fatal("expected internal embedding request to bypass semantic cache")
+	}
+	if _, ok := plugin.cacheStates.Load("child-embedding-req"); ok {
+		t.Fatal("expected no cache state for internal embedding request")
+	}
+}
+
 // -----------------------------------------------------------------------------
 // generateEmbedding handles all EmbeddingStruct representations
 // -----------------------------------------------------------------------------

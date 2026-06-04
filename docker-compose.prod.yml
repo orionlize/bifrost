@@ -7,10 +7,11 @@
 #   docker compose -f docker-compose.prod.yml -f docker-compose.prod.cn.yml up -d
 #   See docker-daemon.mirror.example.json for Docker Engine registry-mirrors.
 #
-# Subpath deployment (UI + dashboard API under /bifrost):
-#   BIFROST_BASE_PATH=/bifrost docker compose -f docker-compose.prod.yml up -d
-#   Note: BIFROST_BASE_PATH must match how the image was built. Use a tag built
-#   with the same base path, or rebuild/publish a custom image.
+# Subpath deployment (UI + dashboard API under /zai):
+#   BIFROST_BASE_PATH=/zai docker compose -f docker-compose.prod.yml up -d
+#   Note: BIFROST_BASE_PATH must match how the image was built (Vite base + router).
+#   Rebuild with: docker build -f transports/Dockerfile.local --build-arg BIFROST_BASE_PATH=/zai ...
+#   Aone OAuth callback: https://<host>/zai/api/aone/oauth/callback
 #
 # Copy .env.example to .env and adjust as needed:
 #   cp .env.example .env
@@ -64,7 +65,7 @@ services:
       LOG_STYLE: json
       GOGC: "200"
       GOMEMLIMIT: 3600MiB
-      BIFROST_BASE_PATH: ${BIFROST_BASE_PATH:-}
+      BIFROST_BASE_PATH: ${BIFROST_BASE_PATH:-/zai}
       BIFROST_ENV: production
       BIFROST_REDIS_ADDR: ${BIFROST_REDIS_ADDR:-valkey:6379}
       BIFROST_REDIS_USERNAME: ${BIFROST_REDIS_USERNAME:-}
