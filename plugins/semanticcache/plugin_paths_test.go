@@ -517,7 +517,8 @@ func TestPreLLMHook_SkipsInternalEmbeddingRequest(t *testing.T) {
 		WithValue(InternalEmbeddingRequestKey, true).
 		WithValue(CacheKey, "should-not-cache")
 
-	if _, sc, err := plugin.PreLLMHook(ctx, req); err != nil {
+	_, sc, err := plugin.PreLLMHook(ctx, req)
+	if err != nil {
 		t.Fatalf("PreLLMHook failed: %v", err)
 	}
 	if sc != nil {

@@ -1557,7 +1557,30 @@
                     },
                     "embedding_model": {
                       "type": "string",
-                      "description": "Model to use for generating embeddings in provider-backed semantic caching. Required when provider is set and not allowed in direct-only mode."
+                      "description": "Model to use for generating embeddings in semantic caching. Required when provider or embedding_url is set and not allowed in direct-only mode."
+                    },
+                    "embedding_url": {
+                      "type": "string",
+                      "minLength": 1,
+                      "description": "OpenAI-compatible embeddings endpoint URL (e.g. https://api.openai.com/v1/embeddings). Alternative to provider for semantic mode."
+                    },
+                    "embedding_api_key": {
+                      "description": "API key for the direct embedding endpoint. Supports env var syntax via env.* or the EnvVar object format.",
+                      "anyOf": [
+                        {
+                          "type": "string",
+                          "minLength": 1
+                        },
+                        {
+                          "type": "object",
+                          "properties": {
+                            "value": { "type": "string" },
+                            "env_var": { "type": "string" },
+                            "from_env": { "type": "boolean" }
+                          },
+                          "additionalProperties": false
+                        }
+                      ]
                     },
                     "ttl": {
                       "description": "Time-to-live for cached responses (supports duration strings like '5m', '1h' or seconds as number, default: 5min)",
@@ -1639,6 +1662,47 @@
                             "const": 1
                           }
                         }
+                      }
+                    },
+                    {
+                      "if": {
+                        "properties": {
+                          "embedding_url": {
+                            "type": "string",
+                            "minLength": 1
+                          }
+                        },
+                        "required": ["embedding_url"]
+                      },
+                      "then": {
+                        "required": ["embedding_url", "embedding_api_key", "embedding_model"],
+                        "properties": {
+                          "dimension": {
+                            "type": "integer",
+                            "minimum": 2
+                          }
+                        }
+                      }
+                    },
+                    {
+                      "if": {
+                        "properties": {
+                          "dimension": {
+                            "type": "integer",
+                            "minimum": 2
+                          }
+                        },
+                        "required": ["dimension"]
+                      },
+                      "then": {
+                        "anyOf": [
+                          {
+                            "required": ["provider"]
+                          },
+                          {
+                            "required": ["embedding_url"]
+                          }
+                        ]
                       }
                     }
                   ],

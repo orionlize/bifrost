@@ -657,7 +657,20 @@ const providerBackedCacheConfigSchema = baseCacheConfigSchema
 	})
 	.strict();
 
-export const cacheConfigSchema = z.union([directCacheConfigSchema, providerBackedCacheConfigSchema]);
+const directURLEmbeddingCacheConfigSchema = baseCacheConfigSchema
+	.extend({
+		embedding_url: z.string().url("Embedding URL must be a valid URL"),
+		embedding_api_key: envVarSchema,
+		embedding_model: z.string().min(1, "Embedding model is required"),
+		dimension: z.number().int().min(2, "Dimension must be greater than 1 for semantic cache"),
+	})
+	.strict();
+
+export const cacheConfigSchema = z.union([
+	directCacheConfigSchema,
+	providerBackedCacheConfigSchema,
+	directURLEmbeddingCacheConfigSchema,
+]);
 
 // Core config schema
 export const coreConfigSchema = z.object({

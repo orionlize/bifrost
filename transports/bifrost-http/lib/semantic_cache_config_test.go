@@ -92,7 +92,66 @@ func TestValidateSemanticCacheConfig_SemanticModeMissingProvider(t *testing.T) {
 
 	err := config.ValidateSemanticCacheConfig(pluginConfig)
 	require.Error(t, err)
-	require.Contains(t, err.Error(), "requires 'provider' for semantic mode")
+	require.Contains(t, err.Error(), "requires 'provider' or 'embedding_url'")
+}
+
+func TestValidateSemanticCacheConfig_DirectURLModeValidationPasses(t *testing.T) {
+	config := &Config{}
+	pluginConfig := &schemas.PluginConfig{
+		Name: semanticcache.PluginName,
+		Config: map[string]interface{}{
+			"embedding_url":     "https://api.openai.com/v1/embeddings",
+			"embedding_api_key": "env.OPENAI_API_KEY",
+			"embedding_model":   "text-embedding-3-small",
+			"dimension":         1536,
+		},
+	}
+
+	err := config.ValidateSemanticCacheConfig(pluginConfig)
+	require.NoError(t, err)
+
+	configMap, ok := pluginConfig.Config.(map[string]interface{})
+	require.True(t, ok)
+	_, hasProvider := configMap["provider"]
+	require.False(t, hasProvider)
+}
+
+func TestValidateSemanticCacheConfig_DirectURLModeMissingAPIKey(t *testing.T) {
+	config := &Config{}
+	pluginConfig := &schemas.PluginConfig{
+		Name: semanticcache.PluginName,
+		Config: map[string]interface{}{
+			"embedding_url":   "https://api.openai.com/v1/embeddings",
+			"embedding_model": "text-embedding-3-small",
+			"dimension":       1536,
+		},
+	}
+
+	err := config.ValidateSemanticCacheConfig(pluginConfig)
+	require.Error(t, err)
+	require.Contains(t, err.Error(), "embedding_api_key")
+}
+
+func TestValidateSemanticCacheConfig_RejectsProviderAndURLTogether(t *testing.T) {
+	config := &Config{
+		Providers: map[schemas.ModelProvider]configstore.ProviderConfig{
+			schemas.OpenAI: {Keys: []schemas.Key{{Name: "k", Value: *schemas.NewEnvVar("sk-test"), Weight: 1}}},
+		},
+	}
+	pluginConfig := &schemas.PluginConfig{
+		Name: semanticcache.PluginName,
+		Config: map[string]interface{}{
+			"provider":          "openai",
+			"embedding_url":       "https://api.openai.com/v1/embeddings",
+			"embedding_api_key":   "sk-test",
+			"embedding_model":     "text-embedding-3-small",
+			"dimension":           1536,
+		},
+	}
+
+	err := config.ValidateSemanticCacheConfig(pluginConfig)
+	require.Error(t, err)
+	require.Contains(t, err.Error(), "cannot set both")
 }
 
 func TestValidateSemanticCacheConfig_ProviderBackedModeMissingDimension(t *testing.T) {

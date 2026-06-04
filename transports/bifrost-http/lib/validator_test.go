@@ -1046,7 +1046,7 @@ func TestValidateConfigSchema_SemanticCachePlugin_Valid(t *testing.T) {
 }
 
 func TestValidateConfigSchema_SemanticCachePlugin_MissingProvider(t *testing.T) {
-	// Missing required field: provider for semantic mode (dimension > 1)
+	// Missing required field: provider or embedding_url for semantic mode (dimension > 1)
 	invalidConfig := `{
 		"plugins": [
 			{
@@ -1061,7 +1061,29 @@ func TestValidateConfigSchema_SemanticCachePlugin_MissingProvider(t *testing.T) 
 
 	err := ValidateConfigSchema([]byte(invalidConfig), loadLocalSchema(t))
 	if err == nil {
-		t.Error("expected config missing 'provider' in semantic cache plugin to fail validation")
+		t.Error("expected config missing 'provider' or 'embedding_url' in semantic cache plugin to fail validation")
+	}
+}
+
+func TestValidateConfigSchema_SemanticCachePlugin_DirectURLModeValid(t *testing.T) {
+	validConfig := `{
+		"plugins": [
+			{
+				"enabled": true,
+				"name": "semantic_cache",
+				"config": {
+					"embedding_url": "https://api.openai.com/v1/embeddings",
+					"embedding_api_key": "env.OPENAI_API_KEY",
+					"embedding_model": "text-embedding-3-small",
+					"dimension": 1536
+				}
+			}
+		]
+	}`
+
+	err := ValidateConfigSchema([]byte(validConfig), loadLocalSchema(t))
+	if err != nil {
+		t.Errorf("expected direct URL semantic cache config to pass validation, got error: %v", err)
 	}
 }
 

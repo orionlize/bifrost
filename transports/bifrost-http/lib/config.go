@@ -43,6 +43,7 @@ import (
 	"github.com/maximhq/bifrost/plugins/governance"
 	"github.com/maximhq/bifrost/plugins/logging"
 	"github.com/maximhq/bifrost/plugins/maxim"
+	"github.com/maximhq/bifrost/plugins/openaicache"
 	"github.com/maximhq/bifrost/plugins/otel"
 	"github.com/maximhq/bifrost/plugins/prompts"
 	"github.com/maximhq/bifrost/plugins/semanticcache"
@@ -121,6 +122,7 @@ var builtinPluginNames = []string{
 	semanticcache.PluginName,
 	compat.PluginName,
 	maxim.PluginName,
+	openaicache.PluginName,
 }
 
 func GetBuiltinPluginNames() []string {
@@ -5269,60 +5271,121 @@ func (c *Config) ValidateSemanticCacheConfig(config *schemas.PluginConfig) error
 		return err
 	}
 
+	embeddingURL := semanticCacheConfigString(configMap, "embedding_url")
+	hasDirectEmbedding := embeddingURL != ""
+
 	// Check if provider key exists and is a string
-	providerVal, exists := configMap["provider"]
-	if !exists {
+	providerVal, providerExists := configMap["provider"]
+	provider := ""
+	if providerExists {
+		var ok bool
+		provider, ok = providerVal.(string)
+		if !ok {
+			return fmt.Errorf("semantic_cache plugin 'provider' field must be a string, got %T", providerVal)
+		}
+		provider = strings.TrimSpace(provider)
+		configMap["provider"] = provider
+	}
+
+	if hasDirectEmbedding && provider != "" {
+		return fmt.Errorf("semantic_cache plugin cannot set both 'provider' and 'embedding_url'; use one embedding mode")
+	}
+
+	if !providerExists && !hasDirectEmbedding {
 		if hasDimension && dimension == 1 {
 			delete(configMap, "keys")
 			delete(configMap, "embedding_model")
+			delete(configMap, "embedding_url")
+			delete(configMap, "embedding_api_key")
 			return nil
 		}
-		return fmt.Errorf("semantic_cache plugin requires 'provider' for semantic mode (dimension > 1). For direct-only mode, set dimension: 1 and omit provider")
+		return fmt.Errorf("semantic_cache plugin requires 'provider' or 'embedding_url' for semantic mode (dimension > 1). For direct-only mode, set dimension: 1 and omit both")
 	}
 
-	provider, ok := providerVal.(string)
-	if !ok {
-		return fmt.Errorf("semantic_cache plugin 'provider' field must be a string, got %T", providerVal)
-	}
-	provider = strings.TrimSpace(provider)
-	configMap["provider"] = provider
-
-	if provider == "" {
+	if provider == "" && !hasDirectEmbedding {
 		if hasDimension && dimension == 1 {
 			delete(configMap, "provider")
 			delete(configMap, "keys")
 			delete(configMap, "embedding_model")
+			delete(configMap, "embedding_url")
+			delete(configMap, "embedding_api_key")
 			return nil
 		}
-		return fmt.Errorf("semantic_cache plugin requires a non-empty 'provider' for semantic mode (dimension > 1). For direct-only mode, set dimension: 1 and omit provider")
-	}
-	if !hasDimension {
-		return fmt.Errorf("semantic_cache plugin requires 'dimension' for provider-backed semantic mode. For direct-only mode, set dimension: 1 and omit provider")
-	}
-	if dimension <= 1 {
-		return fmt.Errorf("semantic_cache plugin requires 'dimension' > 1 when 'provider' is set. Use dimension: 1 only for direct-only mode without a provider")
+		return fmt.Errorf("semantic_cache plugin requires a non-empty 'provider' or 'embedding_url' for semantic mode (dimension > 1). For direct-only mode, set dimension: 1 and omit both")
 	}
 
-	embeddingModelVal, exists := configMap["embedding_model"]
-	if !exists {
-		return fmt.Errorf("semantic_cache plugin requires 'embedding_model' when 'provider' is set")
+	if !hasDimension {
+		return fmt.Errorf("semantic_cache plugin requires 'dimension' for semantic mode. For direct-only mode, set dimension: 1 and omit provider/embedding_url")
 	}
-	embeddingModel, ok := embeddingModelVal.(string)
-	if !ok {
-		return fmt.Errorf("semantic_cache plugin 'embedding_model' field must be a string, got %T", embeddingModelVal)
+	if dimension <= 1 {
+		return fmt.Errorf("semantic_cache plugin requires 'dimension' > 1 for semantic mode. Use dimension: 1 only for direct-only mode without embeddings")
 	}
-	embeddingModel = strings.TrimSpace(embeddingModel)
+
+	embeddingModel := semanticCacheConfigString(configMap, "embedding_model")
 	if embeddingModel == "" {
-		return fmt.Errorf("semantic_cache plugin requires a non-empty 'embedding_model' when 'provider' is set")
+		return fmt.Errorf("semantic_cache plugin requires 'embedding_model' for semantic mode")
 	}
 	configMap["embedding_model"] = embeddingModel
 
-	// Validate that the provider is configured in the global client (keys are inherited automatically).
+	if hasDirectEmbedding {
+		configMap["embedding_url"] = embeddingURL
+		if !semanticCacheConfigEnvVarIsSet(configMap, "embedding_api_key") {
+			return fmt.Errorf("semantic_cache plugin requires 'embedding_api_key' when 'embedding_url' is set")
+		}
+		delete(configMap, "provider")
+		delete(configMap, "keys")
+		return nil
+	}
+
+	// Provider-backed semantic mode (legacy).
+	if err := c.validateSemanticCacheProvider(provider); err != nil {
+		return err
+	}
+	delete(configMap, "embedding_url")
+	delete(configMap, "embedding_api_key")
+	return nil
+}
+
+func (c *Config) validateSemanticCacheProvider(provider string) error {
 	if _, err := c.GetProviderConfigRaw(schemas.ModelProvider(provider)); err != nil {
 		return fmt.Errorf("failed to get provider config for %s: %w", provider, err)
 	}
-
 	return nil
+}
+
+func semanticCacheConfigString(configMap map[string]interface{}, key string) string {
+	val, exists := configMap[key]
+	if !exists {
+		return ""
+	}
+	s, ok := val.(string)
+	if !ok {
+		return ""
+	}
+	return strings.TrimSpace(s)
+}
+
+func semanticCacheConfigEnvVarIsSet(configMap map[string]interface{}, key string) bool {
+	val, exists := configMap[key]
+	if !exists {
+		return false
+	}
+	switch v := val.(type) {
+	case string:
+		return strings.TrimSpace(v) != ""
+	case map[string]interface{}:
+		if fromEnv, ok := v["from_env"].(bool); ok && fromEnv {
+			if envVar, ok := v["env_var"].(string); ok && strings.TrimSpace(envVar) != "" {
+				return true
+			}
+		}
+		if value, ok := v["value"].(string); ok && strings.TrimSpace(value) != "" {
+			return true
+		}
+		return false
+	default:
+		return false
+	}
 }
 
 func semanticCacheConfigDimension(configMap map[string]interface{}) (int, bool, error) {

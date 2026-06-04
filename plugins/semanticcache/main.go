@@ -25,10 +25,17 @@ import (
 //   - Direct-only mode: set Provider="" and Dimension=1. The plugin disables
 //     semantic search entirely; cache lookups go through the deterministic
 //     direct hash path. Dimension=1 keeps stores that require a vector happy.
+//   - Direct URL mode: set EmbeddingURL + EmbeddingAPIKey + EmbeddingModel +
+//     Dimension > 1. Calls an OpenAI-compatible /embeddings endpoint directly,
+//     without routing through a Bifrost provider.
 type Config struct {
-	// Embedding Model settings - REQUIRED for semantic caching
+	// Provider-backed embedding (legacy). Omit when using EmbeddingURL.
 	Provider       schemas.ModelProvider `json:"provider"`
 	EmbeddingModel string                `json:"embedding_model,omitempty"` // Model to use for generating embeddings (optional)
+
+	// Direct OpenAI-compatible embedding endpoint (alternative to Provider).
+	EmbeddingURL    string          `json:"embedding_url,omitempty"`
+	EmbeddingAPIKey *schemas.EnvVar `json:"embedding_api_key,omitempty"`
 
 	// Plugin behavior settings
 	TTL                  time.Duration `json:"ttl,omitempty"`                    // Time-to-live for cached responses (default: 5min)
@@ -254,6 +261,9 @@ func Init(ctx context.Context, config *Config, logger schemas.Logger, store vect
 	if config.Dimension < 0 {
 		return nil, fmt.Errorf("dimension must be non-negative, got %d", config.Dimension)
 	}
+	if err := config.validateEmbeddingMode(); err != nil {
+		return nil, err
+	}
 	if config.Provider != "" && config.Dimension <= 0 {
 		return nil, fmt.Errorf("dimension must be > 0 when provider is set (got dimension=%d, provider=%q)", config.Dimension, config.Provider)
 	}
@@ -292,10 +302,12 @@ func Init(ctx context.Context, config *Config, logger schemas.Logger, store vect
 		stopCh: make(chan struct{}),
 	}
 
-	if config.Provider == "" && config.Dimension == 1 {
+	if config.Provider == "" && config.Dimension == 1 && !config.usesDirectEmbedding() {
 		logger.Info("Starting in direct-only mode (dimension=1, no embedding provider)")
+	} else if config.usesDirectEmbedding() {
+		logger.Info("Starting in semantic mode with direct embedding URL")
 	} else if config.Provider == "" {
-		logger.Warn("Incomplete semantic mode config: missing provider, falling back to direct search only")
+		logger.Warn("Incomplete semantic mode config: missing provider or embedding_url, falling back to direct search only")
 	}
 
 	createCtx, cancel := context.WithTimeout(ctx, CreateNamespaceTimeout)
@@ -384,10 +396,8 @@ func (plugin *Plugin) PreLLMHook(ctx *schemas.BifrostContext, req *schemas.Bifro
 	// The embedding executor alone isn't a sufficient gate — the framework
 	// wires it on every plugin, but the plugin's config decides whether
 	// semantic search is actually viable.
-	canDoSemanticSearch := plugin.embeddingRequestExecutor != nil &&
-		plugin.config.Provider != "" &&
-		plugin.config.EmbeddingModel != "" &&
-		plugin.config.Dimension > 1 &&
+	canDoSemanticSearch := plugin.config.hasSemanticEmbeddingConfig() &&
+		(plugin.config.usesDirectEmbedding() || plugin.embeddingRequestExecutor != nil) &&
 		req.EmbeddingRequest == nil &&
 		req.TranscriptionRequest == nil
 	if !performDirectSearch && (!performSemanticSearch || !canDoSemanticSearch) {
@@ -692,8 +702,13 @@ func (plugin *Plugin) stampCacheDebugForMiss(state *cacheState, extraFields *sch
 	cd.CacheID = bifrost.Ptr(storageID)
 	if state.EmbeddingsInputTokens > 0 {
 		inputTokens := state.EmbeddingsInputTokens
-		cd.ProviderUsed = bifrost.Ptr(string(plugin.config.Provider))
-		cd.ModelUsed = bifrost.Ptr(plugin.config.EmbeddingModel)
+		if plugin.config.usesDirectEmbedding() {
+			cd.ProviderUsed = bifrost.Ptr("embedding_url")
+			cd.ModelUsed = bifrost.Ptr(plugin.config.EmbeddingModel)
+		} else {
+			cd.ProviderUsed = bifrost.Ptr(string(plugin.config.Provider))
+			cd.ModelUsed = bifrost.Ptr(plugin.config.EmbeddingModel)
+		}
 		cd.InputTokens = &inputTokens
 	}
 }

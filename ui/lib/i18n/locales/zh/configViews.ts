@@ -105,20 +105,23 @@ export const configViews = {
 		cacheMode: "缓存模式",
 		directOnly: "仅 Direct",
 		directPlusSemantic: "Direct + Semantic",
-		semanticModeDisabledTooltip: "配置支持嵌入的提供商以启用 semantic 模式。",
 		directModeDesc:
 			"仅 Direct 模式对每个请求进行哈希并精确重放匹配。无需嵌入，无需提供商。成本最低，适合稳定提示词。",
 		semanticModeDesc:
-			"Direct + semantic 模式在 direct 哈希匹配之上添加向量相似度搜索。需要支持嵌入的提供商和模型的真实维度。Direct 命中仍优先；仅在 direct 查找未命中时运行 semantic 搜索。",
+			"Direct + semantic 模式在 direct 哈希匹配之上添加向量相似度搜索。配置 OpenAI 兼容的嵌入端点（URL、API key、模型和维度）。Direct 命中仍优先；仅在 direct 查找未命中时运行 semantic 搜索。",
 		structuralChangeWarning:
-			"注意：向量存储命名空间只能容纳一种维度的向量。更改嵌入 provider、model 或 dimension 时，请确保 dimension 仍与模型输出匹配，否则对现有命名空间的写入将失败，读取将静默未命中。命名空间不会自动重建；保存前请使用新命名空间或删除向量存储中的现有 class/index。",
-		embeddingProviderModel: "嵌入提供商和模型",
-		configuredProviders: "已配置的提供商",
-		selectProvider: "选择提供商",
+			"注意：向量存储命名空间只能容纳一种维度的向量。更改嵌入端点、model 或 dimension 时，请确保 dimension 仍与模型输出匹配，否则对现有命名空间的写入将失败，读取将静默未命中。命名空间不会自动重建；保存前请使用新命名空间或删除向量存储中的现有 class/index。",
+		embeddingEndpoint: "嵌入端点",
+		embeddingUrl: "嵌入 URL*",
+		embeddingUrlPlaceholder: "https://api.openai.com/v1/embeddings",
+		embeddingUrlDesc:
+			"OpenAI 兼容的 /embeddings 端点。可填写完整 URL，或填写如 https://api.openai.com/v1 的基础地址 — 缺少 /embeddings 时会自动追加。",
+		embeddingApiKey: "API Key*",
+		embeddingApiKeyPlaceholder: "sk-... 或 env.OPENAI_API_KEY",
 		embeddingModel: "嵌入模型*",
-		searchEmbeddingModel: "搜索或输入嵌入模型...",
-		selectProviderFirst: "请先选择提供商",
-		apiKeysInherited: "API 密钥继承自嵌入提供商的主配置，无需在此重复添加。",
+		embeddingModelPlaceholder: "text-embedding-3-small",
+		legacyProviderConfigNotice:
+			"当前缓存仍使用旧版 provider 嵌入配置（{{provider}}）。保存下方字段后将迁移为直接 URL 模式。",
 		dimension: "维度",
 		dimensionDesc:
 			"嵌入模型产生的向量大小。必须与模型完全匹配（例如 OpenAI text-embedding-3-small 为 1536，text-embedding-3-large 为 3072，许多 Cohere/Voyage 模型为 768）。",
@@ -153,6 +156,8 @@ export const configViews = {
 		overrideCacheType: "x-bf-cache-type：发送 direct 或 semantic 以限制查找路径。",
 		overrideNoStore: "x-bf-cache-no-store：true 跳过写入响应（仍会提供缓存命中）。",
 		validationPickProvider: "为 semantic 模式选择嵌入提供商，或切换到仅 Direct。",
+		validationEmbeddingUrl: "为 semantic 模式输入 OpenAI 兼容的嵌入 URL。",
+		validationEmbeddingApiKey: "输入嵌入端点的 API key。",
 		validationPickModel: "为 semantic 模式选择嵌入模型。",
 		validationDimension: "semantic 模式需要嵌入模型的真实维度（必须 > 1）。",
 		validationTtl: "TTL 必须为非负数。",

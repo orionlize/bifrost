@@ -568,10 +568,20 @@ export interface ProviderBackedCacheConfig extends BaseCacheConfig {
 	dimension: number;
 }
 
-export type CacheConfig = DirectCacheConfig | ProviderBackedCacheConfig;
+export interface DirectURLEmbeddingCacheConfig extends BaseCacheConfig {
+	embedding_url: string;
+	embedding_api_key: import("./schemas").EnvVar | string;
+	embedding_model: string;
+	dimension: number;
+	provider?: undefined;
+}
+
+export type CacheConfig = DirectCacheConfig | ProviderBackedCacheConfig | DirectURLEmbeddingCacheConfig;
 
 export interface EditorCacheConfig extends BaseCacheConfig {
 	provider?: ModelProviderName;
+	embedding_url?: string;
+	embedding_api_key?: import("./schemas").EnvVar;
 	embedding_model?: string;
 	dimension?: number;
 }

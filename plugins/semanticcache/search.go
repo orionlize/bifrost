@@ -128,8 +128,13 @@ func selectFieldsForRequest(requestType schemas.RequestType) []string {
 	return selectFieldsNonStream
 }
 
-// generateEmbedding generates an embedding for the given text using the configured provider.
+// generateEmbedding generates an embedding for the given text using either a
+// direct OpenAI-compatible endpoint or the configured Bifrost provider.
 func (plugin *Plugin) generateEmbedding(ctx *schemas.BifrostContext, text string) ([]float32, int, error) {
+	if plugin.config.usesDirectEmbedding() {
+		return plugin.generateDirectEmbedding(ctx, text)
+	}
+
 	embeddingReq := &schemas.BifrostEmbeddingRequest{
 		Provider: plugin.config.Provider,
 		Model:    plugin.config.EmbeddingModel,

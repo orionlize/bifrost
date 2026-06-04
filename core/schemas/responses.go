@@ -277,29 +277,30 @@ func orDefault[T any](src *T, defaultVal T) *T {
 }
 
 type ResponsesParameters struct {
-	Background         *bool                         `json:"background,omitempty"`
-	Conversation       *string                       `json:"conversation,omitempty"`
-	Include            []string                      `json:"include,omitempty"` // Supported values: "web_search_call.action.sources", "code_interpreter_call.outputs", "computer_call_output.output.image_url", "file_search_call.results", "message.input_image.image_url", "message.output_text.logprobs", "reasoning.encrypted_content"
-	Instructions       *string                       `json:"instructions,omitempty"`
-	MaxOutputTokens    *int                          `json:"max_output_tokens,omitempty"`
-	MaxToolCalls       *int                          `json:"max_tool_calls,omitempty"`
-	Metadata           *map[string]any               `json:"metadata,omitempty"`
-	ParallelToolCalls  *bool                         `json:"parallel_tool_calls,omitempty"`
-	PreviousResponseID *string                       `json:"previous_response_id,omitempty"`
-	PromptCacheKey     *string                       `json:"prompt_cache_key,omitempty"`  // Prompt cache key
-	Reasoning          *ResponsesParametersReasoning `json:"reasoning,omitempty"`         // Configuration options for reasoning models
-	SafetyIdentifier   *string                       `json:"safety_identifier,omitempty"` // Safety identifier
-	ServiceTier        *BifrostServiceTier           `json:"service_tier,omitempty"`
-	StreamOptions      *ResponsesStreamOptions       `json:"stream_options,omitempty"`
-	Store              *bool                         `json:"store,omitempty"`
-	Temperature        *float64                      `json:"temperature,omitempty"`
-	Text               *ResponsesTextConfig          `json:"text,omitempty"`
-	TopLogProbs        *int                          `json:"top_logprobs,omitempty"`
-	TopP               *float64                      `json:"top_p,omitempty"`       // Controls diversity via nucleus sampling
-	ToolChoice         *ResponsesToolChoice          `json:"tool_choice,omitempty"` // Whether to call a tool
-	Tools              []ResponsesTool               `json:"tools,omitempty"`       // Tools to use
-	Truncation         *string                       `json:"truncation,omitempty"`
-	User               *string                       `json:"user,omitempty"`
+	Background           *bool                         `json:"background,omitempty"`
+	Conversation         *string                       `json:"conversation,omitempty"`
+	Include              []string                      `json:"include,omitempty"` // Supported values: "web_search_call.action.sources", "code_interpreter_call.outputs", "computer_call_output.output.image_url", "file_search_call.results", "message.input_image.image_url", "message.output_text.logprobs", "reasoning.encrypted_content"
+	Instructions         *string                       `json:"instructions,omitempty"`
+	MaxOutputTokens      *int                          `json:"max_output_tokens,omitempty"`
+	MaxToolCalls         *int                          `json:"max_tool_calls,omitempty"`
+	Metadata             *map[string]any               `json:"metadata,omitempty"`
+	ParallelToolCalls    *bool                         `json:"parallel_tool_calls,omitempty"`
+	PreviousResponseID   *string                       `json:"previous_response_id,omitempty"`
+	PromptCacheKey       *string                       `json:"prompt_cache_key,omitempty"`       // Prompt cache key
+	PromptCacheRetention *string                       `json:"prompt_cache_retention,omitempty"` // Prompt cache retention ("in_memory" or "24h")
+	Reasoning            *ResponsesParametersReasoning `json:"reasoning,omitempty"`              // Configuration options for reasoning models
+	SafetyIdentifier     *string                       `json:"safety_identifier,omitempty"`      // Safety identifier
+	ServiceTier          *BifrostServiceTier           `json:"service_tier,omitempty"`
+	StreamOptions        *ResponsesStreamOptions       `json:"stream_options,omitempty"`
+	Store                *bool                         `json:"store,omitempty"`
+	Temperature          *float64                      `json:"temperature,omitempty"`
+	Text                 *ResponsesTextConfig          `json:"text,omitempty"`
+	TopLogProbs          *int                          `json:"top_logprobs,omitempty"`
+	TopP                 *float64                      `json:"top_p,omitempty"`       // Controls diversity via nucleus sampling
+	ToolChoice           *ResponsesToolChoice          `json:"tool_choice,omitempty"` // Whether to call a tool
+	Tools                []ResponsesTool               `json:"tools,omitempty"`       // Tools to use
+	Truncation           *string                       `json:"truncation,omitempty"`
+	User                 *string                       `json:"user,omitempty"`
 	// Dynamic parameters that can be provider-specific, they are directly
 	// added to the request as is.
 	ExtraParams map[string]interface{} `json:"-"`
@@ -716,14 +717,14 @@ type ResponsesResponseUsage struct {
 // UnmarshalJSON accepts usage.type as a string or number so provider-specific enums do not fail parsing.
 func (u *ResponsesResponseUsage) UnmarshalJSON(data []byte) error {
 	var raw struct {
-		Type                json.RawMessage               `json:"type,omitempty"`
-		InputTokens         int                           `json:"input_tokens"`
-		InputTokensDetails  *ResponsesResponseInputTokens `json:"input_tokens_details"`
-		OutputTokens        int                           `json:"output_tokens"`
+		Type                json.RawMessage                `json:"type,omitempty"`
+		InputTokens         int                            `json:"input_tokens"`
+		InputTokensDetails  *ResponsesResponseInputTokens  `json:"input_tokens_details"`
+		OutputTokens        int                            `json:"output_tokens"`
 		OutputTokensDetails *ResponsesResponseOutputTokens `json:"output_tokens_details"`
-		TotalTokens         int                           `json:"total_tokens"`
-		Cost                *BifrostCost                  `json:"cost,omitempty"`
-		Iterations          []ResponsesResponseUsage      `json:"iterations,omitempty"`
+		TotalTokens         int                            `json:"total_tokens"`
+		Cost                *BifrostCost                   `json:"cost,omitempty"`
+		Iterations          []ResponsesResponseUsage       `json:"iterations,omitempty"`
 	}
 	if err := Unmarshal(data, &raw); err != nil {
 		return err

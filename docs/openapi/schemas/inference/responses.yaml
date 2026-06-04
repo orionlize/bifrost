@@ -40,6 +40,11 @@ ResponsesRequest:
       type: string
     prompt_cache_key:
       type: string
+    prompt_cache_retention:
+      type: string
+      enum:
+        - in_memory
+        - "24h"
     reasoning:
       $ref: '#/ResponsesParametersReasoning'
     safety_identifier:

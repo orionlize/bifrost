@@ -18,6 +18,7 @@ require (
 	github.com/maximhq/bifrost/plugins/governance v1.5.12
 	github.com/maximhq/bifrost/plugins/logging v1.5.12
 	github.com/maximhq/bifrost/plugins/maxim v1.6.12
+	github.com/maximhq/bifrost/plugins/openaicache v0.1.0
 	github.com/maximhq/bifrost/plugins/otel v1.2.12
 	github.com/maximhq/bifrost/plugins/prompts v1.0.12
 	github.com/maximhq/bifrost/plugins/semanticcache v1.5.12
@@ -208,3 +209,6 @@ require (
 	gopkg.in/yaml.v3 v3.0.1 // indirect
 	gorm.io/driver/postgres v1.6.0 // indirect
 )
+
+// openaicache is not yet published; resolve it from the local tree until a tag exists.
+replace github.com/maximhq/bifrost/plugins/openaicache => ../plugins/openaicache

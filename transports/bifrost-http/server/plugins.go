@@ -10,6 +10,7 @@ import (
 	"github.com/maximhq/bifrost/plugins/governance"
 	"github.com/maximhq/bifrost/plugins/logging"
 	"github.com/maximhq/bifrost/plugins/maxim"
+	"github.com/maximhq/bifrost/plugins/openaicache"
 	"github.com/maximhq/bifrost/plugins/otel"
 	"github.com/maximhq/bifrost/plugins/prompts"
 	"github.com/maximhq/bifrost/plugins/semanticcache"
@@ -119,6 +120,13 @@ func loadBuiltinPlugin(ctx context.Context, name string, pluginConfig any, bifro
 			return nil, fmt.Errorf("failed to marshal compat plugin config: %w", err)
 		}
 		return compat.Init(*compatConfig, logger, bifrostConfig.ModelCatalog)
+
+	case openaicache.PluginName:
+		openaiCacheConfig, err := MarshalPluginConfig[openaicache.Config](pluginConfig)
+		if err != nil {
+			return nil, fmt.Errorf("failed to marshal openai-cache plugin config: %w", err)
+		}
+		return openaicache.Init(openaiCacheConfig)
 
 	default:
 		return nil, fmt.Errorf("unknown built-in plugin: %s", name)
@@ -251,6 +259,15 @@ func (s *BifrostHTTPServer) loadBuiltinPlugins(ctx context.Context) error {
 		s.markPluginDisabled(maxim.PluginName)
 	}
 	s.Config.SetPluginOrderInfo(maxim.PluginName, builtinPlacement, schemas.Ptr(8))
+
+	// 9. OpenAI Cache (if configured in PluginConfigs)
+	openaiCacheConfig := s.getPluginConfig(openaicache.PluginName)
+	if openaiCacheConfig != nil && openaiCacheConfig.Enabled {
+		s.registerPluginWithStatus(ctx, openaicache.PluginName, nil, openaiCacheConfig.Config, false)
+	} else {
+		s.markPluginDisabled(openaicache.PluginName)
+	}
+	s.Config.SetPluginOrderInfo(openaicache.PluginName, builtinPlacement, schemas.Ptr(9))
 
 	return nil
 }

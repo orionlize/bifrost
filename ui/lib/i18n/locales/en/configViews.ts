@@ -113,20 +113,23 @@ export const configViews = {
 		cacheMode: "Cache Mode",
 		directOnly: "Direct only",
 		directPlusSemantic: "Direct + Semantic",
-		semanticModeDisabledTooltip: "Configure an embedding-capable provider to enable semantic mode.",
 		directModeDesc:
 			"Direct-only mode hashes each request and replays an exact match. No embeddings, no provider needed. Cheapest path, perfect for stable prompts.",
 		semanticModeDesc:
-			"Direct + semantic mode adds vector similarity search on top of direct hash matching. Requires an embedding-capable provider and the model's real dimension. Direct hits are still served first; semantic search runs only when the direct lookup misses.",
+			"Direct + semantic mode adds vector similarity search on top of direct hash matching. Configure an OpenAI-compatible embeddings endpoint (URL, API key, model, and dimension). Direct hits are still served first; semantic search runs only when the direct lookup misses.",
 		structuralChangeWarning:
-			"Heads up: a vector store namespace can only hold vectors of one dimension. Whenever you change the embedding provider, model, or dimension, make sure the dimension still matches what the model produces, otherwise writes to the existing namespace will fail and reads will silently miss. The namespace is not recreated automatically; either use a fresh namespace or drop the existing class/index in your vector store before saving.",
-		embeddingProviderModel: "Embedding Provider & Model",
-		configuredProviders: "Configured Providers",
-		selectProvider: "Select provider",
+			"Heads up: a vector store namespace can only hold vectors of one dimension. Whenever you change the embedding endpoint, model, or dimension, make sure the dimension still matches what the model produces, otherwise writes to the existing namespace will fail and reads will silently miss. The namespace is not recreated automatically; either use a fresh namespace or drop the existing class/index in your vector store before saving.",
+		embeddingEndpoint: "Embedding Endpoint",
+		embeddingUrl: "Embedding URL*",
+		embeddingUrlPlaceholder: "https://api.openai.com/v1/embeddings",
+		embeddingUrlDesc:
+			"OpenAI-compatible /embeddings endpoint. You can paste the full URL or a base like https://api.openai.com/v1 — /embeddings is appended automatically when missing.",
+		embeddingApiKey: "API Key*",
+		embeddingApiKeyPlaceholder: "sk-... or env.OPENAI_API_KEY",
 		embeddingModel: "Embedding Model*",
-		searchEmbeddingModel: "Search or type an embedding model...",
-		selectProviderFirst: "Select a provider first",
-		apiKeysInherited: "API keys are inherited from the embedding provider's main configuration, you don't need to add them again here.",
+		embeddingModelPlaceholder: "text-embedding-3-small",
+		legacyProviderConfigNotice:
+			"This cache still uses the legacy provider-backed embedding config ({{provider}}). Saving with the fields below migrates it to direct URL mode.",
 		dimension: "Dimension",
 		dimensionDesc:
 			"Vector size produced by the embedding model. Must match the model exactly (e.g. 1536 for OpenAI text-embedding-3-small, 3072 for text-embedding-3-large, 768 for many Cohere/Voyage models).",
@@ -162,6 +165,8 @@ export const configViews = {
 		overrideCacheType: "x-bf-cache-type: send direct or semantic to limit lookup to one path.",
 		overrideNoStore: "x-bf-cache-no-store: true to skip writing the response (still serves cached hits).",
 		validationPickProvider: "Pick an embedding provider for semantic mode, or switch to Direct only.",
+		validationEmbeddingUrl: "Enter an OpenAI-compatible embedding URL for semantic mode.",
+		validationEmbeddingApiKey: "Enter an API key for the embedding endpoint.",
 		validationPickModel: "Pick an embedding model for semantic mode.",
 		validationDimension: "Semantic mode requires the embedding model's real dimension (must be > 1).",
 		validationTtl: "TTL must be non-negative.",
