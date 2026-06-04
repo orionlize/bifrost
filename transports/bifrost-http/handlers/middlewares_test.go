@@ -8,6 +8,7 @@ import (
 	cryptoRand "crypto/rand"
 	"encoding/json"
 	"io"
+	"net"
 	"strings"
 	"testing"
 	"time"
@@ -35,6 +36,52 @@ func (m *mockLogger) SetOutputType(outputType schemas.LoggerOutputType) {}
 func (m *mockLogger) LogHTTPRequest(level schemas.LogLevel, msg string) schemas.LogEventBuilder {
 	return schemas.NoopLogEvent
 }
+
+type httpRequestLogCapture struct {
+	level     schemas.LogLevel
+	msg       string
+	strFields map[string]string
+	intFields map[string]int
+	int64Fields map[string]int64
+}
+
+func (c *httpRequestLogCapture) Debug(string, ...any) {}
+func (c *httpRequestLogCapture) Info(string, ...any)  {}
+func (c *httpRequestLogCapture) Warn(string, ...any)  {}
+func (c *httpRequestLogCapture) Error(string, ...any) {}
+func (c *httpRequestLogCapture) Fatal(string, ...any) {}
+func (c *httpRequestLogCapture) SetLevel(schemas.LogLevel)              {}
+func (c *httpRequestLogCapture) SetOutputType(schemas.LoggerOutputType) {}
+
+func (c *httpRequestLogCapture) LogHTTPRequest(level schemas.LogLevel, msg string) schemas.LogEventBuilder {
+	c.level = level
+	c.msg = msg
+	c.strFields = make(map[string]string)
+	c.intFields = make(map[string]int)
+	c.int64Fields = make(map[string]int64)
+	return &httpRequestLogCaptureBuilder{capture: c}
+}
+
+type httpRequestLogCaptureBuilder struct {
+	capture *httpRequestLogCapture
+}
+
+func (b *httpRequestLogCaptureBuilder) Str(key, val string) schemas.LogEventBuilder {
+	b.capture.strFields[key] = val
+	return b
+}
+
+func (b *httpRequestLogCaptureBuilder) Int(key string, val int) schemas.LogEventBuilder {
+	b.capture.intFields[key] = val
+	return b
+}
+
+func (b *httpRequestLogCaptureBuilder) Int64(key string, val int64) schemas.LogEventBuilder {
+	b.capture.int64Fields[key] = val
+	return b
+}
+
+func (b *httpRequestLogCaptureBuilder) Send() {}
 
 // TestCorsMiddleware_LocalhostOrigins tests that localhost origins are always allowed
 func TestCorsMiddleware_LocalhostOrigins(t *testing.T) {
@@ -2155,5 +2202,52 @@ func TestApplyGlobalAPIKeyAuth_SetsAdminUserForLogging(t *testing.T) {
 	}
 	if got := bifrostCtx.Value(schemas.BifrostContextKeyGlobalAPIKeyName); got != "ci" {
 		t.Fatalf("expected bifrost context global_api_key_name %q, got %#v", "ci", got)
+	}
+}
+
+func TestForwardRequestLogMiddleware_LogsStructuredHTTPRequest(t *testing.T) {
+	capture := &httpRequestLogCapture{}
+	SetLogger(capture)
+
+	ctx := &fasthttp.RequestCtx{}
+	ctx.Request.Header.SetMethod("POST")
+	ctx.Request.SetRequestURI("/v1/chat/completions")
+	ctx.Request.Header.Set("Authorization", "Bearer secret")
+	ctx.Request.Header.SetUserAgent("test-agent/1.0")
+	ctx.Request.SetBodyString(`{"model":"gpt-4o-mini"}`)
+	ctx.SetRemoteAddr(&net.TCPAddr{IP: net.ParseIP("127.0.0.1"), Port: 12345})
+
+	next := func(ctx *fasthttp.RequestCtx) {
+		SendError(ctx, fasthttp.StatusBadRequest, "invalid model name")
+	}
+	handler := ForwardRequestLogMiddleware()(next)
+	handler(ctx)
+
+	if capture.msg != "request completed" {
+		t.Fatalf("expected request completed message, got %q", capture.msg)
+	}
+	if capture.level != schemas.LogLevelWarn {
+		t.Fatalf("expected warn level for 400 response, got %v", capture.level)
+	}
+	if capture.strFields["http.method"] != "POST" {
+		t.Fatalf("expected POST method, got %q", capture.strFields["http.method"])
+	}
+	if capture.strFields["http.target"] != "/v1/chat/completions" {
+		t.Fatalf("expected target path, got %q", capture.strFields["http.target"])
+	}
+	if capture.strFields["http.remote_addr"] != "127.0.0.1:12345" {
+		t.Fatalf("expected remote addr, got %q", capture.strFields["http.remote_addr"])
+	}
+	if capture.strFields["http.user_agent"] != "test-agent/1.0" {
+		t.Fatalf("expected user agent, got %q", capture.strFields["http.user_agent"])
+	}
+	if capture.intFields["http.status_code"] != fasthttp.StatusBadRequest {
+		t.Fatalf("expected status 400, got %d", capture.intFields["http.status_code"])
+	}
+	if capture.strFields["error.message"] != "invalid model name" {
+		t.Fatalf("expected error message, got %q", capture.strFields["error.message"])
+	}
+	if strings.Contains(capture.strFields["http.target"], "gpt-4o-mini") {
+		t.Fatalf("expected request body to be omitted from log")
 	}
 }

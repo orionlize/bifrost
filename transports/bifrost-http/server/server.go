@@ -1661,7 +1661,13 @@ func (s *BifrostHTTPServer) Bootstrap(ctx context.Context) error {
 	// Create fasthttp server instance
 	routeHandler := handlers.BasePathMiddleware(s.BasePath)(s.Router.Handler)
 	s.Server = &fasthttp.Server{
-		Handler:            handlers.SecurityHeadersMiddleware()(handlers.CorsMiddleware(s.Config)(handlers.RequestDecompressionMiddleware(s.Config)(routeHandler))),
+		Handler: handlers.ForwardRequestLogMiddleware()(
+			handlers.SecurityHeadersMiddleware()(
+				handlers.CorsMiddleware(s.Config)(
+					handlers.RequestDecompressionMiddleware(s.Config)(routeHandler),
+				),
+			),
+		),
 		MaxRequestBodySize: s.Config.ClientConfig.MaxRequestBodySizeMB * 1024 * 1024,
 		ReadBufferSize:     1024 * 64, // 64kb
 	}

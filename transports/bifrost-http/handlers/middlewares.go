@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"context"
 	"encoding/base64"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"io"
@@ -32,6 +33,112 @@ var reloadedAoneVirtualKeys sync.Map
 
 var loggingSkipPaths = []string{"/health", "/_next", "/api/dev"}
 var realtimeTransportPaths = buildRealtimeTransportPathSet()
+
+const forwardRequestLogErrorBodyMaxBytes = 8 * 1024
+
+// ForwardRequestLogMiddleware logs one structured HTTP access line per request after
+// the handler returns, using the same logger.LogHTTPRequest path as other transport logs.
+func ForwardRequestLogMiddleware() schemas.BifrostHTTPMiddleware {
+	return func(next fasthttp.RequestHandler) fasthttp.RequestHandler {
+		return func(ctx *fasthttp.RequestCtx) {
+			start := time.Now()
+			defer func() {
+				writeForwardRequestLog(ctx, start)
+			}()
+			next(ctx)
+		}
+	}
+}
+
+func writeForwardRequestLog(ctx *fasthttp.RequestCtx, start time.Time) {
+	if logger == nil {
+		return
+	}
+
+	statusCode := ctx.Response.StatusCode()
+	level := schemas.LogLevelInfo
+	if statusCode >= fasthttp.StatusInternalServerError {
+		level = schemas.LogLevelError
+	} else if statusCode >= fasthttp.StatusBadRequest {
+		level = schemas.LogLevelWarn
+	}
+
+	logBuilder := logger.LogHTTPRequest(level, "request completed").
+		Str("http.method", string(ctx.Method())).
+		Str("http.target", string(ctx.RequestURI())).
+		Int("http.status_code", statusCode).
+		Int64("http.request_duration_ms", time.Since(start).Milliseconds()).
+		Str("http.remote_addr", ctx.RemoteAddr().String()).
+		Str("http.user_agent", string(ctx.Request.Header.UserAgent()))
+
+	if traceID, ok := ctx.UserValue(schemas.BifrostContextKeyTraceID).(string); ok && traceID != "" {
+		logBuilder = logBuilder.Str("trace_id", traceID)
+	}
+	if errMsg := extractForwardResponseError(statusCode, ctx.Response.Body()); errMsg != "" {
+		logBuilder = logBuilder.Str("error.message", errMsg)
+	}
+	logBuilder.Send()
+}
+
+func extractForwardResponseError(statusCode int, body []byte) string {
+	if statusCode < fasthttp.StatusBadRequest || len(body) == 0 {
+		return ""
+	}
+	if len(body) > forwardRequestLogErrorBodyMaxBytes {
+		body = body[:forwardRequestLogErrorBodyMaxBytes]
+	}
+
+	var bifrostErr schemas.BifrostError
+	if err := json.Unmarshal(body, &bifrostErr); err == nil {
+		if msg := forwardErrorMessageFromBifrostError(&bifrostErr); msg != "" {
+			return msg
+		}
+	}
+
+	var openAIStyle struct {
+		Error *schemas.ErrorField `json:"error"`
+	}
+	if err := json.Unmarshal(body, &openAIStyle); err == nil && openAIStyle.Error != nil {
+		if msg := strings.TrimSpace(openAIStyle.Error.Message); msg != "" {
+			return msg
+		}
+	}
+
+	var simple struct {
+		Message string `json:"message"`
+		Error   string `json:"error"`
+	}
+	if err := json.Unmarshal(body, &simple); err == nil {
+		if msg := strings.TrimSpace(simple.Message); msg != "" {
+			return msg
+		}
+		if msg := strings.TrimSpace(simple.Error); msg != "" {
+			return msg
+		}
+	}
+
+	fallback := strings.TrimSpace(string(body))
+	if fallback == "" {
+		return fmt.Sprintf("HTTP %d", statusCode)
+	}
+	const maxFallbackLen = 512
+	if len(fallback) > maxFallbackLen {
+		return fallback[:maxFallbackLen] + "..."
+	}
+	return fallback
+}
+
+func forwardErrorMessageFromBifrostError(bifrostErr *schemas.BifrostError) string {
+	if bifrostErr == nil {
+		return ""
+	}
+	if bifrostErr.Error != nil {
+		if msg := strings.TrimSpace(bifrostErr.Error.Message); msg != "" {
+			return msg
+		}
+	}
+	return ""
+}
 
 // SecurityHeadersMiddleware sets security-related HTTP headers on every response.
 // This should wrap the outermost handler so all responses (API, UI, errors) include these headers.
