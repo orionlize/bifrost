@@ -62,7 +62,8 @@ import {
 	useSidebar,
 } from "@/components/ui/sidebar";
 import { useWebSocket } from "@/hooks/useWebSocket";
-import { IS_ENTERPRISE } from "@/lib/constants/config";
+import { IS_ENTERPRISE, SHOW_PROMPT_REPOSITORY } from "@/lib/constants/config";
+import { AONE_USER_DEFAULT_WORKSPACE_PATH } from "@/lib/constants/aoneUserSession";
 import { useGetCoreConfigQuery, useGetLatestReleaseQuery, useGetVersionQuery, useIsAuthEnabledQuery, useLogoutMutation } from "@/lib/store";
 import { RbacOperation, RbacResource, useRbac } from "@enterprise/lib";
 import type { UserInfo } from "@enterprise/lib/store/utils/tokenManager";
@@ -519,10 +520,10 @@ export default function AppSidebar() {
 	const isAoneUserSession = useIsAoneUserSession();
 	const isLocalAdmin = useIsLocalAdminSession();
 	const showAoneUsers = !IS_ENTERPRISE && (authStatus?.aone_oauth_enabled ?? false);
-	// Marketplace is admin-facing; show for any non-Aone-user dashboard session when
-	// plugins, Aone OAuth, or settings access is available.
+	// Marketplace is admin-facing; Aone OAuth users land on marketplace when prompt repo is hidden.
 	const showMarketplace =
-		!isAoneUserSession && (hasPluginsAccess || showAoneUsers || hasSettingsAccess || isLocalAdmin);
+		isAoneUserSession ||
+		(!isAoneUserSession && (hasPluginsAccess || showAoneUsers || hasSettingsAccess || isLocalAdmin));
 	const hideManualVirtualKeys = showAoneUsers;
 	const { enabled: aoneUserEnabled, displayName: aoneDisplayName, avatar: aoneAvatar } = useAoneCurrentUser();
 	const hasAnyGovernanceAccess =
@@ -662,7 +663,7 @@ export default function AppSidebar() {
 				icon: Shuffle,
 				hasAccess: showAdaptiveRouting,
 			},
-			...(isDbConnected
+			...(SHOW_PROMPT_REPOSITORY && isDbConnected
 				? [
 						{
 							...nav("promptRepository"),
@@ -756,7 +757,9 @@ export default function AppSidebar() {
 		if (!isAoneUserSession) {
 			return accessibleItems;
 		}
-		const allowedUrls = new Set(["/workspace/prompt-repo"]);
+		const allowedUrls = new Set(
+			SHOW_PROMPT_REPOSITORY ? ["/workspace/prompt-repo"] : [AONE_USER_DEFAULT_WORKSPACE_PATH],
+		);
 		return accessibleItems.filter((item) => allowedUrls.has(item.url));
 	}, [accessibleItems, isAoneUserSession]);
 

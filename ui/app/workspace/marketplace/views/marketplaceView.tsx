@@ -91,10 +91,10 @@ export default function MarketplaceView({ activeView }: { activeView: Marketplac
 
 	return (
 		<div
-			className="no-padding-parent no-border-parent bg-background flex h-[calc(100vh-16px)] w-full overflow-hidden"
+			className="no-padding-parent no-border-parent bg-background flex h-full min-h-0 w-full flex-1 flex-col overflow-hidden"
 			data-testid="marketplace-page"
 		>
-			<div className="bg-card flex min-w-0 flex-1 flex-col overflow-hidden rounded-xl">
+			<div className="bg-card flex min-h-0 flex-1 flex-col overflow-hidden rounded-xl">
 				{activeView !== "settings" && (
 					<div className="flex shrink-0 items-center gap-2 px-3 pt-3 pb-2">
 						<div className="relative min-w-0 flex-1 sm:max-w-xs md:max-w-sm">
@@ -119,7 +119,7 @@ export default function MarketplaceView({ activeView }: { activeView: Marketplac
 					</div>
 				)}
 
-				<ScrollArea className="flex-1">
+				<ScrollArea className="min-h-0 flex-1 overflow-y-auto" viewportClassName="no-table">
 					<div className={activeView === "settings" ? "px-6 py-4" : "px-3 py-3"}>
 						{isLoading && activeView !== "settings" && (
 							<p className="text-muted-foreground text-[13px]">{t("marketplace.loading")}</p>

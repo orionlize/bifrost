@@ -10,6 +10,14 @@ import { toast } from "sonner";
 import { MarketplaceCatalogSourcesSection } from "./marketplaceCatalogSourcesSection";
 import { MarketplaceGitCredentialsSection } from "./marketplaceGitCredentialsSection";
 
+function cloneMarketplaceConfig(config: MarketplaceConfig): MarketplaceConfig {
+	return {
+		...config,
+		owner: { ...config.owner },
+		catalog_sources: config.catalog_sources?.map((source) => ({ ...source })) ?? [],
+	};
+}
+
 export function MarketplaceSettingsPanel({
 	claudeManifestURL,
 	codexManifestURL,
@@ -24,30 +32,34 @@ export function MarketplaceSettingsPanel({
 	embedded?: boolean;
 }) {
 	const t = useT();
-	const [updateConfig, { isLoading: isSavingPublish }] = useUpdateMarketplaceConfigMutation();
-	const [catalogName, setCatalogName] = useState("");
-	const [ownerName, setOwnerName] = useState("");
-	const [publicRead, setPublicRead] = useState(true);
+	const [updateConfig, { isLoading: isSaving }] = useUpdateMarketplaceConfigMutation();
+	const [draft, setDraft] = useState<MarketplaceConfig | null>(null);
 
 	useEffect(() => {
-		if (!config) return;
-		setCatalogName(config.name);
-		setOwnerName(config.owner?.name ?? "");
-		setPublicRead(config.public_read ?? true);
+		if (!config) {
+			setDraft(null);
+			return;
+		}
+		setDraft(cloneMarketplaceConfig(config));
 	}, [config]);
 
-	const savePublishConfig = async () => {
-		if (!config) return;
-		if (!catalogName.trim()) {
+	const saveConfig = async () => {
+		if (!draft) {
+			return;
+		}
+		if (!draft.name.trim()) {
 			toast.error(t("marketplace.source.publishNameRequired"));
 			return;
 		}
 		try {
 			await updateConfig({
-				...config,
-				name: catalogName.trim(),
-				owner: { ...config.owner, name: ownerName.trim() },
-				public_read: publicRead,
+				name: draft.name.trim(),
+				owner: {
+					...draft.owner,
+					name: draft.owner?.name?.trim() ?? "",
+				},
+				public_read: draft.public_read ?? true,
+				catalog_sources: draft.catalog_sources ?? [],
 			}).unwrap();
 			toast.success(t("marketplace.source.configUpdated"));
 		} catch {
@@ -56,12 +68,15 @@ export function MarketplaceSettingsPanel({
 	};
 
 	const content = (
-		<div className="max-w-3xl space-y-6">
+		<div className="max-w-3xl space-y-6 pb-6">
 			<MarketplaceGitCredentialsSection />
 
-			{isAdmin && config && (
+			{isAdmin && draft && (
 				<>
-					<MarketplaceCatalogSourcesSection config={config} />
+					<MarketplaceCatalogSourcesSection
+						sources={draft.catalog_sources ?? []}
+						onChangeSources={(catalog_sources) => setDraft((current) => (current ? { ...current, catalog_sources } : current))}
+					/>
 
 					<div className="space-y-4 rounded-xl border bg-muted/20 p-5">
 						<div>
@@ -95,8 +110,8 @@ export function MarketplaceSettingsPanel({
 								<Label className="text-[13px]">{t("marketplace.source.name")}</Label>
 								<Input
 									className="mt-1.5 bg-background"
-									value={catalogName}
-									onChange={(e) => setCatalogName(e.target.value)}
+									value={draft.name}
+									onChange={(e) => setDraft((current) => (current ? { ...current, name: e.target.value } : current))}
 									data-testid="marketplace-config-name"
 								/>
 							</div>
@@ -104,29 +119,34 @@ export function MarketplaceSettingsPanel({
 								<Label className="text-[13px]">{t("marketplace.source.owner")}</Label>
 								<Input
 									className="mt-1.5 bg-background"
-									value={ownerName}
-									onChange={(e) => setOwnerName(e.target.value)}
+									value={draft.owner?.name ?? ""}
+									onChange={(e) =>
+										setDraft((current) =>
+											current ? { ...current, owner: { ...current.owner, name: e.target.value } } : current,
+										)
+									}
 									data-testid="marketplace-config-owner"
 								/>
 							</div>
 						</div>
 						<div className="flex items-center gap-2">
 							<Switch
-								checked={publicRead}
-								onCheckedChange={setPublicRead}
+								checked={draft.public_read ?? true}
+								onCheckedChange={(public_read) => setDraft((current) => (current ? { ...current, public_read } : current))}
 								data-testid="marketplace-config-public-read"
 							/>
 							<Label className="text-[13px]">{t("marketplace.source.publicCatalog")}</Label>
 						</div>
-						<div className="flex justify-end">
+						<div className="flex justify-end pt-2">
 							<Button
 								type="button"
 								size="sm"
-								onClick={savePublishConfig}
-								disabled={isSavingPublish}
+								className="min-w-20 shrink-0"
+								onClick={saveConfig}
+								disabled={isSaving}
 								data-testid="marketplace-save-publish-config"
 							>
-								{isSavingPublish ? t("common.actions.saving") : t("common.actions.save")}
+								{isSaving ? t("common.actions.saving") : t("common.actions.save")}
 							</Button>
 						</div>
 					</div>

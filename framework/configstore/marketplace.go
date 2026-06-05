@@ -59,7 +59,15 @@ func (s *RDBConfigStore) UpdateMarketplaceConfig(ctx context.Context, cfg *schem
 		return fmt.Errorf("marketplace config is nil")
 	}
 	normalizeMarketplaceConfig(cfg)
-	patch := map[string]any{marketplaceMetadataKey: cfg}
+	data, err := jsonMarshal(cfg)
+	if err != nil {
+		return fmt.Errorf("marshal marketplace config: %w", err)
+	}
+	var asMap map[string]any
+	if err := jsonUnmarshal(data, &asMap); err != nil {
+		return fmt.Errorf("decode marketplace config map: %w", err)
+	}
+	patch := map[string]any{marketplaceMetadataKey: asMap}
 	return s.UpdateClientMetadata(ctx, patch)
 }
 

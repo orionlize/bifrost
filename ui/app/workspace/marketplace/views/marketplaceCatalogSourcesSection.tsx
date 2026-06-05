@@ -5,14 +5,10 @@ import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Switch } from "@/components/ui/switch";
 import { useT } from "@/lib/i18n";
-import { useListCatalogPresetsQuery, useUpdateMarketplaceConfigMutation } from "@/lib/store/apis/marketplaceApi";
-import {
-	MarketplaceCatalogSource,
-	MarketplaceConfig,
-	MarketplacePlatform,
-} from "@/lib/types/marketplace";
+import { useListCatalogPresetsQuery } from "@/lib/store/apis/marketplaceApi";
+import { MarketplaceCatalogSource, MarketplacePlatform } from "@/lib/types/marketplace";
 import { PlusIcon, Trash2Icon } from "lucide-react";
-import { useEffect, useMemo, useState } from "react";
+import { useMemo, useState } from "react";
 import { toast } from "sonner";
 import { MarketplacePlatformLabel } from "./marketplacePlatformBadge";
 
@@ -157,18 +153,18 @@ function CatalogSourcePlatformSection({
 	);
 }
 
-export function MarketplaceCatalogSourcesSection({ config }: { config: MarketplaceConfig }) {
+export function MarketplaceCatalogSourcesSection({
+	sources,
+	onChangeSources,
+}: {
+	sources: MarketplaceCatalogSource[];
+	onChangeSources: (next: MarketplaceCatalogSource[]) => void;
+}) {
 	const t = useT();
-	const [updateConfig, { isLoading: isSaving }] = useUpdateMarketplaceConfigMutation();
 	const { data: presetsData } = useListCatalogPresetsQuery();
-	const [sources, setSources] = useState<MarketplaceCatalogSource[]>(config.catalog_sources ?? []);
 	const [customLabel, setCustomLabel] = useState("");
 	const [customURL, setCustomURL] = useState("");
 	const [customPlatform, setCustomPlatform] = useState<MarketplacePlatform>("claude");
-
-	useEffect(() => {
-		setSources(config.catalog_sources ?? []);
-	}, [config.catalog_sources]);
 
 	const configuredURLs = useMemo(() => new Set(sources.map((source) => source.url)), [sources]);
 	const availablePresets = useMemo(
@@ -202,7 +198,7 @@ export function MarketplaceCatalogSourcesSection({ config }: { config: Marketpla
 			toast.error(t("marketplace.source.duplicateSource"));
 			return;
 		}
-		setSources((current) => [...current, next]);
+		onChangeSources([...sources, next]);
 	};
 
 	const addCustomSource = () => {
@@ -221,20 +217,11 @@ export function MarketplaceCatalogSourcesSection({ config }: { config: Marketpla
 	};
 
 	const updateSourceEnabled = (sourceId: string, enabled: boolean) => {
-		setSources((current) => current.map((existing) => (existing.id === sourceId ? { ...existing, enabled } : existing)));
+		onChangeSources(sources.map((existing) => (existing.id === sourceId ? { ...existing, enabled } : existing)));
 	};
 
 	const deleteSource = (sourceId: string) => {
-		setSources((current) => current.filter((existing) => existing.id !== sourceId));
-	};
-
-	const save = async () => {
-		try {
-			await updateConfig({ ...config, catalog_sources: sources }).unwrap();
-			toast.success(t("marketplace.source.configUpdated"));
-		} catch {
-			toast.error(t("marketplace.toast.updateFailed"));
-		}
+		onChangeSources(sources.filter((existing) => existing.id !== sourceId));
 	};
 
 	return (
@@ -321,18 +308,6 @@ export function MarketplaceCatalogSourcesSection({ config }: { config: Marketpla
 				<Button type="button" size="sm" variant="secondary" onClick={addCustomSource} data-testid="marketplace-add-custom-source">
 					<PlusIcon className="size-3.5" />
 					{t("marketplace.source.addCustomSourceAction")}
-				</Button>
-			</div>
-
-			<div className="flex justify-end">
-				<Button
-					type="button"
-					size="sm"
-					onClick={save}
-					disabled={isSaving}
-					data-testid="marketplace-save-catalog-sources"
-				>
-					{isSaving ? t("common.actions.saving") : t("common.actions.save")}
 				</Button>
 			</div>
 		</div>
