@@ -1,5 +1,9 @@
 export type MarketplaceItemType = "skill" | "plugin";
 
+export type MarketplacePlatform = "claude" | "codex";
+
+export type MarketplaceImportSourceType = "zip" | "github" | "gitlab" | "catalog";
+
 export interface MarketplaceOwner {
 	name: string;
 	email?: string;
@@ -9,6 +13,27 @@ export interface MarketplaceConfig {
 	name: string;
 	owner: MarketplaceOwner;
 	public_read?: boolean;
+	catalog_sources?: MarketplaceCatalogSource[];
+}
+
+export interface MarketplaceUserGitCredentialsStatus {
+	github_token_configured: boolean;
+	gitlab_token_configured: boolean;
+}
+
+export interface UpdateMarketplaceUserGitCredentialsRequest {
+	github_token?: string;
+	gitlab_token?: string;
+}
+
+export interface MarketplaceCatalogSource {
+	id: string;
+	label: string;
+	url: string;
+	platform?: MarketplacePlatform;
+	description?: string;
+	official?: boolean;
+	enabled?: boolean;
 }
 
 export interface MarketplaceItemBundle {
@@ -20,10 +45,14 @@ export interface MarketplaceItemBundle {
 export interface MarketplaceItem {
 	id: number;
 	name: string;
+	platform?: MarketplacePlatform;
 	item_type: MarketplaceItemType;
 	description?: string;
 	version?: string;
-	source?: string;
+	source_type?: MarketplaceImportSourceType;
+	remote_url?: string;
+	remote_ref?: string;
+	icon_url?: string;
 	enabled: boolean;
 	category?: string;
 	tags?: string[];
@@ -44,19 +73,8 @@ export interface MarketplaceItemsQueryParams {
 	offset?: number;
 	search?: string;
 	item_type?: MarketplaceItemType;
+	platform?: MarketplacePlatform;
 	enabled?: boolean;
-}
-
-export interface CreateMarketplaceItemRequest {
-	name: string;
-	item_type: MarketplaceItemType;
-	description?: string;
-	version?: string;
-	source?: string;
-	enabled?: boolean;
-	category?: string;
-	tags?: string[];
-	content?: MarketplaceItemBundle;
 }
 
 export interface UpdateMarketplaceItemRequest {
@@ -64,11 +82,45 @@ export interface UpdateMarketplaceItemRequest {
 	item_type?: MarketplaceItemType;
 	description?: string;
 	version?: string;
-	source?: string;
+	icon_url?: string;
+	clear_icon?: boolean;
 	enabled?: boolean;
 	category?: string;
 	tags?: string[];
-	content?: MarketplaceItemBundle;
+	users?: string[];
+	departments?: string[];
+}
+
+export interface ImportMarketplaceItemRequest {
+	source_type: MarketplaceImportSourceType;
+	platform?: MarketplacePlatform;
+	file?: File;
+	icon?: File;
+	icon_url?: string;
+	remote_url?: string;
+	remote_ref?: string;
+	catalog_url?: string;
+	catalog_plugin?: string;
+	git_token?: string;
+	name?: string;
+	item_type?: MarketplaceItemType;
+	description?: string;
+	version?: string;
+	enabled?: boolean;
+	category?: string;
+	tags?: string;
+	assignments?: MarketplaceItemAssignmentsUpdate;
+}
+
+export interface MarketplaceItemAssignmentsResponse {
+	item_id: number;
+	users: string[];
+	departments: string[];
+}
+
+export interface MarketplaceItemAssignmentsUpdate {
+	users?: string[];
+	departments?: string[];
 }
 
 export interface MarketplaceUserAssignmentsResponse {
@@ -79,4 +131,29 @@ export interface MarketplaceUserAssignmentsResponse {
 
 export interface ReplaceMarketplaceAssignmentsRequest {
 	item_ids: number[];
+}
+
+export interface CatalogPreset {
+	id: string;
+	label: string;
+	description: string;
+	url: string;
+	platform?: MarketplacePlatform;
+	official?: boolean;
+}
+
+export interface RemoteCatalogPlugin {
+	name: string;
+	description?: string;
+	version?: string;
+	category?: string;
+}
+
+export interface RemoteCatalogPreview {
+	name: string;
+	description?: string;
+	manifest_url: string;
+	owner_name?: string;
+	plugins: RemoteCatalogPlugin[];
+	plugin_count: number;
 }

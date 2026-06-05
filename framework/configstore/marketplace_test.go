@@ -3,6 +3,7 @@ package configstore
 import (
 	"context"
 	"testing"
+	"time"
 
 	"github.com/maximhq/bifrost/core/schemas"
 	"github.com/maximhq/bifrost/framework/configstore/tables"
@@ -18,7 +19,10 @@ func setupMarketplaceTestDB(t *testing.T) *gorm.DB {
 	require.NoError(t, db.AutoMigrate(
 		&tables.TableMarketplaceItem{},
 		&tables.TableMarketplaceUserAssignment{},
+		&tables.TableMarketplaceItemAssignment{},
 		&tables.AoneUserTable{},
+		&tables.AoneDepartmentTable{},
+		&tables.AoneUserDepartmentTable{},
 	))
 	return db
 }
@@ -42,22 +46,46 @@ func TestBuildMarketplaceManifest(t *testing.T) {
 	require.Equal(t, "Test Owner", manifest.Owner.Name)
 	require.Len(t, manifest.Plugins, 2)
 	require.Equal(t, "data-toolkit", manifest.Plugins[0].Name)
-	require.Equal(t, "./marketplace/plugins/data-toolkit", manifest.Plugins[0].Source)
-	require.Equal(t, "./marketplace/skills/docs-skill", manifest.Plugins[1].Source)
+	require.Equal(t, "./marketplace/claude/plugins/data-toolkit", manifest.Plugins[0].Source)
+	require.Equal(t, "./marketplace/claude/skills/docs-skill", manifest.Plugins[1].Source)
 }
 
-func TestMarketplaceUserAssignments(t *testing.T) {
+func TestBuildCodexMarketplaceManifest(t *testing.T) {
+	cfg := &schemas.MarketplaceConfig{
+		Name: "codex-marketplace",
+		Owner: schemas.MarketplaceOwner{
+			Name: "Codex Owner",
+		},
+	}
+	items := []tables.TableMarketplaceItem{
+		{Name: "codex-plugin", ItemType: schemas.MarketplaceItemTypePlugin, Platform: schemas.MarketplacePlatformCodex, Enabled: true},
+		{Name: "claude-only", ItemType: schemas.MarketplaceItemTypePlugin, Platform: schemas.MarketplacePlatformClaude, Enabled: true},
+	}
+
+	manifest := BuildCodexMarketplaceManifest(cfg, items)
+	require.Equal(t, "codex-marketplace", manifest.Name)
+	require.Len(t, manifest.Plugins, 1)
+	require.Equal(t, "codex-plugin", manifest.Plugins[0].Name)
+	require.Equal(t, "./marketplace/codex/plugins/codex-plugin", manifest.Plugins[0].Source.Path)
+	require.Equal(t, "AVAILABLE", manifest.Plugins[0].Policy.Installation)
+}
+
+func TestMarketplaceItemAssignments(t *testing.T) {
 	db := setupMarketplaceTestDB(t)
 	store := &RDBConfigStore{}
 	store.db.Store(db)
 	ctx := context.Background()
 
 	user := tables.AoneUserTable{
-		AoneUserID: "user-1",
-		Email:      "user@example.com",
-		Name:       "User One",
+		AoneUserID:    "user-1",
+		Email:         "user@example.com",
+		Name:          "User One",
+		DingtalkJSON:  `{"departments":[{"deptId":10,"name":"Engineering"}]}`,
+		DepartmentNames: "Engineering",
 	}
 	require.NoError(t, db.Create(&user).Error)
+	require.NoError(t, db.Create(&tables.AoneDepartmentTable{DeptID: 10, Name: "Engineering", FullPath: "Engineering"}).Error)
+	require.NoError(t, db.Create(&tables.AoneUserDepartmentTable{AoneUserID: user.AoneUserID, DeptID: 10, CreatedAt: time.Now()}).Error)
 
 	skill := &tables.TableMarketplaceItem{
 		Name:     "docs-skill",
@@ -76,20 +104,24 @@ func TestMarketplaceUserAssignments(t *testing.T) {
 	}
 	require.NoError(t, store.CreateMarketplaceItem(ctx, plugin))
 
-	require.NoError(t, store.ReplaceMarketplaceUserAssignments(ctx, user.AoneUserID, []uint{skill.ID}))
+	require.NoError(t, store.ReplaceMarketplaceItemAssignments(ctx, skill.ID, &schemas.MarketplaceItemAssignmentsUpdate{
+		Users: []string{user.AoneUserID},
+	}))
 	items, err := store.GetMarketplaceItemsForUser(ctx, user.AoneUserID)
 	require.NoError(t, err)
 	require.Len(t, items, 1)
 	require.Equal(t, "docs-skill", items[0].Name)
 
-	require.NoError(t, store.AddMarketplaceUserAssignments(ctx, user.AoneUserID, []uint{plugin.ID}))
+	require.NoError(t, store.ReplaceMarketplaceItemAssignments(ctx, plugin.ID, &schemas.MarketplaceItemAssignmentsUpdate{
+		Departments: []string{"10"},
+	}))
 	items, err = store.GetMarketplaceItemsForUser(ctx, user.AoneUserID)
 	require.NoError(t, err)
 	require.Len(t, items, 2)
 
-	require.NoError(t, store.RemoveMarketplaceUserAssignment(ctx, user.AoneUserID, skill.ID))
-	items, err = store.GetMarketplaceItemsForUser(ctx, user.AoneUserID)
-	require.NoError(t, err)
-	require.Len(t, items, 1)
-	require.Equal(t, "data-toolkit", items[0].Name)
+	var legacyAssignments []tables.TableMarketplaceUserAssignment
+	require.NoError(t, db.Find(&legacyAssignments).Error)
+	require.Len(t, legacyAssignments, 1)
+	require.Equal(t, user.AoneUserID, legacyAssignments[0].AoneUserID)
+	require.Equal(t, skill.ID, legacyAssignments[0].ItemID)
 }

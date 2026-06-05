@@ -1,341 +1,199 @@
-import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { Checkbox } from "@/components/ui/checkbox";
-import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Switch } from "@/components/ui/switch";
-import { Textarea } from "@/components/ui/textarea";
+import { ScrollArea } from "@/components/ui/scrollArea";
+import { useIsLocalAdminSession } from "@/hooks/useIsLocalAdminSession";
+import { useT } from "@/lib/i18n";
 import {
-	useCreateMarketplaceItemMutation,
 	useDeleteMarketplaceItemMutation,
 	useGetMarketplaceConfigQuery,
 	useListMarketplaceItemsQuery,
-	useUpdateMarketplaceConfigMutation,
-	useUpdateMarketplaceItemMutation,
+	useSyncMarketplaceItemMutation,
 } from "@/lib/store/apis/marketplaceApi";
-import { MarketplaceItem, MarketplaceItemType } from "@/lib/types/marketplace";
-import { PlusIcon, Trash2Icon } from "lucide-react";
-import { useEffect, useMemo, useState } from "react";
+import { MarketplaceItem } from "@/lib/types/marketplace";
+import { PlusIcon, SearchIcon } from "lucide-react";
+import { useMemo, useState } from "react";
 import { toast } from "sonner";
+import { MarketplaceImportDialog } from "./marketplaceImportDialog";
+import { MarketplaceEmptyState } from "./marketplaceEmptyState";
+import { MarketplaceListRow } from "./marketplaceListRow";
+import { defaultTileRenderer, MarketplacePlatformSections } from "./marketplaceSection";
+import { groupMarketplaceItemsByPlatform } from "./marketplacePlatformBadge";
+import { MarketplaceSettingsPanel } from "./marketplaceSettingsPanel";
+
+export type MarketplaceViewId = "plugin" | "skill" | "settings";
 
 type EditorState = {
 	mode: "create" | "edit";
 	item?: MarketplaceItem;
 };
 
-export default function MarketplaceView() {
+export default function MarketplaceView({ activeView }: { activeView: MarketplaceViewId }) {
+	const t = useT();
+	const isLocalAdmin = useIsLocalAdminSession();
 	const [search, setSearch] = useState("");
 	const [editor, setEditor] = useState<EditorState | null>(null);
-	const { data, isLoading, refetch } = useListMarketplaceItemsQuery({ search, limit: 100 });
-	const { data: configData } = useGetMarketplaceConfigQuery();
-	const [createItem] = useCreateMarketplaceItemMutation();
-	const [updateItem] = useUpdateMarketplaceItemMutation();
+
+	const { data, isLoading } = useListMarketplaceItemsQuery({ search, limit: 100 }, { skip: activeView === "settings" });
+	const { data: configData } = useGetMarketplaceConfigQuery(undefined, { skip: !isLocalAdmin });
+	const [syncItem] = useSyncMarketplaceItemMutation();
 	const [deleteItem] = useDeleteMarketplaceItemMutation();
-	const [updateConfig] = useUpdateMarketplaceConfigMutation();
 
 	const items = data?.items ?? [];
-	const manifestURL = useMemo(() => {
+	const plugins = useMemo(() => items.filter((item) => item.item_type === "plugin"), [items]);
+	const skills = useMemo(() => items.filter((item) => item.item_type === "skill"), [items]);
+	const isSearchMode = search.trim().length > 0;
+
+	const claudeManifestURL = useMemo(() => {
 		if (typeof window === "undefined") return "/.claude-plugin/marketplace.json";
 		return `${window.location.origin}/.claude-plugin/marketplace.json`;
 	}, []);
+	const codexManifestURL = useMemo(() => {
+		if (typeof window === "undefined") return "/.agents/plugins/marketplace.json";
+		return `${window.location.origin}/.agents/plugins/marketplace.json`;
+	}, []);
 
-	return (
-		<div className="flex h-full flex-col gap-6 p-6" data-testid="marketplace-page">
-			<div className="flex items-start justify-between gap-4">
-				<div>
-					<h1 className="text-2xl font-semibold">Marketplace</h1>
-					<p className="text-muted-foreground mt-1 text-sm">
-						Manage skills and plugins, assign them to users, and expose a Claude Code compatible marketplace source.
-					</p>
-				</div>
-				<Button data-testid="marketplace-create-button" onClick={() => setEditor({ mode: "create" })}>
-					<PlusIcon className="mr-2 h-4 w-4" />
-					Add item
-				</Button>
-			</div>
-
-			<Card>
-				<CardHeader>
-					<CardTitle>Marketplace source</CardTitle>
-					<CardDescription>Clients can add this URL as a Claude Code marketplace source.</CardDescription>
-				</CardHeader>
-				<CardContent className="space-y-3">
-					<div className="flex gap-2">
-						<Input readOnly value={manifestURL} data-testid="marketplace-manifest-url" />
-					</div>
-					{configData?.marketplace && (
-						<div className="grid gap-3 md:grid-cols-3">
-							<div>
-								<Label>Name</Label>
-								<Input
-									value={configData.marketplace.name}
-									onChange={(e) =>
-										updateConfig({
-											...configData.marketplace,
-											name: e.target.value,
-										}).unwrap().then(() => toast.success("Marketplace config updated"))
-									}
-									data-testid="marketplace-config-name"
-								/>
-							</div>
-							<div>
-								<Label>Owner</Label>
-								<Input
-									value={configData.marketplace.owner?.name ?? ""}
-									onChange={(e) =>
-										updateConfig({
-											...configData.marketplace,
-											owner: { ...configData.marketplace.owner, name: e.target.value },
-										}).unwrap().then(() => toast.success("Marketplace config updated"))
-									}
-									data-testid="marketplace-config-owner"
-								/>
-							</div>
-							<div className="flex items-end gap-2">
-								<Switch
-									checked={configData.marketplace.public_read ?? true}
-									onCheckedChange={(checked) =>
-										updateConfig({
-											...configData.marketplace,
-											public_read: checked,
-										}).unwrap().then(() => toast.success("Marketplace config updated"))
-									}
-									data-testid="marketplace-config-public-read"
-								/>
-								<Label>Public catalog</Label>
-							</div>
-						</div>
-					)}
-				</CardContent>
-			</Card>
-
-			<div className="flex items-center gap-3">
-				<Input
-					placeholder="Search items..."
-					value={search}
-					onChange={(e) => setSearch(e.target.value)}
-					data-testid="marketplace-search-input"
-				/>
-				<Button variant="outline" onClick={() => refetch()}>
-					Refresh
-				</Button>
-			</div>
-
-			<div className="grid gap-3">
-				{isLoading && <p className="text-muted-foreground text-sm">Loading marketplace items...</p>}
-				{!isLoading && items.length === 0 && (
-					<Card>
-						<CardContent className="text-muted-foreground py-10 text-center text-sm">
-							No marketplace items yet. Create a skill or plugin to get started.
-						</CardContent>
-					</Card>
-				)}
-				{items.map((item) => (
-					<Card key={item.id} data-testid={`marketplace-item-${item.name}`}>
-						<CardContent className="flex items-center justify-between gap-4 py-4">
-							<div className="min-w-0">
-								<div className="flex items-center gap-2">
-									<p className="font-medium">{item.name}</p>
-									<Badge variant="secondary">{item.item_type}</Badge>
-									{!item.enabled && <Badge variant="outline">disabled</Badge>}
-								</div>
-								<p className="text-muted-foreground mt-1 truncate text-sm">{item.description || "No description"}</p>
-								<p className="text-muted-foreground mt-1 text-xs">{item.source}</p>
-							</div>
-							<div className="flex shrink-0 gap-2">
-								<Button variant="outline" onClick={() => setEditor({ mode: "edit", item })}>
-									Edit
-								</Button>
-								<Button
-									variant="destructive"
-									onClick={async () => {
-										try {
-											await deleteItem(item.id).unwrap();
-											toast.success("Item deleted");
-										} catch {
-											toast.error("Failed to delete item");
-										}
-									}}
-									data-testid={`marketplace-delete-${item.name}`}
-								>
-									<Trash2Icon className="h-4 w-4" />
-								</Button>
-							</div>
-						</CardContent>
-					</Card>
-				))}
-			</div>
-
-			<MarketplaceItemDialog
-				editor={editor}
-				onClose={() => setEditor(null)}
-				onSave={async (payload) => {
-					try {
-						if (editor?.mode === "edit" && editor.item) {
-							await updateItem({ id: editor.item.id, body: payload }).unwrap();
-							toast.success("Item updated");
-						} else {
-							await createItem(payload).unwrap();
-							toast.success("Item created");
-						}
-						setEditor(null);
-					} catch {
-						toast.error("Failed to save item");
-					}
-				}}
-			/>
-		</div>
-	);
-}
-
-function MarketplaceItemDialog({
-	editor,
-	onClose,
-	onSave,
-}: {
-	editor: EditorState | null;
-	onClose: () => void;
-	onSave: (payload: {
-		name: string;
-		item_type: MarketplaceItemType;
-		description?: string;
-		version?: string;
-		source?: string;
-		enabled?: boolean;
-		category?: string;
-		content?: { skill_md?: string; plugin_json?: Record<string, unknown>; files?: Record<string, string> };
-	}) => Promise<void>;
-}) {
-	const [name, setName] = useState("");
-	const [itemType, setItemType] = useState<MarketplaceItemType>("plugin");
-	const [description, setDescription] = useState("");
-	const [version, setVersion] = useState("1.0.0");
-	const [source, setSource] = useState("");
-	const [enabled, setEnabled] = useState(true);
-	const [contentText, setContentText] = useState("");
-
-	const open = editor !== null;
-	const isEdit = editor?.mode === "edit";
-
-	useEffect(() => {
-		if (!editor) return;
-		if (editor.mode === "edit" && editor.item) {
-			setName(editor.item.name);
-			setItemType(editor.item.item_type);
-			setDescription(editor.item.description ?? "");
-			setVersion(editor.item.version ?? "1.0.0");
-			setSource(editor.item.source ?? "");
-			setEnabled(editor.item.enabled);
-			setContentText(editor.item.content ? JSON.stringify(editor.item.content, null, 2) : "");
-			return;
-		}
-		setName("");
-		setItemType("plugin");
-		setDescription("");
-		setVersion("1.0.0");
-		setSource("");
-		setEnabled(true);
-		setContentText("");
-	}, [editor]);
-
-	const resetAndClose = () => {
-		setName("");
-		setItemType("plugin");
-		setDescription("");
-		setVersion("1.0.0");
-		setSource("");
-		setEnabled(true);
-		setContentText("");
-		onClose();
+	const itemHandlers = {
+		onEdit: (item: MarketplaceItem) => setEditor({ mode: "edit", item }),
+		onDelete: async (item: MarketplaceItem) => {
+			try {
+				await deleteItem(item.id).unwrap();
+				toast.success(t("marketplace.toast.deleted"));
+			} catch {
+				toast.error(t("marketplace.toast.deleteFailed"));
+			}
+		},
+		onSync: async (item: MarketplaceItem) => {
+			try {
+				await syncItem({ id: item.id }).unwrap();
+				toast.success(t("marketplace.toast.synced"));
+			} catch {
+				toast.error(t("marketplace.toast.syncFailed"));
+			}
+		},
 	};
 
+	const renderListRow = (item: MarketplaceItem) => (
+		<MarketplaceListRow
+			key={item.id}
+			item={item}
+			onEdit={() => itemHandlers.onEdit(item)}
+			onDelete={() => itemHandlers.onDelete(item)}
+			onSync={
+				item.source_type === "github" || item.source_type === "gitlab" || item.source_type === "catalog"
+					? () => itemHandlers.onSync(item)
+					: undefined
+			}
+		/>
+	);
+
+	const renderTile = (item: MarketplaceItem) => defaultTileRenderer(item, itemHandlers);
+	const { claude: searchClaude, codex: searchCodex } = useMemo(() => groupMarketplaceItemsByPlatform(items), [items]);
+
 	return (
-		<Dialog open={open} onOpenChange={(next) => !next && resetAndClose()}>
-			<DialogContent className="max-w-2xl" data-testid="marketplace-item-dialog">
-				<DialogHeader>
-					<DialogTitle>{isEdit ? "Edit marketplace item" : "Create marketplace item"}</DialogTitle>
-				</DialogHeader>
-				<div className="grid gap-4">
-					<div className="grid gap-2">
-						<Label>Name</Label>
-						<Input value={name} onChange={(e) => setName(e.target.value)} disabled={isEdit} data-testid="marketplace-item-name" />
-					</div>
-					<div className="grid gap-2">
-						<Label>Type</Label>
-						<Select value={itemType} onValueChange={(v) => setItemType(v as MarketplaceItemType)} disabled={isEdit}>
-							<SelectTrigger data-testid="marketplace-item-type">
-								<SelectValue />
-							</SelectTrigger>
-							<SelectContent>
-								<SelectItem value="plugin">Plugin</SelectItem>
-								<SelectItem value="skill">Skill</SelectItem>
-							</SelectContent>
-						</Select>
-					</div>
-					<div className="grid gap-2">
-						<Label>Description</Label>
-						<Textarea value={description} onChange={(e) => setDescription(e.target.value)} data-testid="marketplace-item-description" />
-					</div>
-					<div className="grid grid-cols-2 gap-3">
-						<div className="grid gap-2">
-							<Label>Version</Label>
-							<Input value={version} onChange={(e) => setVersion(e.target.value)} />
+		<div
+			className="no-padding-parent no-border-parent bg-background flex h-[calc(100vh-16px)] w-full overflow-hidden"
+			data-testid="marketplace-page"
+		>
+			<div className="bg-card flex min-w-0 flex-1 flex-col overflow-hidden rounded-xl">
+				{activeView !== "settings" && (
+					<div className="flex shrink-0 items-center gap-2 px-3 pt-3 pb-2">
+						<div className="relative min-w-0 flex-1 sm:max-w-xs md:max-w-sm">
+							<SearchIcon className="text-muted-foreground pointer-events-none absolute top-1/2 left-2.5 size-3.5 -translate-y-1/2" />
+							<Input
+								value={search}
+								onChange={(e) => setSearch(e.target.value)}
+								placeholder={t("marketplace.searchPlaceholder")}
+								className="h-8 w-full rounded-lg border-0 bg-muted/70 pl-8 text-[13px] shadow-none focus-visible:ring-1"
+								data-testid="marketplace-search-input"
+							/>
 						</div>
-						<div className="grid gap-2">
-							<Label>Source path</Label>
-							<Input value={source} onChange={(e) => setSource(e.target.value)} placeholder="./marketplace/plugins/name" />
-						</div>
+						<Button
+							size="sm"
+							className="h-8 shrink-0 gap-1.5 rounded-lg px-3 text-[13px]"
+							onClick={() => setEditor({ mode: "create" })}
+							data-testid="marketplace-add-button"
+						>
+							<PlusIcon className="size-3.5" />
+							{t("marketplace.addItem")}
+						</Button>
 					</div>
-					<div className="flex items-center gap-2">
-						<Checkbox checked={enabled} onCheckedChange={(v) => setEnabled(Boolean(v))} />
-						<Label>Enabled</Label>
-					</div>
-					<div className="grid gap-2">
-						<Label>Content bundle (JSON)</Label>
-						<Textarea
-							className="min-h-40 font-mono text-xs"
-							value={contentText}
-							onChange={(e) => setContentText(e.target.value)}
-							placeholder='{"skill_md":"---\\nname: ...\\n---\\n","files":{}}'
-							data-testid="marketplace-item-content"
-						/>
-					</div>
-				</div>
-				<DialogFooter>
-					<Button variant="outline" onClick={resetAndClose}>
-						Cancel
-					</Button>
-					<Button
-						onClick={async () => {
-							let content: { skill_md?: string; plugin_json?: Record<string, unknown>; files?: Record<string, string> } | undefined;
-							if (contentText.trim()) {
-								try {
-									content = JSON.parse(contentText);
-								} catch {
-									toast.error("Invalid content JSON");
-									return;
+				)}
+
+				<ScrollArea className="flex-1">
+					<div className={activeView === "settings" ? "px-6 py-4" : "px-3 py-3"}>
+						{isLoading && activeView !== "settings" && (
+							<p className="text-muted-foreground text-[13px]">{t("marketplace.loading")}</p>
+						)}
+
+						{activeView === "settings" && (
+							<MarketplaceSettingsPanel
+								claudeManifestURL={claudeManifestURL}
+								codexManifestURL={codexManifestURL}
+								config={configData?.marketplace}
+								isAdmin={isLocalAdmin}
+								embedded
+							/>
+						)}
+
+						{!isLoading && activeView !== "settings" && isSearchMode && (
+							<div className="space-y-6">
+								{items.length === 0 ? (
+									<MarketplaceEmptyState activeView={activeView} onImport={() => setEditor({ mode: "create" })} />
+								) : (
+									<>
+										{searchClaude.length > 0 && (
+											<section className="space-y-2" data-testid="marketplace-section-claude">
+												<h3 className="text-muted-foreground px-1 text-[12px] font-semibold tracking-wide">
+													{t("marketplace.platform.claude")}
+												</h3>
+												<div className="space-y-1">{searchClaude.map(renderListRow)}</div>
+											</section>
+										)}
+										{searchCodex.length > 0 && (
+											<section className="space-y-2" data-testid="marketplace-section-codex">
+												<h3 className="text-muted-foreground px-1 text-[12px] font-semibold tracking-wide">
+													{t("marketplace.platform.codex")}
+												</h3>
+												<div className="space-y-1">{searchCodex.map(renderListRow)}</div>
+											</section>
+										)}
+									</>
+								)}
+							</div>
+						)}
+
+						{!isLoading && activeView !== "settings" && !isSearchMode && activeView === "plugin" && (
+							<MarketplacePlatformSections
+								items={plugins}
+								renderItem={renderTile}
+								empty={
+									<MarketplaceEmptyState
+										activeView={activeView}
+										onImport={() => setEditor({ mode: "create" })}
+										compact
+									/>
 								}
-							}
-							await onSave({
-								name: name.trim(),
-								item_type: itemType,
-								description: description.trim(),
-								version: version.trim(),
-								source: source.trim() || undefined,
-								enabled,
-								content,
-							});
-							resetAndClose();
-						}}
-						data-testid="marketplace-item-save"
-					>
-						Save
-					</Button>
-				</DialogFooter>
-			</DialogContent>
-		</Dialog>
+							/>
+						)}
+
+						{!isLoading && activeView !== "settings" && !isSearchMode && activeView === "skill" && (
+							<MarketplacePlatformSections
+								items={skills}
+								renderItem={renderTile}
+								empty={
+									<MarketplaceEmptyState
+										activeView={activeView}
+										onImport={() => setEditor({ mode: "create" })}
+										compact
+									/>
+								}
+							/>
+						)}
+					</div>
+				</ScrollArea>
+			</div>
+
+			<MarketplaceImportDialog editor={editor} importContext={activeView} onClose={() => setEditor(null)} />
+		</div>
 	);
 }

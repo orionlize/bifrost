@@ -6,6 +6,7 @@ export const shared = {
 			configuration: "configuration",
 			apiKeys: "API keys",
 			customPricing: "custom pricing",
+			userTiers: "user tiers",
 		},
 	},
 	sheetNav: {

@@ -277,6 +277,9 @@ type ConfigStore interface {
 	UpsertAoneUserFromLogin(ctx context.Context, me *aoneoauth.MeResponse) (*tables.AoneUserTable, error)
 	GetAoneUsersPaginated(ctx context.Context, params AoneUsersQueryParams) ([]tables.AoneUserTable, int64, error)
 	GetAoneUserByAoneID(ctx context.Context, aoneUserID string) (*tables.AoneUserTable, error)
+	GetAoneDepartmentsPaginated(ctx context.Context, params AoneDepartmentsQueryParams) ([]tables.AoneDepartmentTable, int64, error)
+	GetAoneDepartmentTree(ctx context.Context) ([]AoneDepartmentTreeNode, error)
+	GetAoneUserDepartmentIDs(ctx context.Context, aoneUserID string) ([]int, error)
 	SetAoneUserDisabled(ctx context.Context, aoneUserID string, disabled bool) (*tables.AoneUserTable, error)
 	RotateAoneUserVirtualKey(ctx context.Context, aoneUserID string) (*tables.TableVirtualKey, error)
 	DeleteAoneUserSessions(ctx context.Context, aoneUserID string) error
@@ -313,14 +316,19 @@ type ConfigStore interface {
 	GetMarketplaceItemsPaginated(ctx context.Context, params MarketplaceItemsQueryParams) ([]tables.TableMarketplaceItem, int64, error)
 	GetMarketplaceItemByID(ctx context.Context, id uint) (*tables.TableMarketplaceItem, error)
 	GetMarketplaceItemByName(ctx context.Context, name string) (*tables.TableMarketplaceItem, error)
+	GetMarketplaceItemByNameAndPlatform(ctx context.Context, name, platform string) (*tables.TableMarketplaceItem, error)
 	CreateMarketplaceItem(ctx context.Context, item *tables.TableMarketplaceItem) error
 	UpdateMarketplaceItem(ctx context.Context, item *tables.TableMarketplaceItem) error
 	DeleteMarketplaceItem(ctx context.Context, id uint) error
 	GetMarketplaceUserAssignments(ctx context.Context, aoneUserID string) ([]tables.TableMarketplaceUserAssignment, error)
+	GetMarketplaceItemAssignments(ctx context.Context, itemID uint) ([]tables.TableMarketplaceItemAssignment, error)
 	GetMarketplaceItemsForUser(ctx context.Context, aoneUserID string) ([]tables.TableMarketplaceItem, error)
+	ReplaceMarketplaceItemAssignments(ctx context.Context, itemID uint, update *schemas.MarketplaceItemAssignmentsUpdate) error
 	ReplaceMarketplaceUserAssignments(ctx context.Context, aoneUserID string, itemIDs []uint) error
 	AddMarketplaceUserAssignments(ctx context.Context, aoneUserID string, itemIDs []uint) error
 	RemoveMarketplaceUserAssignment(ctx context.Context, aoneUserID string, itemID uint) error
+	GetMarketplaceUserGitCredentials(ctx context.Context, ownerID string) (*tables.TableMarketplaceUserCredentials, error)
+	UpdateMarketplaceUserGitCredentials(ctx context.Context, ownerID string, update *schemas.MarketplaceUserGitCredentialsUpdate) (*schemas.MarketplaceUserGitCredentialsStatus, error)
 
 	// Temp token CRUD
 	CreateTempToken(ctx context.Context, token *tables.TempToken, tx ...*gorm.DB) error

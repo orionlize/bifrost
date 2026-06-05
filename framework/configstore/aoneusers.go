@@ -51,6 +51,9 @@ func (s *RDBConfigStore) UpsertAoneUserFromLogin(ctx context.Context, me *aoneoa
 		if err := s.DB().WithContext(ctx).Create(&user).Error; err != nil {
 			return nil, err
 		}
+		if syncErr := s.SyncAoneOrgFromLogin(ctx, user.AoneUserID, me); syncErr != nil {
+			return &user, syncErr
+		}
 		return &user, nil
 	}
 	if err != nil {
@@ -66,6 +69,9 @@ func (s *RDBConfigStore) UpsertAoneUserFromLogin(ctx context.Context, me *aoneoa
 	existing.UpdatedAt = now
 	if err := s.DB().WithContext(ctx).Save(&existing).Error; err != nil {
 		return nil, err
+	}
+	if syncErr := s.SyncAoneOrgFromLogin(ctx, existing.AoneUserID, me); syncErr != nil {
+		return &existing, syncErr
 	}
 	return &existing, nil
 }
@@ -502,10 +508,24 @@ func buildAoneUserPatch(me *aoneoauth.MeResponse, now time.Time) tables.AoneUser
 	}
 
 	if me.Dingtalk != nil {
-		if data, err := json.Marshal(me.Dingtalk); err == nil {
+		paths := me.Dingtalk.DepartmentPaths.Paths
+		if len(paths) == 0 && len(me.Dingtalk.Departments) > 0 {
+			if data, err := json.Marshal(me.Dingtalk.Departments); err == nil {
+				paths, _ = aoneoauth.ParseDepartmentPaths(data)
+			}
+		}
+		enrichedDepartments := aoneoauth.EnrichDepartmentPaths(me.Organization, paths)
+		dingtalkCopy := *me.Dingtalk
+		dingtalkCopy.DepartmentPaths = aoneoauth.DingtalkDepartmentPaths{Paths: paths}
+		dingtalkCopy.Departments = nil
+		if data, err := json.Marshal(dingtalkCopy); err == nil {
 			user.DingtalkJSON = string(data)
 		}
-		user.DepartmentNames = formatAoneDepartments(me.Dingtalk.Departments)
+		if len(me.Dingtalk.DepartmentAssignments) > 0 {
+			user.DepartmentNames = aoneoauth.FormatDepartmentAssignments(me.Dingtalk.DepartmentAssignments)
+		} else {
+			user.DepartmentNames = aoneoauth.FormatDepartmentPaths(enrichedDepartments)
+		}
 		if me.Dingtalk.Profile.Name != "" {
 			user.DisplayName = me.Dingtalk.Profile.Name
 		}
@@ -538,19 +558,6 @@ func applyAoneUserPatch(existing *tables.AoneUserTable, patch tables.AoneUserTab
 	existing.DisplayName = patch.DisplayName
 	existing.DisplayAvatar = patch.DisplayAvatar
 	existing.JobTitle = patch.JobTitle
-}
-
-func formatAoneDepartments(departments []aoneoauth.DingtalkDepartment) string {
-	if len(departments) == 0 {
-		return ""
-	}
-	names := make([]string, 0, len(departments))
-	for _, dept := range departments {
-		if dept.Name != "" {
-			names = append(names, dept.Name)
-		}
-	}
-	return strings.Join(names, " / ")
 }
 
 // AoneUserRankingDisplayName returns the label shown in dashboard user rankings.

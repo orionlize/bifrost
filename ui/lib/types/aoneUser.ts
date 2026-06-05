@@ -1,6 +1,46 @@
 export interface AoneUserDepartment {
 	deptId: number;
 	name: string;
+	fullPath?: string;
+	pathDeptIds?: number[];
+	chain?: Array<{
+		name: string;
+		deptId: number;
+		parentId: number;
+	}>;
+	isLeader?: boolean;
+}
+
+export interface AoneDepartmentTreeNode {
+	dept_id: number;
+	name: string;
+	full_path?: string;
+	parent_dept_id?: number;
+	children?: AoneDepartmentTreeNode[];
+}
+
+export interface AoneDepartmentTreeResponse {
+	departments: AoneDepartmentTreeNode[];
+}
+
+export interface AoneDepartmentListItem {
+	dept_id: number;
+	name: string;
+	parent_dept_id?: number;
+	full_path?: string;
+}
+
+export interface AoneDepartmentsListResponse {
+	departments: AoneDepartmentListItem[];
+	total_count: number;
+	limit: number;
+	offset: number;
+}
+
+export interface AoneDepartmentsQueryParams {
+	limit?: number;
+	offset?: number;
+	search?: string;
 }
 
 export interface AoneUserListItem {

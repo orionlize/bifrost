@@ -24,11 +24,13 @@ import {
 	PanelLeftOpen,
 	Plug,
 	Puzzle,
+	Store,
 	ScrollText,
 	Search,
 	SearchCheck,
 	Settings,
 	Settings2Icon,
+	Sparkles,
 	ShieldCheck,
 	Shuffle,
 	SlidersHorizontal,
@@ -517,6 +519,10 @@ export default function AppSidebar() {
 	const isAoneUserSession = useIsAoneUserSession();
 	const isLocalAdmin = useIsLocalAdminSession();
 	const showAoneUsers = !IS_ENTERPRISE && (authStatus?.aone_oauth_enabled ?? false);
+	// Marketplace is admin-facing; show for any non-Aone-user dashboard session when
+	// plugins, Aone OAuth, or settings access is available.
+	const showMarketplace =
+		!isAoneUserSession && (hasPluginsAccess || showAoneUsers || hasSettingsAccess || isLocalAdmin);
 	const hideManualVirtualKeys = showAoneUsers;
 	const { enabled: aoneUserEnabled, displayName: aoneDisplayName, avatar: aoneAvatar } = useAoneCurrentUser();
 	const hasAnyGovernanceAccess =
@@ -587,9 +593,29 @@ export default function AppSidebar() {
 			},
 			{
 				...nav("marketplace"),
-				url: "/workspace/marketplace",
-				icon: BoxIcon,
-				hasAccess: hasPluginsAccess,
+				url: "/workspace/marketplace/plugins",
+				icon: Store,
+				hasAccess: showMarketplace,
+				subItems: [
+					{
+						...nav("marketplacePlugins"),
+						url: "/workspace/marketplace/plugins",
+						icon: Puzzle,
+						hasAccess: showMarketplace,
+					},
+					{
+						...nav("marketplaceSkills"),
+						url: "/workspace/marketplace/skills",
+						icon: Sparkles,
+						hasAccess: showMarketplace,
+					},
+					{
+						...nav("marketplaceSourceSettings"),
+						url: "/workspace/marketplace/settings",
+						icon: Settings,
+						hasAccess: showMarketplace,
+					},
+				],
 			},
 			{
 				...nav("team"),
@@ -681,6 +707,9 @@ export default function AppSidebar() {
 			hasMCPGatewayAccess,
 			hasMCPLogsAccess,
 			hasPluginsAccess,
+			hasSettingsAccess,
+			showMarketplace,
+			isLocalAdmin,
 			hasCustomersAccess,
 			hasTeamsAccess,
 			hasVirtualKeysAccess,
@@ -692,6 +721,7 @@ export default function AppSidebar() {
 			showMCPToolGroups,
 			showGovernanceUsers,
 			showAoneUsers,
+			isAoneUserSession,
 			hideManualVirtualKeys,
 			showUserProvisioning,
 			showAuditLogs,

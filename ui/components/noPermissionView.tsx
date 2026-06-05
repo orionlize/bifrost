@@ -12,6 +12,7 @@ const ENTITY_KEY_MAP: Record<string, string> = {
 	configuration: "shared.noPermission.entities.configuration",
 	"API keys": "shared.noPermission.entities.apiKeys",
 	"custom pricing": "shared.noPermission.entities.customPricing",
+	"user tiers": "shared.noPermission.entities.userTiers",
 };
 
 export function NoPermissionView({ entity, className, align = "middle" }: NoPermissionViewProps) {

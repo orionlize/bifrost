@@ -36,38 +36,54 @@ func (h *MarketplaceHandler) RegisterRoutes(r *router.Router, middlewares ...sch
 	// Admin catalog CRUD
 	r.GET("/api/marketplace/items", lib.ChainMiddlewares(h.listItems, middlewares...))
 	r.POST("/api/marketplace/items", lib.ChainMiddlewares(h.createItem, middlewares...))
+	r.POST("/api/marketplace/items/import", lib.ChainMiddlewares(h.importItem, middlewares...))
+	r.GET("/api/marketplace/catalog/presets", lib.ChainMiddlewares(h.listCatalogPresets, middlewares...))
+	r.GET("/api/marketplace/catalog/preview", lib.ChainMiddlewares(h.previewCatalog, middlewares...))
 	r.GET("/api/marketplace/items/{id}", lib.ChainMiddlewares(h.getItem, middlewares...))
+	r.GET("/api/marketplace/items/{id}/icon", lib.ChainMiddlewares(h.serveItemIcon, middlewares...))
 	r.PUT("/api/marketplace/items/{id}", lib.ChainMiddlewares(h.updateItem, middlewares...))
+	r.POST("/api/marketplace/items/{id}/icon", lib.ChainMiddlewares(h.uploadItemIcon, middlewares...))
+	r.POST("/api/marketplace/items/{id}/sync", lib.ChainMiddlewares(h.syncItem, middlewares...))
 	r.DELETE("/api/marketplace/items/{id}", lib.ChainMiddlewares(h.deleteItem, middlewares...))
 
 	// Marketplace metadata
 	r.GET("/api/marketplace/config", lib.ChainMiddlewares(h.getConfig, middlewares...))
 	r.PUT("/api/marketplace/config", lib.ChainMiddlewares(h.updateConfig, middlewares...))
 
-	// User assignment (admin)
+	// User assignment (admin, legacy)
 	r.GET("/api/marketplace/users/{user_id}/assignments", lib.ChainMiddlewares(h.getUserAssignments, middlewares...))
 	r.PUT("/api/marketplace/users/{user_id}/assignments", lib.ChainMiddlewares(h.replaceUserAssignments, middlewares...))
 	r.POST("/api/marketplace/users/{user_id}/assignments", lib.ChainMiddlewares(h.addUserAssignments, middlewares...))
 	r.DELETE("/api/marketplace/users/{user_id}/assignments/{item_id}", lib.ChainMiddlewares(h.removeUserAssignment, middlewares...))
 
+	// Item assignment (admin)
+	r.GET("/api/marketplace/items/{id}/assignments", lib.ChainMiddlewares(h.getItemAssignments, middlewares...))
+	r.PUT("/api/marketplace/items/{id}/assignments", lib.ChainMiddlewares(h.replaceItemAssignments, middlewares...))
+
 	// Marketplace source (manifest + content)
-	r.GET("/api/marketplace/manifest", lib.ChainMiddlewares(h.getPublicManifest, middlewares...))
-	r.GET("/.claude-plugin/marketplace.json", lib.ChainMiddlewares(h.getPublicManifest, middlewares...))
+	r.GET("/api/marketplace/manifest", lib.ChainMiddlewares(h.getAPIManifest, middlewares...))
+	r.GET("/.claude-plugin/marketplace.json", lib.ChainMiddlewares(h.getClaudePublicManifest, middlewares...))
+	r.GET("/.agents/plugins/marketplace.json", lib.ChainMiddlewares(h.getCodexPublicManifest, middlewares...))
 	r.GET("/api/marketplace/my/manifest", lib.ChainMiddlewares(h.getMyManifest, middlewares...))
 	r.GET("/api/marketplace/my/items", lib.ChainMiddlewares(h.getMyItems, middlewares...))
-	r.GET("/marketplace/{item_type}/{name}/*", lib.ChainMiddlewares(h.serveItemContent, middlewares...))
+	r.GET("/api/marketplace/my/git-credentials", lib.ChainMiddlewares(h.getMyGitCredentials, middlewares...))
+	r.PUT("/api/marketplace/my/git-credentials", lib.ChainMiddlewares(h.updateMyGitCredentials, middlewares...))
+	r.GET("/marketplace/{platform}/{item_type}/{name}/*", lib.ChainMiddlewares(h.serveItemContent, middlewares...))
+	r.GET("/marketplace/{item_type}/{name}/*", lib.ChainMiddlewares(h.serveLegacyItemContent, middlewares...))
 }
 
 type marketplaceItemRequest struct {
-	Name        string                         `json:"name"`
-	ItemType    schemas.MarketplaceItemType    `json:"item_type"`
-	Description string                         `json:"description"`
-	Version     string                         `json:"version"`
-	Source      string                         `json:"source"`
-	Enabled     *bool                          `json:"enabled"`
-	Category    string                         `json:"category"`
-	Tags        []string                       `json:"tags"`
-	Content     *schemas.MarketplaceItemBundle `json:"content"`
+	Name        string                      `json:"name"`
+	ItemType    schemas.MarketplaceItemType `json:"item_type"`
+	Description string                      `json:"description"`
+	Version     string                      `json:"version"`
+	IconURL     string                      `json:"icon_url"`
+	ClearIcon   bool                        `json:"clear_icon"`
+	Enabled     *bool                       `json:"enabled"`
+	Category    string                      `json:"category"`
+	Tags        []string                    `json:"tags"`
+	Users       []string                    `json:"users"`
+	Departments []string                    `json:"departments"`
 }
 
 type replaceAssignmentsRequest struct {
@@ -88,6 +104,7 @@ func (h *MarketplaceHandler) listItems(ctx *fasthttp.RequestCtx) {
 	offset, _ := strconv.Atoi(string(ctx.QueryArgs().Peek("offset")))
 	search := strings.TrimSpace(string(ctx.QueryArgs().Peek("search")))
 	itemType := strings.TrimSpace(string(ctx.QueryArgs().Peek("item_type")))
+	platform := strings.TrimSpace(string(ctx.QueryArgs().Peek("platform")))
 
 	var enabledFilter *bool
 	if enabledRaw := strings.TrimSpace(string(ctx.QueryArgs().Peek("enabled"))); enabledRaw != "" {
@@ -100,6 +117,7 @@ func (h *MarketplaceHandler) listItems(ctx *fasthttp.RequestCtx) {
 		Offset:   offset,
 		Search:   search,
 		ItemType: itemType,
+		Platform: platform,
 		Enabled:  enabledFilter,
 	})
 	if err != nil {
@@ -121,47 +139,7 @@ func (h *MarketplaceHandler) listItems(ctx *fasthttp.RequestCtx) {
 }
 
 func (h *MarketplaceHandler) createItem(ctx *fasthttp.RequestCtx) {
-	if !requireLocalAdmin(ctx, h.configStore) {
-		SendError(ctx, fasthttp.StatusForbidden, "Admin access required")
-		return
-	}
-
-	var req marketplaceItemRequest
-	if err := json.Unmarshal(ctx.PostBody(), &req); err != nil {
-		SendError(ctx, fasthttp.StatusBadRequest, "Invalid request body")
-		return
-	}
-	if err := validateMarketplaceItemRequest(&req, true); err != nil {
-		SendError(ctx, fasthttp.StatusBadRequest, err.Error())
-		return
-	}
-
-	enabled := true
-	if req.Enabled != nil {
-		enabled = *req.Enabled
-	}
-
-	item := &tables.TableMarketplaceItem{
-		Name:        strings.TrimSpace(req.Name),
-		ItemType:    req.ItemType,
-		Description: strings.TrimSpace(req.Description),
-		Version:     strings.TrimSpace(req.Version),
-		Source:      strings.TrimSpace(req.Source),
-		Enabled:     enabled,
-		Category:    strings.TrimSpace(req.Category),
-		Tags:        req.Tags,
-		Content:     req.Content,
-	}
-	if item.Source == "" {
-		item.Source = defaultMarketplaceItemSource(item)
-	}
-
-	if err := h.configStore.CreateMarketplaceItem(ctx, item); err != nil {
-		SendError(ctx, fasthttp.StatusInternalServerError, fmt.Sprintf("Failed to create marketplace item: %v", err))
-		return
-	}
-
-	SendJSONWithStatus(ctx, map[string]any{"item": marketplaceItemResponse(item, true)}, fasthttp.StatusCreated)
+	SendError(ctx, fasthttp.StatusBadRequest, "Use POST /api/marketplace/items/import with zip upload or git sync")
 }
 
 func (h *MarketplaceHandler) getItem(ctx *fasthttp.RequestCtx) {
@@ -229,8 +207,14 @@ func (h *MarketplaceHandler) updateItem(ctx *fasthttp.RequestCtx) {
 	}
 	item.Description = strings.TrimSpace(req.Description)
 	item.Version = strings.TrimSpace(req.Version)
-	if strings.TrimSpace(req.Source) != "" {
-		item.Source = strings.TrimSpace(req.Source)
+	if req.ClearIcon {
+		item.IconURL = ""
+		item.IconData = ""
+		item.IconMediaType = ""
+	} else if strings.TrimSpace(req.IconURL) != "" {
+		item.IconURL = strings.TrimSpace(req.IconURL)
+		item.IconData = ""
+		item.IconMediaType = ""
 	}
 	if req.Enabled != nil {
 		item.Enabled = *req.Enabled
@@ -239,9 +223,6 @@ func (h *MarketplaceHandler) updateItem(ctx *fasthttp.RequestCtx) {
 	if req.Tags != nil {
 		item.Tags = req.Tags
 	}
-	if req.Content != nil {
-		item.Content = req.Content
-	}
 	if item.Source == "" {
 		item.Source = defaultMarketplaceItemSource(item)
 	}
@@ -249,6 +230,16 @@ func (h *MarketplaceHandler) updateItem(ctx *fasthttp.RequestCtx) {
 	if err := h.configStore.UpdateMarketplaceItem(ctx, item); err != nil {
 		SendError(ctx, fasthttp.StatusInternalServerError, fmt.Sprintf("Failed to update marketplace item: %v", err))
 		return
+	}
+
+	if req.Users != nil || req.Departments != nil {
+		if err := h.configStore.ReplaceMarketplaceItemAssignments(ctx, id, &schemas.MarketplaceItemAssignmentsUpdate{
+			Users:       req.Users,
+			Departments: req.Departments,
+		}); err != nil {
+			SendError(ctx, fasthttp.StatusInternalServerError, fmt.Sprintf("Failed to update item assignments: %v", err))
+			return
+		}
 	}
 
 	SendJSON(ctx, map[string]any{"item": marketplaceItemResponse(item, true)})
@@ -306,6 +297,16 @@ func (h *MarketplaceHandler) updateConfig(ctx *fasthttp.RequestCtx) {
 	if strings.TrimSpace(req.Name) == "" {
 		SendError(ctx, fasthttp.StatusBadRequest, "name is required")
 		return
+	}
+	for i, source := range req.CatalogSources {
+		if strings.TrimSpace(source.Label) == "" {
+			SendError(ctx, fasthttp.StatusBadRequest, fmt.Sprintf("catalog_sources[%d].label is required", i))
+			return
+		}
+		if strings.TrimSpace(source.URL) == "" {
+			SendError(ctx, fasthttp.StatusBadRequest, fmt.Sprintf("catalog_sources[%d].url is required", i))
+			return
+		}
 	}
 
 	if err := h.configStore.UpdateMarketplaceConfig(ctx, &req); err != nil {
@@ -480,7 +481,105 @@ func (h *MarketplaceHandler) removeUserAssignment(ctx *fasthttp.RequestCtx) {
 	SendJSON(ctx, map[string]any{"success": true})
 }
 
-func (h *MarketplaceHandler) getPublicManifest(ctx *fasthttp.RequestCtx) {
+func (h *MarketplaceHandler) getItemAssignments(ctx *fasthttp.RequestCtx) {
+	if !requireLocalAdmin(ctx, h.configStore) {
+		SendError(ctx, fasthttp.StatusForbidden, "Admin access required")
+		return
+	}
+
+	id, err := parseUintPathParam(ctx, "id")
+	if err != nil {
+		SendError(ctx, fasthttp.StatusBadRequest, "Invalid item id")
+		return
+	}
+
+	if _, err := h.configStore.GetMarketplaceItemByID(ctx, id); err != nil {
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			SendError(ctx, fasthttp.StatusNotFound, "Marketplace item not found")
+			return
+		}
+		SendError(ctx, fasthttp.StatusInternalServerError, fmt.Sprintf("Failed to get marketplace item: %v", err))
+		return
+	}
+
+	assignments, err := h.configStore.GetMarketplaceItemAssignments(ctx, id)
+	if err != nil {
+		SendError(ctx, fasthttp.StatusInternalServerError, fmt.Sprintf("Failed to get item assignments: %v", err))
+		return
+	}
+
+	users := make([]string, 0)
+	departments := make([]string, 0)
+	for i := range assignments {
+		switch assignments[i].TargetType {
+		case tables.MarketplaceAssignmentTargetUser:
+			users = append(users, assignments[i].TargetID)
+		case tables.MarketplaceAssignmentTargetDepartment:
+			departments = append(departments, assignments[i].TargetID)
+		}
+	}
+
+	SendJSON(ctx, map[string]any{
+		"item_id":     id,
+		"users":       users,
+		"departments": departments,
+	})
+}
+
+func (h *MarketplaceHandler) replaceItemAssignments(ctx *fasthttp.RequestCtx) {
+	if !requireLocalAdmin(ctx, h.configStore) {
+		SendError(ctx, fasthttp.StatusForbidden, "Admin access required")
+		return
+	}
+
+	id, err := parseUintPathParam(ctx, "id")
+	if err != nil {
+		SendError(ctx, fasthttp.StatusBadRequest, "Invalid item id")
+		return
+	}
+
+	if _, err := h.configStore.GetMarketplaceItemByID(ctx, id); err != nil {
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			SendError(ctx, fasthttp.StatusNotFound, "Marketplace item not found")
+			return
+		}
+		SendError(ctx, fasthttp.StatusInternalServerError, fmt.Sprintf("Failed to get marketplace item: %v", err))
+		return
+	}
+
+	var req schemas.MarketplaceItemAssignmentsUpdate
+	if err := json.Unmarshal(ctx.PostBody(), &req); err != nil {
+		SendError(ctx, fasthttp.StatusBadRequest, "Invalid request body")
+		return
+	}
+
+	if err := h.configStore.ReplaceMarketplaceItemAssignments(ctx, id, &req); err != nil {
+		SendError(ctx, fasthttp.StatusInternalServerError, fmt.Sprintf("Failed to replace item assignments: %v", err))
+		return
+	}
+
+	SendJSON(ctx, map[string]any{
+		"item_id":     id,
+		"users":       req.Users,
+		"departments": req.Departments,
+	})
+}
+
+func (h *MarketplaceHandler) getClaudePublicManifest(ctx *fasthttp.RequestCtx) {
+	h.getPublicManifest(ctx, schemas.MarketplacePlatformClaude, true)
+}
+
+func (h *MarketplaceHandler) getCodexPublicManifest(ctx *fasthttp.RequestCtx) {
+	h.getPublicManifest(ctx, schemas.MarketplacePlatformCodex, false)
+}
+
+func (h *MarketplaceHandler) getAPIManifest(ctx *fasthttp.RequestCtx) {
+	platform := parseMarketplacePlatformQuery(ctx)
+	claudeFormat := platform != schemas.MarketplacePlatformCodex
+	h.getPublicManifest(ctx, platform, claudeFormat)
+}
+
+func (h *MarketplaceHandler) getPublicManifest(ctx *fasthttp.RequestCtx, platform schemas.MarketplacePlatform, claudeFormat bool) {
 	cfg, err := h.configStore.GetMarketplaceConfig(ctx)
 	if err != nil {
 		SendError(ctx, fasthttp.StatusInternalServerError, fmt.Sprintf("Failed to get marketplace config: %v", err))
@@ -498,7 +597,7 @@ func (h *MarketplaceHandler) getPublicManifest(ctx *fasthttp.RequestCtx) {
 			SendError(ctx, fasthttp.StatusInternalServerError, fmt.Sprintf("Failed to get user marketplace items: %v", err))
 			return
 		}
-		SendJSON(ctx, configstore.BuildMarketplaceManifest(cfg, items))
+		SendJSON(ctx, buildManifestResponse(cfg, filterMarketplaceItemsByPlatform(items, platform), claudeFormat))
 		return
 	}
 
@@ -512,7 +611,28 @@ func (h *MarketplaceHandler) getPublicManifest(ctx *fasthttp.RequestCtx) {
 		return
 	}
 
-	SendJSON(ctx, configstore.BuildMarketplaceManifest(cfg, items))
+	SendJSON(ctx, buildManifestResponse(cfg, filterMarketplaceItemsByPlatform(items, platform), claudeFormat))
+}
+
+func buildManifestResponse(cfg *schemas.MarketplaceConfig, items []tables.TableMarketplaceItem, claudeFormat bool) any {
+	if claudeFormat {
+		return configstore.BuildMarketplaceManifest(cfg, items)
+	}
+	return configstore.BuildCodexMarketplaceManifest(cfg, items)
+}
+
+func filterMarketplaceItemsByPlatform(items []tables.TableMarketplaceItem, platform schemas.MarketplacePlatform) []tables.TableMarketplaceItem {
+	filtered := make([]tables.TableMarketplaceItem, 0, len(items))
+	for i := range items {
+		itemPlatform := items[i].Platform
+		if itemPlatform == "" {
+			itemPlatform = schemas.MarketplacePlatformClaude
+		}
+		if itemPlatform == platform {
+			filtered = append(filtered, items[i])
+		}
+	}
+	return filtered
 }
 
 func (h *MarketplaceHandler) getMyManifest(ctx *fasthttp.RequestCtx) {
@@ -534,7 +654,9 @@ func (h *MarketplaceHandler) getMyManifest(ctx *fasthttp.RequestCtx) {
 		return
 	}
 
-	SendJSON(ctx, configstore.BuildMarketplaceManifest(cfg, items))
+	platform := parseMarketplacePlatformQuery(ctx)
+	claudeFormat := platform != schemas.MarketplacePlatformCodex
+	SendJSON(ctx, buildManifestResponse(cfg, filterMarketplaceItemsByPlatform(items, platform), claudeFormat))
 }
 
 func (h *MarketplaceHandler) getMyItems(ctx *fasthttp.RequestCtx) {
@@ -561,7 +683,13 @@ func (h *MarketplaceHandler) getMyItems(ctx *fasthttp.RequestCtx) {
 	})
 }
 
+func (h *MarketplaceHandler) serveLegacyItemContent(ctx *fasthttp.RequestCtx) {
+	ctx.SetUserValue("platform", string(schemas.MarketplacePlatformClaude))
+	h.serveItemContent(ctx)
+}
+
 func (h *MarketplaceHandler) serveItemContent(ctx *fasthttp.RequestCtx) {
+	platform := parseMarketplacePlatformPath(ctx.UserValue("platform"))
 	itemType := strings.TrimSpace(ctx.UserValue("item_type").(string))
 	name := strings.TrimSpace(ctx.UserValue("name").(string))
 	relPath := strings.TrimSpace(ctx.UserValue("*").(string))
@@ -570,7 +698,7 @@ func (h *MarketplaceHandler) serveItemContent(ctx *fasthttp.RequestCtx) {
 		return
 	}
 
-	item, err := h.configStore.GetMarketplaceItemByName(ctx, name)
+	item, err := h.configStore.GetMarketplaceItemByNameAndPlatform(ctx, name, string(platform))
 	if err != nil {
 		if errors.Is(err, gorm.ErrRecordNotFound) {
 			SendError(ctx, fasthttp.StatusNotFound, "Marketplace item not found")
@@ -631,13 +759,21 @@ func (h *MarketplaceHandler) serveItemContent(ctx *fasthttp.RequestCtx) {
 }
 
 func marketplaceItemResponse(item *tables.TableMarketplaceItem, includeContent bool) map[string]any {
+	platform := item.Platform
+	if platform == "" {
+		platform = schemas.MarketplacePlatformClaude
+	}
 	result := map[string]any{
 		"id":          item.ID,
 		"name":        item.Name,
+		"platform":    platform,
 		"item_type":   item.ItemType,
 		"description": item.Description,
 		"version":     item.Version,
-		"source":      item.Source,
+		"source_type": item.SourceType,
+		"remote_url":  item.RemoteURL,
+		"remote_ref":  item.RemoteRef,
+		"icon_url":    marketplaceIconSrc(item),
 		"enabled":     item.Enabled,
 		"category":    item.Category,
 		"tags":        item.Tags,
@@ -671,11 +807,19 @@ func defaultMarketplaceItemSource(item *tables.TableMarketplaceItem) string {
 	if item == nil {
 		return ""
 	}
+	return configstoreDefaultMarketplaceSource(*item)
+}
+
+func configstoreDefaultMarketplaceSource(item tables.TableMarketplaceItem) string {
+	platformSegment := "claude"
+	if item.Platform == schemas.MarketplacePlatformCodex {
+		platformSegment = "codex"
+	}
 	switch item.ItemType {
 	case schemas.MarketplaceItemTypeSkill:
-		return fmt.Sprintf("./marketplace/skills/%s", item.Name)
+		return fmt.Sprintf("./marketplace/%s/skills/%s", platformSegment, item.Name)
 	default:
-		return fmt.Sprintf("./marketplace/plugins/%s", item.Name)
+		return fmt.Sprintf("./marketplace/%s/plugins/%s", platformSegment, item.Name)
 	}
 }
 
@@ -709,6 +853,12 @@ func resolveMarketplaceContent(item *tables.TableMarketplaceItem, relPath string
 				return string(data), "application/json; charset=utf-8", true
 			}
 		}
+		if relPath == ".codex-plugin/plugin.json" && item.Content.PluginJSON != nil {
+			data, err := json.Marshal(item.Content.PluginJSON)
+			if err == nil {
+				return string(data), "application/json; charset=utf-8", true
+			}
+		}
 		if item.Content.Files != nil {
 			if content, ok := item.Content.Files[relPath]; ok {
 				return content, marketplaceContentType(relPath), true
@@ -719,6 +869,20 @@ func resolveMarketplaceContent(item *tables.TableMarketplaceItem, relPath string
 	// Synthesize default files when content is sparse.
 	switch relPath {
 	case ".claude-plugin/plugin.json":
+		pluginJSON := map[string]any{
+			"name":        item.Name,
+			"description": item.Description,
+			"version":     fallbackVersion(item.Version),
+		}
+		if item.Content != nil && item.Content.PluginJSON != nil {
+			pluginJSON = item.Content.PluginJSON
+		}
+		data, err := json.Marshal(pluginJSON)
+		if err != nil {
+			return "", "", false
+		}
+		return string(data), "application/json; charset=utf-8", true
+	case ".codex-plugin/plugin.json":
 		pluginJSON := map[string]any{
 			"name":        item.Name,
 			"description": item.Description,
@@ -748,7 +912,28 @@ func defaultMarketplaceContentPath(item *tables.TableMarketplaceItem) string {
 	if item.ItemType == schemas.MarketplaceItemTypeSkill {
 		return "SKILL.md"
 	}
+	if item.Platform == schemas.MarketplacePlatformCodex {
+		return ".codex-plugin/plugin.json"
+	}
 	return ".claude-plugin/plugin.json"
+}
+
+func parseMarketplacePlatformPath(raw any) schemas.MarketplacePlatform {
+	value, _ := raw.(string)
+	return parseMarketplacePlatform(value)
+}
+
+func parseMarketplacePlatformQuery(ctx *fasthttp.RequestCtx) schemas.MarketplacePlatform {
+	return parseMarketplacePlatform(string(ctx.QueryArgs().Peek("platform")))
+}
+
+func parseMarketplacePlatform(value string) schemas.MarketplacePlatform {
+	switch strings.ToLower(strings.TrimSpace(value)) {
+	case string(schemas.MarketplacePlatformCodex):
+		return schemas.MarketplacePlatformCodex
+	default:
+		return schemas.MarketplacePlatformClaude
+	}
 }
 
 func marketplaceContentType(relPath string) string {

@@ -202,6 +202,7 @@ func (h *AoneOAuthHandler) RegisterRoutes(r *router.Router, middlewares ...schem
 	r.GET("/api/aone/oauth/callback", lib.ChainMiddlewares(h.callback, middlewares...))
 	r.GET("/api/aone/oauth/zd-switch/callback", lib.ChainMiddlewares(h.callback, middlewares...))
 	r.GET("/api/aone/oauth/zd-switch/handoff", lib.ChainMiddlewares(h.zdSwitchHandoff, middlewares...))
+	r.GET("/api/aone/oauth/debug/me", lib.ChainMiddlewares(h.debugOAuthMe, middlewares...))
 }
 
 func (h *AoneOAuthHandler) getConfig(ctx *fasthttp.RequestCtx) {
@@ -351,10 +352,11 @@ func (h *AoneOAuthHandler) callback(ctx *fasthttp.RequestCtx) {
 		return
 	}
 
-	meResp, err := client.GetMe(ctx, tokenResp.AccessToken)
+	meResp, fetchResult, err := fetchAoneOAuthMe(ctx, client, tokenResp.AccessToken)
+	logOAuthMeFetch("callback", fetchResult, err)
 	var aoneUserID string
 	if err != nil {
-		logger.Warn("[aone-oauth] failed to fetch user profile after token exchange: %v", err)
+		logger.Error("[aone-oauth] failed to fetch user profile after token exchange: %v", err)
 	} else if meResp != nil && h.configStore != nil {
 		user, upsertErr := h.configStore.UpsertAoneUserFromLogin(ctx, meResp)
 		if upsertErr != nil {
@@ -448,7 +450,8 @@ func (h *AoneOAuthHandler) bootstrapSourceScopedLogin(
 		return "", fmt.Errorf("missing oauth access token")
 	}
 
-	meResp, err := client.GetMe(ctx, tokenResp.AccessToken)
+	meResp, fetchResult, err := fetchAoneOAuthMe(ctx, client, tokenResp.AccessToken)
+	logOAuthMeFetch("bootstrap:"+loginSource, fetchResult, err)
 	if err != nil {
 		return "", fmt.Errorf("fetch aone user profile: %w", err)
 	}
@@ -509,6 +512,123 @@ func (h *AoneOAuthHandler) loadConfiguredAoneOAuth(ctx *fasthttp.RequestCtx) (*c
 		return nil, nil
 	}
 	return authConfig.AoneOAuth, nil
+}
+
+func fetchAoneOAuthMe(ctx *fasthttp.RequestCtx, client *aoneoauth.Client, accessToken string) (*aoneoauth.MeResponse, *aoneoauth.MeFetchResult, error) {
+	if client == nil {
+		return nil, nil, fmt.Errorf("aone oauth client is not configured")
+	}
+	result, err := client.FetchMe(ctx, accessToken)
+	if err != nil {
+		return nil, result, err
+	}
+	if result == nil || result.Me == nil {
+		return nil, result, fmt.Errorf("empty aone user profile")
+	}
+	return result.Me, result, nil
+}
+
+func logOAuthMeFetch(stage string, result *aoneoauth.MeFetchResult, err error) {
+	if result == nil {
+		logger.Error("[aone-oauth] oauth2/me stage=%s: request failed: %v", stage, err)
+		return
+	}
+	if err != nil {
+		logger.Error(
+			"[aone-oauth] oauth2/me stage=%s GET %s status=%d parse_error=%q err=%v body=%s",
+			stage,
+			result.URL,
+			result.StatusCode,
+			result.ParseError,
+			err,
+			result.RawBody,
+		)
+		return
+	}
+	logger.Info(
+		"[aone-oauth] oauth2/me stage=%s GET %s status=%d body=%s",
+		stage,
+		result.URL,
+		result.StatusCode,
+		result.RawBody,
+	)
+}
+
+// debugOAuthMe lets local admins probe the upstream Aone oauth2/me endpoint using
+// the current dashboard session's stored OAuth access token.
+func (h *AoneOAuthHandler) debugOAuthMe(ctx *fasthttp.RequestCtx) {
+	if h.configStore == nil {
+		SendError(ctx, fasthttp.StatusServiceUnavailable, "Config store is not available")
+		return
+	}
+	if !requireLocalAdmin(ctx, h.configStore) {
+		SendError(ctx, fasthttp.StatusForbidden, "Admin access required")
+		return
+	}
+
+	cfg, err := h.loadConfiguredAoneOAuth(ctx)
+	if err != nil {
+		SendError(ctx, fasthttp.StatusInternalServerError, fmt.Sprintf("Failed to load Aone OAuth config: %v", err))
+		return
+	}
+	if cfg == nil {
+		SendError(ctx, fasthttp.StatusForbidden, "Aone OAuth is not configured")
+		return
+	}
+
+	client := aoneoauth.NewClient(cfg.BaseURL.GetValue())
+	response := map[string]any{
+		"configured_base_url": cfg.BaseURL.GetValue(),
+		"me_url":              client.MeURL(),
+	}
+
+	sessionToken := dashboardSessionTokenFromRequest(ctx)
+	if sessionToken == "" {
+		response["error"] = "dashboard session token required"
+		SendJSON(ctx, response)
+		return
+	}
+
+	session, err := h.configStore.GetSession(ctx, sessionToken)
+	if err != nil || session == nil {
+		response["error"] = "invalid session"
+		SendJSON(ctx, response)
+		return
+	}
+	if session.AoneUserID == nil || strings.TrimSpace(*session.AoneUserID) == "" {
+		response["error"] = "current session is not linked to an Aone user"
+		SendJSON(ctx, response)
+		return
+	}
+
+	aoneUserID := strings.TrimSpace(*session.AoneUserID)
+	loginSource := strings.TrimSpace(session.LoginSource)
+	if loginSource == "" {
+		loginSource = loginSourceDashboard
+	}
+
+	tokenRow, err := h.configStore.GetAoneUserOAuthToken(ctx, aoneUserID, loginSource, sessionToken)
+	if err != nil || tokenRow == nil || strings.TrimSpace(tokenRow.AccessToken) == "" {
+		response["aone_user_id"] = aoneUserID
+		response["login_source"] = loginSource
+		response["error"] = "no stored oauth access token for this session; log in again after deploying debug logging"
+		SendJSON(ctx, response)
+		return
+	}
+
+	result, fetchErr := client.FetchMe(ctx, tokenRow.AccessToken)
+	response["aone_user_id"] = aoneUserID
+	response["login_source"] = loginSource
+	if result != nil {
+		response["status_code"] = result.StatusCode
+		response["raw_body"] = result.RawBody
+		response["parse_error"] = result.ParseError
+	}
+	if fetchErr != nil {
+		response["error"] = fetchErr.Error()
+	}
+	logOAuthMeFetch("debug-endpoint", result, fetchErr)
+	SendJSON(ctx, response)
 }
 
 func (h *AoneOAuthHandler) createDashboardSessionToken(ctx *fasthttp.RequestCtx, aoneUserID, loginSource string, expiresAt time.Time) (string, error) {

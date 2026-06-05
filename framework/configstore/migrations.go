@@ -861,6 +861,24 @@ func triggerMigrations(ctx context.Context, db *gorm.DB) error {
 	if err := migrationAddMarketplaceTables(ctx, db); err != nil {
 		return err
 	}
+	if err := migrationAddMarketplaceImportColumns(ctx, db); err != nil {
+		return err
+	}
+	if err := migrationAddMarketplaceIconColumns(ctx, db); err != nil {
+		return err
+	}
+	if err := migrationAddMarketplaceUserCredentialsTable(ctx, db); err != nil {
+		return err
+	}
+	if err := migrationAddMarketplacePlatformColumn(ctx, db); err != nil {
+		return err
+	}
+	if err := migrationAddAoneOrganizationTables(ctx, db); err != nil {
+		return err
+	}
+	if err := migrationAddMarketplaceItemAssignmentsTable(ctx, db); err != nil {
+		return err
+	}
 	return nil
 }
 
@@ -9450,6 +9468,267 @@ func migrationAddMarketplaceTables(ctx context.Context, db *gorm.DB) error {
 	}})
 	if err := m.Migrate(); err != nil {
 		return fmt.Errorf("error running add_marketplace_tables migration: %s", err.Error())
+	}
+	return nil
+}
+
+func migrationAddMarketplaceImportColumns(ctx context.Context, db *gorm.DB) error {
+	m := migrator.New(db, migrator.DefaultOptions, []*migrator.Migration{{
+		ID: "add_marketplace_import_columns",
+		Migrate: func(tx *gorm.DB) error {
+			tx = tx.WithContext(ctx)
+			mg := tx.Migrator()
+			if !mg.HasColumn(&tables.TableMarketplaceItem{}, "SourceType") {
+				if err := mg.AddColumn(&tables.TableMarketplaceItem{}, "SourceType"); err != nil {
+					return fmt.Errorf("add marketplace_items.source_type: %w", err)
+				}
+			}
+			if !mg.HasColumn(&tables.TableMarketplaceItem{}, "RemoteURL") {
+				if err := mg.AddColumn(&tables.TableMarketplaceItem{}, "RemoteURL"); err != nil {
+					return fmt.Errorf("add marketplace_items.remote_url: %w", err)
+				}
+			}
+			if !mg.HasColumn(&tables.TableMarketplaceItem{}, "RemoteRef") {
+				if err := mg.AddColumn(&tables.TableMarketplaceItem{}, "RemoteRef"); err != nil {
+					return fmt.Errorf("add marketplace_items.remote_ref: %w", err)
+				}
+			}
+			return nil
+		},
+		Rollback: func(tx *gorm.DB) error {
+			tx = tx.WithContext(ctx)
+			mg := tx.Migrator()
+			if mg.HasColumn(&tables.TableMarketplaceItem{}, "RemoteRef") {
+				if err := mg.DropColumn(&tables.TableMarketplaceItem{}, "RemoteRef"); err != nil {
+					return fmt.Errorf("drop marketplace_items.remote_ref: %w", err)
+				}
+			}
+			if mg.HasColumn(&tables.TableMarketplaceItem{}, "RemoteURL") {
+				if err := mg.DropColumn(&tables.TableMarketplaceItem{}, "RemoteURL"); err != nil {
+					return fmt.Errorf("drop marketplace_items.remote_url: %w", err)
+				}
+			}
+			if mg.HasColumn(&tables.TableMarketplaceItem{}, "SourceType") {
+				if err := mg.DropColumn(&tables.TableMarketplaceItem{}, "SourceType"); err != nil {
+					return fmt.Errorf("drop marketplace_items.source_type: %w", err)
+				}
+			}
+			return nil
+		},
+	}})
+	if err := m.Migrate(); err != nil {
+		return fmt.Errorf("error running add_marketplace_import_columns migration: %s", err.Error())
+	}
+	return nil
+}
+
+func migrationAddMarketplaceIconColumns(ctx context.Context, db *gorm.DB) error {
+	m := migrator.New(db, migrator.DefaultOptions, []*migrator.Migration{{
+		ID: "add_marketplace_icon_columns",
+		Migrate: func(tx *gorm.DB) error {
+			tx = tx.WithContext(ctx)
+			mg := tx.Migrator()
+			if !mg.HasColumn(&tables.TableMarketplaceItem{}, "IconURL") {
+				if err := mg.AddColumn(&tables.TableMarketplaceItem{}, "IconURL"); err != nil {
+					return fmt.Errorf("add marketplace_items.icon_url: %w", err)
+				}
+			}
+			if !mg.HasColumn(&tables.TableMarketplaceItem{}, "IconData") {
+				if err := mg.AddColumn(&tables.TableMarketplaceItem{}, "IconData"); err != nil {
+					return fmt.Errorf("add marketplace_items.icon_data: %w", err)
+				}
+			}
+			if !mg.HasColumn(&tables.TableMarketplaceItem{}, "IconMediaType") {
+				if err := mg.AddColumn(&tables.TableMarketplaceItem{}, "IconMediaType"); err != nil {
+					return fmt.Errorf("add marketplace_items.icon_media_type: %w", err)
+				}
+			}
+			return nil
+		},
+		Rollback: func(tx *gorm.DB) error {
+			tx = tx.WithContext(ctx)
+			mg := tx.Migrator()
+			if mg.HasColumn(&tables.TableMarketplaceItem{}, "IconMediaType") {
+				if err := mg.DropColumn(&tables.TableMarketplaceItem{}, "IconMediaType"); err != nil {
+					return fmt.Errorf("drop marketplace_items.icon_media_type: %w", err)
+				}
+			}
+			if mg.HasColumn(&tables.TableMarketplaceItem{}, "IconData") {
+				if err := mg.DropColumn(&tables.TableMarketplaceItem{}, "IconData"); err != nil {
+					return fmt.Errorf("drop marketplace_items.icon_data: %w", err)
+				}
+			}
+			if mg.HasColumn(&tables.TableMarketplaceItem{}, "IconURL") {
+				if err := mg.DropColumn(&tables.TableMarketplaceItem{}, "IconURL"); err != nil {
+					return fmt.Errorf("drop marketplace_items.icon_url: %w", err)
+				}
+			}
+			return nil
+		},
+	}})
+	if err := m.Migrate(); err != nil {
+		return fmt.Errorf("error running add_marketplace_icon_columns migration: %s", err.Error())
+	}
+	return nil
+}
+
+func migrationAddMarketplaceUserCredentialsTable(ctx context.Context, db *gorm.DB) error {
+	m := migrator.New(db, migrator.DefaultOptions, []*migrator.Migration{{
+		ID: "add_marketplace_user_credentials_table",
+		Migrate: func(tx *gorm.DB) error {
+			tx = tx.WithContext(ctx)
+			if !tx.Migrator().HasTable(&tables.TableMarketplaceUserCredentials{}) {
+				if err := tx.Migrator().CreateTable(&tables.TableMarketplaceUserCredentials{}); err != nil {
+					return fmt.Errorf("create marketplace_user_credentials table: %w", err)
+				}
+			}
+			return nil
+		},
+		Rollback: func(tx *gorm.DB) error {
+			tx = tx.WithContext(ctx)
+			if tx.Migrator().HasTable(&tables.TableMarketplaceUserCredentials{}) {
+				if err := tx.Migrator().DropTable(&tables.TableMarketplaceUserCredentials{}); err != nil {
+					return fmt.Errorf("drop marketplace_user_credentials table: %w", err)
+				}
+			}
+			return nil
+		},
+	}})
+	if err := m.Migrate(); err != nil {
+		return fmt.Errorf("error running add_marketplace_user_credentials_table migration: %s", err.Error())
+	}
+	return nil
+}
+
+func migrationAddMarketplacePlatformColumn(ctx context.Context, db *gorm.DB) error {
+	m := migrator.New(db, migrator.DefaultOptions, []*migrator.Migration{{
+		ID: "add_marketplace_platform_column",
+		Migrate: func(tx *gorm.DB) error {
+			tx = tx.WithContext(ctx)
+			mg := tx.Migrator()
+			if !mg.HasColumn(&tables.TableMarketplaceItem{}, "Platform") {
+				if err := mg.AddColumn(&tables.TableMarketplaceItem{}, "Platform"); err != nil {
+					return fmt.Errorf("add marketplace_items.platform: %w", err)
+				}
+			}
+			if err := tx.Exec(`UPDATE marketplace_items SET platform = 'claude' WHERE platform IS NULL OR platform = ''`).Error; err != nil {
+				return fmt.Errorf("backfill marketplace_items.platform: %w", err)
+			}
+			return nil
+		},
+		Rollback: func(tx *gorm.DB) error {
+			tx = tx.WithContext(ctx)
+			if tx.Migrator().HasColumn(&tables.TableMarketplaceItem{}, "Platform") {
+				if err := tx.Migrator().DropColumn(&tables.TableMarketplaceItem{}, "Platform"); err != nil {
+					return fmt.Errorf("drop marketplace_items.platform: %w", err)
+				}
+			}
+			return nil
+		},
+	}})
+	if err := m.Migrate(); err != nil {
+		return fmt.Errorf("error running add_marketplace_platform_column migration: %s", err.Error())
+	}
+	return nil
+}
+
+func migrationAddAoneOrganizationTables(ctx context.Context, db *gorm.DB) error {
+	m := migrator.New(db, migrator.DefaultOptions, []*migrator.Migration{{
+		ID: "add_aone_organization_tables",
+		Migrate: func(tx *gorm.DB) error {
+			tx = tx.WithContext(ctx)
+			mg := tx.Migrator()
+			if !mg.HasTable(&tables.AoneDepartmentTable{}) {
+				if err := mg.CreateTable(&tables.AoneDepartmentTable{}); err != nil {
+					return fmt.Errorf("create aone_departments table: %w", err)
+				}
+			}
+			if !mg.HasTable(&tables.AoneUserDepartmentTable{}) {
+				if err := mg.CreateTable(&tables.AoneUserDepartmentTable{}); err != nil {
+					return fmt.Errorf("create aone_user_departments table: %w", err)
+				}
+			}
+			return nil
+		},
+		Rollback: func(tx *gorm.DB) error {
+			tx = tx.WithContext(ctx)
+			mg := tx.Migrator()
+			if mg.HasTable(&tables.AoneUserDepartmentTable{}) {
+				if err := mg.DropTable(&tables.AoneUserDepartmentTable{}); err != nil {
+					return fmt.Errorf("drop aone_user_departments table: %w", err)
+				}
+			}
+			if mg.HasTable(&tables.AoneDepartmentTable{}) {
+				if err := mg.DropTable(&tables.AoneDepartmentTable{}); err != nil {
+					return fmt.Errorf("drop aone_departments table: %w", err)
+				}
+			}
+			return nil
+		},
+	}})
+	if err := m.Migrate(); err != nil {
+		return fmt.Errorf("error running add_aone_organization_tables migration: %s", err.Error())
+	}
+	return nil
+}
+
+func migrationAddMarketplaceItemAssignmentsTable(ctx context.Context, db *gorm.DB) error {
+	m := migrator.New(db, migrator.DefaultOptions, []*migrator.Migration{{
+		ID: "add_marketplace_item_assignments_table",
+		Migrate: func(tx *gorm.DB) error {
+			tx = tx.WithContext(ctx)
+			mg := tx.Migrator()
+			if !mg.HasTable(&tables.TableMarketplaceItemAssignment{}) {
+				if err := mg.CreateTable(&tables.TableMarketplaceItemAssignment{}); err != nil {
+					return fmt.Errorf("create marketplace_item_assignments table: %w", err)
+				}
+			}
+
+			type legacyAssignment struct {
+				AoneUserID string
+				ItemID     uint
+				AssignedAt time.Time
+			}
+			var legacy []legacyAssignment
+			if mg.HasTable(&tables.TableMarketplaceUserAssignment{}) {
+				if err := tx.Table("marketplace_user_assignments").Find(&legacy).Error; err != nil {
+					return fmt.Errorf("read legacy marketplace_user_assignments: %w", err)
+				}
+			}
+			for _, row := range legacy {
+				if strings.TrimSpace(row.AoneUserID) == "" || row.ItemID == 0 {
+					continue
+				}
+				assignedAt := row.AssignedAt
+				if assignedAt.IsZero() {
+					assignedAt = time.Now()
+				}
+				itemAssignment := tables.TableMarketplaceItemAssignment{
+					ItemID:     row.ItemID,
+					TargetType: tables.MarketplaceAssignmentTargetUser,
+					TargetID:   row.AoneUserID,
+					AssignedAt: assignedAt,
+				}
+				if err := tx.
+					Where("item_id = ? AND target_type = ? AND target_id = ?", itemAssignment.ItemID, itemAssignment.TargetType, itemAssignment.TargetID).
+					FirstOrCreate(&itemAssignment).Error; err != nil {
+					return fmt.Errorf("migrate marketplace assignment for user %s item %d: %w", row.AoneUserID, row.ItemID, err)
+				}
+			}
+			return nil
+		},
+		Rollback: func(tx *gorm.DB) error {
+			tx = tx.WithContext(ctx)
+			if tx.Migrator().HasTable(&tables.TableMarketplaceItemAssignment{}) {
+				if err := tx.Migrator().DropTable(&tables.TableMarketplaceItemAssignment{}); err != nil {
+					return fmt.Errorf("drop marketplace_item_assignments table: %w", err)
+				}
+			}
+			return nil
+		},
+	}})
+	if err := m.Migrate(); err != nil {
+		return fmt.Errorf("error running add_marketplace_item_assignments_table migration: %s", err.Error())
 	}
 	return nil
 }

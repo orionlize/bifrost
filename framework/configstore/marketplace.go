@@ -8,6 +8,7 @@ import (
 	"time"
 
 	"github.com/maximhq/bifrost/core/schemas"
+	"github.com/maximhq/bifrost/framework/marketplace"
 	"github.com/maximhq/bifrost/framework/configstore/tables"
 	"gorm.io/gorm"
 )
@@ -20,6 +21,7 @@ type MarketplaceItemsQueryParams struct {
 	Offset   int
 	Search   string
 	ItemType string
+	Platform string
 	Enabled  *bool
 }
 
@@ -44,6 +46,7 @@ func (s *RDBConfigStore) GetMarketplaceConfig(ctx context.Context) (*schemas.Mar
 	if err := jsonUnmarshal(data, &cfg); err != nil {
 		return nil, fmt.Errorf("parse marketplace config: %w", err)
 	}
+	normalizeMarketplaceConfig(&cfg)
 	if strings.TrimSpace(cfg.Name) == "" {
 		cfg.Name = defaultMarketplaceConfig().Name
 	}
@@ -55,8 +58,64 @@ func (s *RDBConfigStore) UpdateMarketplaceConfig(ctx context.Context, cfg *schem
 	if cfg == nil {
 		return fmt.Errorf("marketplace config is nil")
 	}
+	normalizeMarketplaceConfig(cfg)
 	patch := map[string]any{marketplaceMetadataKey: cfg}
 	return s.UpdateClientMetadata(ctx, patch)
+}
+
+func normalizeMarketplaceConfig(cfg *schemas.MarketplaceConfig) {
+	if cfg == nil {
+		return
+	}
+	seen := make(map[string]struct{}, len(cfg.CatalogSources))
+	for i := range cfg.CatalogSources {
+		source := &cfg.CatalogSources[i]
+		source.Label = strings.TrimSpace(source.Label)
+		source.URL = strings.TrimSpace(source.URL)
+		source.Description = strings.TrimSpace(source.Description)
+		if source.Platform == "" {
+			source.Platform = marketplace.InferCatalogSourcePlatform(source.URL)
+		}
+		if source.ID == "" {
+			source.ID = marketplaceCatalogSourceID(source.Label, source.URL, i)
+		}
+		if _, ok := seen[source.ID]; ok {
+			source.ID = fmt.Sprintf("%s-%d", source.ID, i+1)
+		}
+		seen[source.ID] = struct{}{}
+	}
+}
+
+func marketplaceCatalogSourceID(label, rawURL string, index int) string {
+	base := strings.ToLower(label)
+	base = strings.NewReplacer(" ", "-", "_", "-", "/", "-").Replace(base)
+	base = strings.Map(func(r rune) rune {
+		if (r >= 'a' && r <= 'z') || (r >= '0' && r <= '9') || r == '-' {
+			return r
+		}
+		return -1
+	}, base)
+	base = strings.Trim(base, "-")
+	if base == "" {
+		base = fmt.Sprintf("source-%d", index+1)
+	}
+	if rawURL != "" {
+		parts := strings.Split(strings.Trim(strings.TrimPrefix(strings.TrimPrefix(rawURL, "https://"), "http://"), "/"), "/")
+		if len(parts) >= 2 {
+			slug := strings.ToLower(parts[0] + "-" + strings.TrimSuffix(parts[1], ".git"))
+			slug = strings.Map(func(r rune) rune {
+				if (r >= 'a' && r <= 'z') || (r >= '0' && r <= '9') || r == '-' {
+					return r
+				}
+				return -1
+			}, slug)
+			slug = strings.Trim(slug, "-")
+			if slug != "" {
+				return slug
+			}
+		}
+	}
+	return base
 }
 
 func defaultMarketplaceConfig() *schemas.MarketplaceConfig {
@@ -81,6 +140,9 @@ func (s *RDBConfigStore) GetMarketplaceItemsPaginated(ctx context.Context, param
 	}
 	if params.ItemType != "" {
 		baseQuery = baseQuery.Where("item_type = ?", params.ItemType)
+	}
+	if params.Platform != "" {
+		baseQuery = baseQuery.Where("platform = ?", params.Platform)
 	}
 	if params.Enabled != nil {
 		baseQuery = baseQuery.Where("enabled = ?", *params.Enabled)
@@ -118,8 +180,18 @@ func (s *RDBConfigStore) GetMarketplaceItemByID(ctx context.Context, id uint) (*
 
 // GetMarketplaceItemByName returns a marketplace item by unique name.
 func (s *RDBConfigStore) GetMarketplaceItemByName(ctx context.Context, name string) (*tables.TableMarketplaceItem, error) {
+	return s.GetMarketplaceItemByNameAndPlatform(ctx, name, string(schemas.MarketplacePlatformClaude))
+}
+
+// GetMarketplaceItemByNameAndPlatform returns a marketplace item by name and platform.
+func (s *RDBConfigStore) GetMarketplaceItemByNameAndPlatform(ctx context.Context, name, platform string) (*tables.TableMarketplaceItem, error) {
+	name = strings.TrimSpace(name)
+	platform = strings.TrimSpace(platform)
+	if platform == "" {
+		platform = string(schemas.MarketplacePlatformClaude)
+	}
 	var item tables.TableMarketplaceItem
-	if err := s.DB().WithContext(ctx).Where("name = ?", name).First(&item).Error; err != nil {
+	if err := s.DB().WithContext(ctx).Where("name = ? AND platform = ?", name, platform).First(&item).Error; err != nil {
 		return nil, err
 	}
 	return &item, nil
@@ -145,9 +217,12 @@ func (s *RDBConfigStore) UpdateMarketplaceItem(ctx context.Context, item *tables
 	return s.DB().WithContext(ctx).Save(item).Error
 }
 
-// DeleteMarketplaceItem removes a marketplace catalog item and its user assignments.
+// DeleteMarketplaceItem removes a marketplace catalog item and its assignments.
 func (s *RDBConfigStore) DeleteMarketplaceItem(ctx context.Context, id uint) error {
 	return s.DB().WithContext(ctx).Transaction(func(tx *gorm.DB) error {
+		if err := tx.Where("item_id = ?", id).Delete(&tables.TableMarketplaceItemAssignment{}).Error; err != nil {
+			return err
+		}
 		if err := tx.Where("item_id = ?", id).Delete(&tables.TableMarketplaceUserAssignment{}).Error; err != nil {
 			return err
 		}
@@ -162,7 +237,7 @@ func (s *RDBConfigStore) DeleteMarketplaceItem(ctx context.Context, id uint) err
 	})
 }
 
-// GetMarketplaceUserAssignments returns item IDs assigned to a user.
+// GetMarketplaceUserAssignments returns item IDs assigned to a user (legacy user-centric API).
 func (s *RDBConfigStore) GetMarketplaceUserAssignments(ctx context.Context, aoneUserID string) ([]tables.TableMarketplaceUserAssignment, error) {
 	var assignments []tables.TableMarketplaceUserAssignment
 	if err := s.DB().WithContext(ctx).
@@ -174,19 +249,151 @@ func (s *RDBConfigStore) GetMarketplaceUserAssignments(ctx context.Context, aone
 	return assignments, nil
 }
 
-// GetMarketplaceItemsForUser returns enabled catalog items assigned to a user.
+// GetMarketplaceItemAssignments returns all assignment targets for a catalog item.
+func (s *RDBConfigStore) GetMarketplaceItemAssignments(ctx context.Context, itemID uint) ([]tables.TableMarketplaceItemAssignment, error) {
+	var assignments []tables.TableMarketplaceItemAssignment
+	if err := s.DB().WithContext(ctx).
+		Where("item_id = ?", itemID).
+		Order("target_type ASC, target_id ASC").
+		Find(&assignments).Error; err != nil {
+		return nil, err
+	}
+	return assignments, nil
+}
+
+// ReplaceMarketplaceItemAssignments replaces all user and department assignments for an item.
+func (s *RDBConfigStore) ReplaceMarketplaceItemAssignments(ctx context.Context, itemID uint, update *schemas.MarketplaceItemAssignmentsUpdate) error {
+	if update == nil {
+		update = &schemas.MarketplaceItemAssignmentsUpdate{}
+	}
+	return s.DB().WithContext(ctx).Transaction(func(tx *gorm.DB) error {
+		if err := tx.Where("item_id = ?", itemID).Delete(&tables.TableMarketplaceItemAssignment{}).Error; err != nil {
+			return err
+		}
+		if err := tx.Where("item_id = ?", itemID).Delete(&tables.TableMarketplaceUserAssignment{}).Error; err != nil {
+			return err
+		}
+		now := time.Now()
+		itemRows := make([]tables.TableMarketplaceItemAssignment, 0)
+		legacyRows := make([]tables.TableMarketplaceUserAssignment, 0)
+		for _, userID := range update.Users {
+			userID = strings.TrimSpace(userID)
+			if userID == "" {
+				continue
+			}
+			itemRows = append(itemRows, tables.TableMarketplaceItemAssignment{
+				ItemID:     itemID,
+				TargetType: tables.MarketplaceAssignmentTargetUser,
+				TargetID:   userID,
+				AssignedAt: now,
+			})
+			legacyRows = append(legacyRows, tables.TableMarketplaceUserAssignment{
+				AoneUserID: userID,
+				ItemID:     itemID,
+				AssignedAt: now,
+			})
+		}
+		for _, deptID := range update.Departments {
+			deptID = strings.TrimSpace(deptID)
+			if deptID == "" {
+				continue
+			}
+			itemRows = append(itemRows, tables.TableMarketplaceItemAssignment{
+				ItemID:     itemID,
+				TargetType: tables.MarketplaceAssignmentTargetDepartment,
+				TargetID:   deptID,
+				AssignedAt: now,
+			})
+		}
+		if len(itemRows) > 0 {
+			if err := tx.Create(&itemRows).Error; err != nil {
+				return err
+			}
+		}
+		if len(legacyRows) > 0 {
+			if err := tx.Create(&legacyRows).Error; err != nil {
+				return err
+			}
+		}
+		return nil
+	})
+}
+
+// GetMarketplaceItemsForUser returns enabled catalog items assigned directly or via department.
 func (s *RDBConfigStore) GetMarketplaceItemsForUser(ctx context.Context, aoneUserID string) ([]tables.TableMarketplaceItem, error) {
+	itemAssignments, err := s.getMarketplaceItemsForUserFromItemAssignments(ctx, aoneUserID)
+	if err != nil {
+		return nil, err
+	}
+	legacyItems, err := s.getMarketplaceItemsForUserFromLegacyAssignments(ctx, aoneUserID)
+	if err != nil {
+		return nil, err
+	}
+	return mergeMarketplaceItemsByID(itemAssignments, legacyItems), nil
+}
+
+func (s *RDBConfigStore) getMarketplaceItemsForUserFromItemAssignments(ctx context.Context, aoneUserID string) ([]tables.TableMarketplaceItem, error) {
+	deptTargets, err := s.ExpandAoneUserDepartmentTargetIDs(ctx, aoneUserID)
+	if err != nil {
+		return nil, err
+	}
+
+	query := s.DB().WithContext(ctx).
+		Table("marketplace_items").
+		Distinct().
+		Joins("JOIN marketplace_item_assignments ON marketplace_item_assignments.item_id = marketplace_items.id").
+		Where("marketplace_items.enabled = ?", true)
+
+	if len(deptTargets) > 0 {
+		query = query.Where(
+			"(marketplace_item_assignments.target_type = ? AND marketplace_item_assignments.target_id = ?) OR (marketplace_item_assignments.target_type = ? AND marketplace_item_assignments.target_id IN ?)",
+			tables.MarketplaceAssignmentTargetUser,
+			aoneUserID,
+			tables.MarketplaceAssignmentTargetDepartment,
+			deptTargets,
+		)
+	} else {
+		query = query.Where(
+			"marketplace_item_assignments.target_type = ? AND marketplace_item_assignments.target_id = ?",
+			tables.MarketplaceAssignmentTargetUser,
+			aoneUserID,
+		)
+	}
+
 	var items []tables.TableMarketplaceItem
+	if err := query.Order("marketplace_items.name ASC").Find(&items).Error; err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+func (s *RDBConfigStore) getMarketplaceItemsForUserFromLegacyAssignments(ctx context.Context, aoneUserID string) ([]tables.TableMarketplaceItem, error) {
+	var legacyItems []tables.TableMarketplaceItem
 	err := s.DB().WithContext(ctx).
 		Table("marketplace_items").
 		Joins("JOIN marketplace_user_assignments ON marketplace_user_assignments.item_id = marketplace_items.id").
 		Where("marketplace_user_assignments.aone_user_id = ? AND marketplace_items.enabled = ?", aoneUserID, true).
 		Order("marketplace_items.name ASC").
-		Find(&items).Error
+		Find(&legacyItems).Error
 	if err != nil {
 		return nil, err
 	}
-	return items, nil
+	return legacyItems, nil
+}
+
+func mergeMarketplaceItemsByID(groups ...[]tables.TableMarketplaceItem) []tables.TableMarketplaceItem {
+	seen := map[uint]struct{}{}
+	merged := make([]tables.TableMarketplaceItem, 0)
+	for _, group := range groups {
+		for i := range group {
+			if _, ok := seen[group[i].ID]; ok {
+				continue
+			}
+			seen[group[i].ID] = struct{}{}
+			merged = append(merged, group[i])
+		}
+	}
+	return merged
 }
 
 // ReplaceMarketplaceUserAssignments replaces all assignments for a user.
@@ -259,7 +466,7 @@ func BuildMarketplaceManifest(cfg *schemas.MarketplaceConfig, items []tables.Tab
 	}
 	for i := range items {
 		item := items[i]
-		if !item.Enabled {
+		if !item.Enabled || normalizeMarketplacePlatform(item.Platform) != schemas.MarketplacePlatformClaude {
 			continue
 		}
 		source := strings.TrimSpace(item.Source)
@@ -276,12 +483,95 @@ func BuildMarketplaceManifest(cfg *schemas.MarketplaceConfig, items []tables.Tab
 	return manifest
 }
 
+// BuildCodexMarketplaceManifest builds a Codex CLI compatible manifest from catalog items.
+func BuildCodexMarketplaceManifest(cfg *schemas.MarketplaceConfig, items []tables.TableMarketplaceItem) *schemas.CodexMarketplaceManifest {
+	if cfg == nil {
+		cfg = defaultMarketplaceConfig()
+	}
+	manifest := &schemas.CodexMarketplaceManifest{
+		Name: cfg.Name,
+		Interface: &schemas.CodexMarketplaceInterface{
+			DisplayName: cfg.Owner.Name,
+		},
+	}
+	if strings.TrimSpace(manifest.Interface.DisplayName) == "" {
+		manifest.Interface.DisplayName = cfg.Name
+	}
+	for i := range items {
+		item := items[i]
+		if !item.Enabled || normalizeMarketplacePlatform(item.Platform) != schemas.MarketplacePlatformCodex {
+			continue
+		}
+		source := strings.TrimSpace(item.Source)
+		if source == "" {
+			source = defaultMarketplaceSource(item)
+		}
+		displayName := item.Name
+		if item.Content != nil && item.Content.PluginJSON != nil {
+			if iface, ok := item.Content.PluginJSON["interface"].(map[string]any); ok {
+				if value := stringFieldFromAny(iface["displayName"]); value != "" {
+					displayName = value
+				}
+			}
+		}
+		category := strings.TrimSpace(item.Category)
+		if category == "" {
+			category = defaultCodexCategory(item.ItemType)
+		}
+		manifest.Plugins = append(manifest.Plugins, schemas.CodexMarketplacePluginEntry{
+			Name:        item.Name,
+			DisplayName: displayName,
+			Source: schemas.CodexMarketplaceSourceRef{
+				Source: "local",
+				Path:   source,
+			},
+			Policy: schemas.CodexMarketplacePolicy{
+				Installation:   "AVAILABLE",
+				Authentication: "ON_INSTALL",
+			},
+			Category:    category,
+			Description: item.Description,
+		})
+	}
+	return manifest
+}
+
+func normalizeMarketplacePlatform(platform schemas.MarketplacePlatform) schemas.MarketplacePlatform {
+	if platform == schemas.MarketplacePlatformCodex {
+		return schemas.MarketplacePlatformCodex
+	}
+	return schemas.MarketplacePlatformClaude
+}
+
+func defaultCodexCategory(itemType schemas.MarketplaceItemType) string {
+	if itemType == schemas.MarketplaceItemTypeSkill {
+		return "Skills"
+	}
+	return "Plugins"
+}
+
+func stringFieldFromAny(raw any) string {
+	if raw == nil {
+		return ""
+	}
+	switch v := raw.(type) {
+	case string:
+		return strings.TrimSpace(v)
+	default:
+		return strings.TrimSpace(fmt.Sprint(v))
+	}
+}
+
 func defaultMarketplaceSource(item tables.TableMarketplaceItem) string {
+	platformSegment := "claude"
+	if normalizeMarketplacePlatform(item.Platform) == schemas.MarketplacePlatformCodex {
+		platformSegment = "codex"
+	}
 	switch item.ItemType {
 	case schemas.MarketplaceItemTypeSkill:
-		return fmt.Sprintf("./marketplace/skills/%s", item.Name)
+		return fmt.Sprintf("./marketplace/%s/skills/%s", platformSegment, item.Name)
 	default:
-		return fmt.Sprintf("./marketplace/plugins/%s", item.Name)
+		return fmt.Sprintf("./marketplace/%s/plugins/%s", platformSegment, item.Name)
 	}
 }
 

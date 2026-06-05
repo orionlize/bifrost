@@ -658,21 +658,21 @@
         },
         "user_groups": {
           "type": "array",
-          "description": "User groups (tags) that attach a tiered model-degradation policy to a set of virtual keys. As per-user token consumption climbs across the configured short and weekly windows, progressively more aggressive tiers rewrite high-cost models to cheaper ones to reduce overall AI spend.",
+          "description": "User tiers that attach a tiered model-degradation policy to a set of virtual keys. As per-user token consumption climbs across the configured short and weekly windows, progressively more aggressive tiers rewrite high-cost models to cheaper ones to reduce overall AI spend.",
           "items": {
             "type": "object",
             "properties": {
               "id": {
                 "type": "string",
-                "description": "User group ID"
+                "description": "User tier ID"
               },
               "name": {
                 "type": "string",
-                "description": "Unique user group name (e.g. 'high-consumption', 'low-priority')"
+                "description": "Unique user tier name (e.g. 'high-consumption', 'low-priority')"
               },
               "description": {
                 "type": "string",
-                "description": "Human-readable description of the group"
+                "description": "Human-readable description of the tier"
               },
               "color": {
                 "type": "string",
@@ -680,7 +680,7 @@
               },
               "enabled": {
                 "type": "boolean",
-                "description": "Whether the group's degradation policy is active",
+                "description": "Whether the tier's degradation policy is active",
                 "default": true
               },
               "short_window_token_limit": {
@@ -712,7 +712,7 @@
                   "properties": {
                     "order": {
                       "type": "integer",
-                      "description": "Tier rank within the group (1 = least aggressive)"
+                      "description": "Tier rank within the user tier (1 = least aggressive)"
                     },
                     "threshold_pct": {
                       "type": "number",
