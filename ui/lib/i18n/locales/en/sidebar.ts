@@ -30,6 +30,7 @@ export const sidebar = {
 		authSessions: { title: "Auth Sessions", description: "Per-user OAuth sessions" },
 		mcpSettings: { title: "MCP Settings", description: "MCP configuration" },
 		plugins: { title: "Plugins", description: "Manage custom plugins" },
+		marketplace: { title: "Marketplace", description: "Skills and plugins catalog" },
 		team: { title: "Team", description: "Users, roles, and platform administration" },
 		usersVirtualKeys: { title: "Users", description: "Manage users & access" },
 		userGroups: { title: "User Groups", description: "Tiered cost-degradation groups" },

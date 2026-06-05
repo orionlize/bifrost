@@ -1251,6 +1251,7 @@ func (s *BifrostHTTPServer) RegisterAPIRoutes(ctx context.Context, callbacks Ser
 	sessionHandler := handlers.NewSessionHandler(s.Config.ConfigStore, s.WSTicketStore)
 	aoneOAuthHandler := handlers.NewAoneOAuthHandler(s.Config.ConfigStore, s.AoneOAuthStateStore, s, s.BasePath)
 	aoneUsersHandler := handlers.NewAoneUsersHandler(s.Config.ConfigStore, s)
+	marketplaceHandler := handlers.NewMarketplaceHandler(s.Config.ConfigStore)
 	aoneDevicesHandler := handlers.NewAoneDevicesHandler(s.Config.ConfigStore, s)
 	globalAPIKeysHandler := handlers.NewGlobalAPIKeysHandler(s.Config.ConfigStore, s)
 	promptsHandler := handlers.NewPromptsHandler(s.Config.ConfigStore, promptsReloader)
@@ -1274,6 +1275,9 @@ func (s *BifrostHTTPServer) RegisterAPIRoutes(ctx context.Context, callbacks Ser
 	}
 	if aoneUsersHandler != nil {
 		aoneUsersHandler.RegisterRoutes(s.Router, middlewares...)
+	}
+	if marketplaceHandler != nil {
+		marketplaceHandler.RegisterRoutes(s.Router, middlewares...)
 	}
 	if aoneDevicesHandler != nil {
 		aoneDevicesHandler.RegisterRoutes(s.Router, middlewares...)

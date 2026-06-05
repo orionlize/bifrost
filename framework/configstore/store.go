@@ -307,6 +307,21 @@ type ConfigStore interface {
 	TouchAoneDeviceTemporaryCredentialLastUsed(ctx context.Context, id int) error
 	DeleteExpiredAoneDeviceTemporaryCredentials(ctx context.Context, before time.Time) (int64, error)
 
+	// Marketplace CRUD
+	GetMarketplaceConfig(ctx context.Context) (*schemas.MarketplaceConfig, error)
+	UpdateMarketplaceConfig(ctx context.Context, cfg *schemas.MarketplaceConfig) error
+	GetMarketplaceItemsPaginated(ctx context.Context, params MarketplaceItemsQueryParams) ([]tables.TableMarketplaceItem, int64, error)
+	GetMarketplaceItemByID(ctx context.Context, id uint) (*tables.TableMarketplaceItem, error)
+	GetMarketplaceItemByName(ctx context.Context, name string) (*tables.TableMarketplaceItem, error)
+	CreateMarketplaceItem(ctx context.Context, item *tables.TableMarketplaceItem) error
+	UpdateMarketplaceItem(ctx context.Context, item *tables.TableMarketplaceItem) error
+	DeleteMarketplaceItem(ctx context.Context, id uint) error
+	GetMarketplaceUserAssignments(ctx context.Context, aoneUserID string) ([]tables.TableMarketplaceUserAssignment, error)
+	GetMarketplaceItemsForUser(ctx context.Context, aoneUserID string) ([]tables.TableMarketplaceItem, error)
+	ReplaceMarketplaceUserAssignments(ctx context.Context, aoneUserID string, itemIDs []uint) error
+	AddMarketplaceUserAssignments(ctx context.Context, aoneUserID string, itemIDs []uint) error
+	RemoveMarketplaceUserAssignment(ctx context.Context, aoneUserID string, itemID uint) error
+
 	// Temp token CRUD
 	CreateTempToken(ctx context.Context, token *tables.TempToken, tx ...*gorm.DB) error
 	GetTempTokenByHash(ctx context.Context, tokenHash string) (*tables.TempToken, error)

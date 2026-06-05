@@ -21,6 +21,7 @@ import { formatDateShanghai, formatDateTimeShanghai, formatRelativeTimeLocalized
 import { aoneUserStatusLabel } from "@/lib/i18n/filterLabels";
 import { useI18n, useT } from "@/lib/i18n";
 import { getErrorMessage } from "@/lib/store";
+import MarketplaceUserAssignments from "@/app/workspace/marketplace/views/marketplaceUserAssignments";
 import { useGetAoneUserQuery, useListAoneUsersQuery, useUpdateAoneUserMutation } from "@/lib/store/apis/aoneUsersApi";
 import type { AoneUserDetailResponse, AoneUserListItem } from "@/lib/types/aoneUser";
 import {
@@ -412,6 +413,8 @@ function AoneUserDetailSheet({ userId, onClose }: { userId: string; onClose: () 
 									</div>
 								</DetailSection>
 							)}
+
+							<MarketplaceUserAssignments userId={data.user.id} />
 
 							{data.application && (
 								<DetailSection title={t("aone.sectionApplication")} icon={<ShieldCheck className="size-4" />}>

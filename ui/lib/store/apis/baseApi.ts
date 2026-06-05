@@ -200,6 +200,9 @@ export const baseApi = createApi({
 		"FeatureFlags",
 		"AoneUsers",
 		"AoneDevices",
+		"MarketplaceItems",
+		"MarketplaceConfig",
+		"MarketplaceAssignments",
 	],
 	endpoints: () => ({}),
 });

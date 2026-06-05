@@ -586,6 +586,12 @@ export default function AppSidebar() {
 				hasAccess: hasPluginsAccess,
 			},
 			{
+				...nav("marketplace"),
+				url: "/workspace/marketplace",
+				icon: BoxIcon,
+				hasAccess: hasPluginsAccess,
+			},
+			{
 				...nav("team"),
 				url: "/workspace/governance",
 				icon: Landmark,

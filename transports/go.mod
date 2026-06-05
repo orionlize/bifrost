@@ -212,3 +212,6 @@ require (
 
 // openaicache is not yet published; resolve it from the local tree until a tag exists.
 replace github.com/maximhq/bifrost/plugins/openaicache => ../plugins/openaicache
+
+replace github.com/maximhq/bifrost/core => ../core
+replace github.com/maximhq/bifrost/framework => ../framework

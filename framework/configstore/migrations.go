@@ -858,6 +858,9 @@ func triggerMigrations(ctx context.Context, db *gorm.DB) error {
 	if err := migrationAddUserGroupTierMappingKeyColumns(ctx, db); err != nil {
 		return err
 	}
+	if err := migrationAddMarketplaceTables(ctx, db); err != nil {
+		return err
+	}
 	return nil
 }
 
@@ -9407,6 +9410,46 @@ func migrationAddAoneUserOAuthTokenSessionHashColumn(ctx context.Context, db *go
 	}})
 	if err := m.Migrate(); err != nil {
 		return fmt.Errorf("error running add_aone_user_oauth_token_session_hash_column migration: %s", err.Error())
+	}
+	return nil
+}
+
+func migrationAddMarketplaceTables(ctx context.Context, db *gorm.DB) error {
+	m := migrator.New(db, migrator.DefaultOptions, []*migrator.Migration{{
+		ID: "add_marketplace_tables",
+		Migrate: func(tx *gorm.DB) error {
+			tx = tx.WithContext(ctx)
+			mg := tx.Migrator()
+			if !mg.HasTable(&tables.TableMarketplaceItem{}) {
+				if err := mg.CreateTable(&tables.TableMarketplaceItem{}); err != nil {
+					return fmt.Errorf("create marketplace_items table: %w", err)
+				}
+			}
+			if !mg.HasTable(&tables.TableMarketplaceUserAssignment{}) {
+				if err := mg.CreateTable(&tables.TableMarketplaceUserAssignment{}); err != nil {
+					return fmt.Errorf("create marketplace_user_assignments table: %w", err)
+				}
+			}
+			return nil
+		},
+		Rollback: func(tx *gorm.DB) error {
+			tx = tx.WithContext(ctx)
+			mg := tx.Migrator()
+			if mg.HasTable(&tables.TableMarketplaceUserAssignment{}) {
+				if err := mg.DropTable(&tables.TableMarketplaceUserAssignment{}); err != nil {
+					return fmt.Errorf("drop marketplace_user_assignments table: %w", err)
+				}
+			}
+			if mg.HasTable(&tables.TableMarketplaceItem{}) {
+				if err := mg.DropTable(&tables.TableMarketplaceItem{}); err != nil {
+					return fmt.Errorf("drop marketplace_items table: %w", err)
+				}
+			}
+			return nil
+		},
+	}})
+	if err := m.Migrate(); err != nil {
+		return fmt.Errorf("error running add_marketplace_tables migration: %s", err.Error())
 	}
 	return nil
 }

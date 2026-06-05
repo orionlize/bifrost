@@ -30,6 +30,7 @@ export const sidebar = {
 		authSessions: { title: "认证会话", description: "每用户 OAuth 会话" },
 		mcpSettings: { title: "MCP 设置", description: "MCP 配置" },
 		plugins: { title: "插件", description: "管理自定义插件" },
+		marketplace: { title: "市场", description: "技能与插件目录" },
 		team: { title: "团队", description: "用户、角色与平台管理" },
 		usersVirtualKeys: { title: "用户", description: "管理用户与访问权限" },
 		userGroups: { title: "用户组", description: "分层成本降级组" },
