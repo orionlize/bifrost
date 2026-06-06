@@ -296,6 +296,37 @@ func TestBifrostAPIOriginPrefersRequestHost(t *testing.T) {
 	}
 }
 
+func TestBifrostAPIOriginUsesHTTPSFromConfiguredRedirectURI(t *testing.T) {
+	ctx := &fasthttp.RequestCtx{}
+	ctx.Request.SetHost("prod.example.com")
+	got := bifrostAPIOrigin(ctx, "https://prod.example.com/api/aone/oauth/callback")
+	want := "https://prod.example.com"
+	if got != want {
+		t.Fatalf("got %q, want %q", got, want)
+	}
+}
+
+func TestBifrostAPIOriginUsesForwardedProtoWhenConfiguredEmpty(t *testing.T) {
+	ctx := &fasthttp.RequestCtx{}
+	ctx.Request.SetHost("prod.example.com")
+	ctx.Request.Header.Set("X-Forwarded-Proto", "https")
+	got := bifrostAPIOrigin(ctx, "")
+	want := "https://prod.example.com"
+	if got != want {
+		t.Fatalf("got %q, want %q", got, want)
+	}
+}
+
+func TestBuildZwitchOAuthCallbackURIUsesHTTPS(t *testing.T) {
+	ctx := &fasthttp.RequestCtx{}
+	ctx.Request.SetHost("prod.example.com")
+	got := buildZwitchOAuthCallbackURI(ctx, "https://prod.example.com/api/aone/oauth/callback", "")
+	want := "https://prod.example.com/api/aone/oauth/zwitch/callback"
+	if got != want {
+		t.Fatalf("got %q, want %q", got, want)
+	}
+}
+
 func TestBifrostAPIOriginRewritesLegacyLocalhostPort(t *testing.T) {
 	got := bifrostAPIOrigin(&fasthttp.RequestCtx{}, "http://localhost:3000/api/aone/oauth/callback")
 	want := "http://localhost:8080"

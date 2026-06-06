@@ -641,7 +641,7 @@ func setSessionCookie(ctx *fasthttp.RequestCtx, token string, expiresAt time.Tim
 	cookie.SetPath("/")
 	cookie.SetHTTPOnly(true)
 	cookie.SetSameSite(fasthttp.CookieSameSiteLaxMode)
-	if string(ctx.Request.Header.Peek("X-Forwarded-Proto")) == "https" {
+	if lib.IsHTTPSRequest(ctx) {
 		cookie.SetSecure(true)
 	}
 	ctx.Response.Header.SetCookie(cookie)
@@ -790,22 +790,18 @@ func buildZwitchSuccessReturnTo(ctx *fasthttp.RequestCtx, accessToken, configure
 }
 
 func bifrostAPIOrigin(ctx *fasthttp.RequestCtx, configuredRedirectURI string) string {
-	if origin := requestHostOrigin(ctx); origin != "" {
-		return origin
-	}
+	externalBaseURL := ""
 	configuredRedirectURI = strings.TrimSpace(configuredRedirectURI)
-	if configuredRedirectURI == "" {
-		return ""
+	if configuredRedirectURI != "" {
+		if u, err := url.Parse(configuredRedirectURI); err == nil && u.Scheme != "" && u.Host != "" {
+			normalizeLocalhostDevPort(u)
+			u.Path = ""
+			u.RawQuery = ""
+			u.Fragment = ""
+			externalBaseURL = strings.TrimRight(u.String(), "/")
+		}
 	}
-	u, err := url.Parse(configuredRedirectURI)
-	if err != nil || u.Scheme == "" || u.Host == "" {
-		return ""
-	}
-	normalizeLocalhostDevPort(u)
-	u.Path = ""
-	u.RawQuery = ""
-	u.Fragment = ""
-	return u.String()
+	return lib.BuildBaseURL(ctx, externalBaseURL)
 }
 
 func resolveAoneOAuthCallbackBaseURI(ctx *fasthttp.RequestCtx, configuredRedirectURI, basePath string) string {
@@ -859,18 +855,6 @@ func isLocalhostHost(host string) bool {
 		strings.HasPrefix(host, "127.0.0.1:") ||
 		host == "localhost" ||
 		host == "127.0.0.1"
-}
-
-func requestHostOrigin(ctx *fasthttp.RequestCtx) string {
-	scheme := "http"
-	if string(ctx.Request.Header.Peek("X-Forwarded-Proto")) == "https" {
-		scheme = "https"
-	}
-	host := string(ctx.Host())
-	if host == "" {
-		return ""
-	}
-	return scheme + "://" + host
 }
 
 // buildOAuthCallbackRedirectURI returns the redirect_uri registered with Aone and used
@@ -934,7 +918,7 @@ func dashboardOrigin(ctx *fasthttp.RequestCtx) string {
 			return u.String()
 		}
 	}
-	return requestHostOrigin(ctx)
+	return lib.BuildBaseURL(ctx, "")
 }
 
 func dashboardOriginFromRequest(ctx *fasthttp.RequestCtx) string {

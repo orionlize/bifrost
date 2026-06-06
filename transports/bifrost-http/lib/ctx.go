@@ -661,6 +661,16 @@ func ValidateBaseURL(val string) error {
 	return nil
 }
 
+// IsHTTPSRequest reports whether the client-facing request used HTTPS, including
+// TLS-terminated reverse-proxy deployments that set X-Forwarded-Proto.
+func IsHTTPSRequest(ctx *fasthttp.RequestCtx) bool {
+	xfProto := strings.ToLower(strings.TrimSpace(string(ctx.Request.Header.Peek("X-Forwarded-Proto"))))
+	if comma := strings.IndexByte(xfProto, ','); comma >= 0 {
+		xfProto = strings.TrimSpace(xfProto[:comma])
+	}
+	return ctx.IsTLS() || xfProto == "https"
+}
+
 // BuildBaseURL returns the effective base URL for OAuth callbacks and metadata discovery.
 // When externalBaseURL is non-empty (set via config/UI/API), it takes priority so that
 // deployments behind a reverse proxy advertise the proxy's public URL rather than the
@@ -672,11 +682,7 @@ func BuildBaseURL(ctx *fasthttp.RequestCtx, externalBaseURL string) string {
 		}
 	}
 	scheme := "http"
-	xfProto := strings.ToLower(strings.TrimSpace(string(ctx.Request.Header.Peek("X-Forwarded-Proto"))))
-	if comma := strings.IndexByte(xfProto, ','); comma >= 0 {
-		xfProto = strings.TrimSpace(xfProto[:comma])
-	}
-	if ctx.IsTLS() || xfProto == "https" {
+	if IsHTTPSRequest(ctx) {
 		scheme = "https"
 	}
 	host := string(ctx.Host())

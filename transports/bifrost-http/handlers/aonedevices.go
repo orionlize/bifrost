@@ -371,10 +371,7 @@ func normalizeDeviceFingerprint(raw string) string {
 }
 
 func deviceClientBaseURL(ctx *fasthttp.RequestCtx) string {
-	if origin := requestHostOrigin(ctx); origin != "" {
-		return origin
-	}
-	return ""
+	return lib.BuildBaseURL(ctx, "")
 }
 
 // deviceForwardingPathPrefixes are the inference/forwarding route prefixes that
