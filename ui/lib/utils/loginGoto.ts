@@ -88,7 +88,7 @@ export function syncLoginRedirectStashFromLocation(): void {
 	}
 }
 
-export { syncLoginSourceStashFromLocation } from "@/lib/utils/zdSwitchLogin";
+export { syncLoginSourceStashFromLocation } from "@/lib/utils/zwitchLogin";
 
 export function isExternalRedirectUrl(value: string): boolean {
 	try {

@@ -6,7 +6,7 @@ import UserGroupsPage from "./page";
 function RouteComponent() {
 	const hasAccess = useRbac(RbacResource.VirtualKeys, RbacOperation.View);
 	if (!hasAccess) {
-		return <NoPermissionView entity="user groups" />;
+		return <NoPermissionView entity="user tiers" />;
 	}
 	return <UserGroupsPage />;
 }

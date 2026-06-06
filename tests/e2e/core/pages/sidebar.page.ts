@@ -20,7 +20,7 @@ export class SidebarPage extends BasePage {
     this.virtualKeysLink = page.locator('a[href="/workspace/governance/virtual-keys"]')
     this.logsLink = page.getByRole('link', { name: /logs/i })
     this.mcpClientsLink = page.getByRole('link', { name: /mcp/i })
-    this.userGroupsLink = page.getByRole('link', { name: /user groups/i })
+    this.userGroupsLink = page.getByRole('link', { name: /user tiers/i })
     this.pluginsLink = page.getByRole('link', { name: /plugins/i })
     this.configLink = page.getByRole('link', { name: /config/i })
   }
@@ -58,7 +58,7 @@ export class SidebarPage extends BasePage {
   }
 
   /**
-   * Navigate to User Groups page
+   * Navigate to User Tiers page
    */
   async goToUserGroups(): Promise<void> {
     await this.userGroupsLink.click()

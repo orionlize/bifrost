@@ -410,7 +410,7 @@ func recordDeviceForwardingAccessIfApplicable(store configstore.ConfigStore, ses
 	if err != nil || session == nil || session.DeviceAuthorizationID == nil {
 		return
 	}
-	if strings.TrimSpace(session.LoginSource) != loginSourceZdSwitch {
+	if !isZwitchLoginSource(session.LoginSource) {
 		return
 	}
 	deviceID := *session.DeviceAuthorizationID

@@ -2,6 +2,7 @@ import { AoneUserWorkspaceGuard } from "@/app/workspace/views/aoneUserWorkspaceG
 import { createFileRoute, Outlet, redirect } from "@tanstack/react-router";
 import { ClientLayout } from "../clientLayout";
 import { getEndpointUrl } from "@/lib/utils/port";
+import { AONE_USER_DEFAULT_WORKSPACE_PATH } from "@/lib/constants/aoneUserSession";
 
 function WorkspaceLayout({ children }: { children: React.ReactNode }) {
 	return <ClientLayout>{children}</ClientLayout>;
@@ -37,7 +38,7 @@ export const Route = createFileRoute("/workspace")({
 		}
 
 		throw redirect({
-			to: isAoneUserSession ? "/workspace/prompt-repo" : "/workspace/dashboard",
+			to: isAoneUserSession ? AONE_USER_DEFAULT_WORKSPACE_PATH : "/workspace/dashboard",
 			replace: true,
 		});
 	},

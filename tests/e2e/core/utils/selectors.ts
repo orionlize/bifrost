@@ -74,7 +74,7 @@ export const Selectors = {
     },
   },
 
-  // User Groups Page
+  // User Tiers Page
   userGroups: {
     teamsTab: '[data-testid="teams-tab"]',
     customersTab: '[data-testid="customers-tab"]',

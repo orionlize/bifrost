@@ -18,8 +18,6 @@ export const auth = {
 		openingApp: "Opening the ZD Switch app. If it does not open automatically, use the button below.",
 		serviceUrl: "Service URL: {{url}}",
 		openApp: "Open ZD Switch",
-		tokenCopied: "Access token copied",
-		copyToken: "Copy Access Token",
 		loginIncomplete: "Sign-in incomplete",
 		missingToken: "Missing access_token. Return to the login page and authorize again.",
 		backToLogin: "Back to login",

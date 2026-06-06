@@ -31,7 +31,7 @@ func TestUpsertAoneUserOAuthTokenCreatesAndUpdates(t *testing.T) {
 	ctx := context.Background()
 	sessionToken := "session-a"
 
-	first, err := store.UpsertAoneUserOAuthToken(ctx, "user-1", "zd-switch", sessionToken, &aoneoauth.TokenResponse{
+	first, err := store.UpsertAoneUserOAuthToken(ctx, "user-1", "zwitch", sessionToken, &aoneoauth.TokenResponse{
 		AccessToken:  "access-1",
 		RefreshToken: "refresh-1",
 		TokenType:    "Bearer",
@@ -43,7 +43,7 @@ func TestUpsertAoneUserOAuthTokenCreatesAndUpdates(t *testing.T) {
 	require.Equal(t, "refresh-1", first.RefreshToken)
 	require.NotNil(t, first.ExpiresAt)
 
-	second, err := store.UpsertAoneUserOAuthToken(ctx, "user-1", "zd-switch", sessionToken, &aoneoauth.TokenResponse{
+	second, err := store.UpsertAoneUserOAuthToken(ctx, "user-1", "zwitch", sessionToken, &aoneoauth.TokenResponse{
 		AccessToken:  "access-2",
 		RefreshToken: "refresh-2",
 		TokenType:    "Bearer",
@@ -55,7 +55,7 @@ func TestUpsertAoneUserOAuthTokenCreatesAndUpdates(t *testing.T) {
 	require.Equal(t, "refresh-2", second.RefreshToken)
 	require.True(t, second.ExpiresAt.After(*first.ExpiresAt))
 
-	loaded, err := store.GetAoneUserOAuthToken(ctx, "user-1", "zd-switch", sessionToken)
+	loaded, err := store.GetAoneUserOAuthToken(ctx, "user-1", "zwitch", sessionToken)
 	require.NoError(t, err)
 	require.Equal(t, "access-2", loaded.AccessToken)
 }
@@ -138,7 +138,7 @@ func TestDeleteAoneUserOAuthTokens(t *testing.T) {
 	store := setupAoneUserOAuthTokenTestStore(t)
 	ctx := context.Background()
 
-	_, err := store.UpsertAoneUserOAuthToken(ctx, "user-1", "zd-switch", "session-a", &aoneoauth.TokenResponse{
+	_, err := store.UpsertAoneUserOAuthToken(ctx, "user-1", "zwitch", "session-a", &aoneoauth.TokenResponse{
 		AccessToken: "access-1",
 		TokenType:   "Bearer",
 		ExpiresIn:   int(time.Hour.Seconds()),
@@ -147,7 +147,7 @@ func TestDeleteAoneUserOAuthTokens(t *testing.T) {
 
 	require.NoError(t, store.DeleteAoneUserOAuthTokens(ctx, "user-1"))
 
-	_, err = store.GetAoneUserOAuthToken(ctx, "user-1", "zd-switch", "session-a")
+	_, err = store.GetAoneUserOAuthToken(ctx, "user-1", "zwitch", "session-a")
 	require.Error(t, err)
 }
 
