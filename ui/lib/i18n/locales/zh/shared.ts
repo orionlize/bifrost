@@ -6,6 +6,7 @@ export const shared = {
 			configuration: "配置",
 			apiKeys: "API 密钥",
 			customPricing: "自定义定价",
+			userTiers: "用户分层",
 		},
 	},
 	sheetNav: {

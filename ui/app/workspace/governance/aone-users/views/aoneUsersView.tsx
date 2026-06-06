@@ -22,7 +22,7 @@ import { aoneUserStatusLabel } from "@/lib/i18n/filterLabels";
 import { useI18n, useT } from "@/lib/i18n";
 import { getErrorMessage } from "@/lib/store";
 import { useGetAoneUserQuery, useListAoneUsersQuery, useUpdateAoneUserMutation } from "@/lib/store/apis/aoneUsersApi";
-import type { AoneUserDetailResponse, AoneUserListItem } from "@/lib/types/aoneUser";
+import type { AoneUserDepartment, AoneUserDetailResponse, AoneUserListItem } from "@/lib/types/aoneUser";
 import {
 	Briefcase,
 	Building2,
@@ -62,6 +62,26 @@ function resolveAvatar(user?: Pick<AoneUserListItem, "display_avatar" | "avatar"
 		return "";
 	}
 	return user.display_avatar || user.avatar;
+}
+
+function formatAoneDepartmentPath(departments: AoneUserDepartment[]) {
+	if (departments.length === 0) {
+		return "";
+	}
+	const assignmentPaths = departments.map((dept) => dept.fullPath).filter(Boolean);
+	if (assignmentPaths.length > 0) {
+		return assignmentPaths.join("; ");
+	}
+	if (departments.some((dept) => dept.fullPath)) {
+		return departments
+			.map((dept) => dept.fullPath || dept.name)
+			.filter(Boolean)
+			.join("; ");
+	}
+	return departments
+		.map((dept) => dept.name)
+		.filter(Boolean)
+		.join(" / ");
 }
 
 export default function AoneUsersView() {
@@ -345,10 +365,7 @@ function AoneUserDetailSheet({ userId, onClose }: { userId: string; onClose: () 
 
 	const avatar = data?.dingtalk?.profile.avatar || data?.user.display_avatar || data?.user.avatar;
 	const departments = data?.dingtalk?.departments ?? [];
-	const departmentPath = departments
-		.map((dept) => dept.name)
-		.filter(Boolean)
-		.join(" / ");
+	const departmentPath = formatAoneDepartmentPath(departments);
 
 	return (
 		<Sheet open={Boolean(userId)} onOpenChange={(open) => !open && onClose()}>
@@ -406,7 +423,7 @@ function AoneUserDetailSheet({ userId, onClose }: { userId: string; onClose: () 
 									<div className="flex flex-wrap gap-2">
 										{departments.map((dept) => (
 											<Badge key={`${dept.deptId}-${dept.name}`} variant="secondary">
-												{dept.name}
+												{dept.fullPath || dept.name}
 											</Badge>
 										))}
 									</div>

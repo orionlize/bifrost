@@ -39,6 +39,7 @@ import { sidebar } from "./sidebar";
 import { system } from "./system";
 import { tables } from "./tables";
 import { theme } from "./theme";
+import { marketplace } from "./marketplace";
 import { pprof } from "./pprof";
 
 export const zh = {
@@ -86,4 +87,5 @@ export const zh = {
 	prompts,
 	apiKeys,
 	pprof,
+	marketplace,
 } as const;

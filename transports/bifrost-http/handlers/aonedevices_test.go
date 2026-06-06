@@ -62,7 +62,7 @@ func TestAoneDevicesAuthorizeAndToken(t *testing.T) {
 		Token:       sessionToken,
 		ExpiresAt:   time.Now().Add(time.Hour),
 		AoneUserID:  &aoneID,
-		LoginSource: loginSourceZdSwitch,
+		LoginSource: loginSourceZwitch,
 		CreatedAt:   time.Now(),
 		UpdatedAt:   time.Now(),
 	}).Error)
@@ -73,7 +73,7 @@ func TestAoneDevicesAuthorizeAndToken(t *testing.T) {
 	authorizeCtx.Request.Header.SetMethod(fasthttp.MethodPost)
 	authorizeCtx.Request.SetRequestURI("/api/aone/devices/authorize")
 	authorizeCtx.Request.Header.Set("Authorization", "Bearer "+sessionToken)
-	authorizeCtx.Request.SetBodyString(`{"device_fingerprint":"macos-aarch64-abc","device_name":"zd-switch"}`)
+authorizeCtx.Request.SetBodyString(`{"device_fingerprint":"macos-aarch64-abc","device_name":"zwitch"}`)
 	handler.authorize(authorizeCtx)
 	require.Equal(t, fasthttp.StatusOK, authorizeCtx.Response.StatusCode())
 
@@ -220,7 +220,7 @@ func TestGateDeviceOnForwarding_DeviceSessionRequiresFingerprint(t *testing.T) {
 	store := setupAoneDevicesHandlerStore(t)
 	aoneID, vkValue, sessionToken := setupGateDeviceTestFixtures(t, store)
 	ctx := context.Background()
-	_, err := store.UpsertAoneDeviceAuthorization(ctx, aoneID, "fp-device", "zd-switch")
+	_, err := store.UpsertAoneDeviceAuthorization(ctx, aoneID, "fp-device", "zwitch")
 	require.NoError(t, err)
 	device, err := store.GetActiveAoneDeviceAuthorizationForUsers(ctx, []string{aoneID}, "fp-device")
 	require.NoError(t, err)
@@ -230,7 +230,7 @@ func TestGateDeviceOnForwarding_DeviceSessionRequiresFingerprint(t *testing.T) {
 		Token:                 sessionToken,
 		ExpiresAt:             time.Now().Add(time.Hour),
 		AoneUserID:            &aoneID,
-		LoginSource:           loginSourceZdSwitch,
+		LoginSource:           loginSourceZwitch,
 		DeviceAuthorizationID: &deviceID,
 		CreatedAt:             time.Now(),
 		UpdatedAt:             time.Now(),

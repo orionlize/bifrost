@@ -30,10 +30,10 @@ export async function goToVirtualKeys(page: Page): Promise<void> {
 }
 
 /**
- * Navigate to User Groups page
+ * Navigate to User Tiers page
  */
 export async function goToUserGroups(page: Page): Promise<void> {
-  await page.goto('/workspace/user-groups')
+  await page.goto('/workspace/governance/user-groups')
   await waitForNetworkIdle(page)
 }
 

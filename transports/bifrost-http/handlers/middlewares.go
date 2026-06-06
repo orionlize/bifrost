@@ -1302,6 +1302,10 @@ func (m *AuthMiddleware) tryTempTokenOrUnauthorized(ctx *fasthttp.RequestCtx, ne
 	SendError(ctx, fasthttp.StatusUnauthorized, "Unauthorized")
 }
 
+func isPublicLoginUIPath(url string) bool {
+	return url == "/login" || strings.HasPrefix(url, "/login/")
+}
+
 // InferenceMiddleware is for inference requests (including MCP routes) if authConfig is set, it will skip authentication if disableAuthOnInference is true.
 func (m *AuthMiddleware) InferenceMiddleware() schemas.BifrostHTTPMiddleware {
 	return m.middleware(func(authConfig *configstore.AuthConfig, url string) bool {
@@ -1326,8 +1330,8 @@ func (m *AuthMiddleware) APIMiddleware() schemas.BifrostHTTPMiddleware {
 		"/api/aone/oauth/config",
 		"/api/aone/oauth/authorize",
 		"/api/aone/oauth/callback",
-		"/api/aone/oauth/zd-switch/callback",
-		"/api/aone/oauth/zd-switch/handoff",
+		"/api/aone/oauth/zwitch/callback",
+		"/api/aone/oauth/zwitch/handoff",
 		"/api/aone/devices/token",
 		"/api/aone/devices/revoke",
 		"/health",
@@ -1351,9 +1355,12 @@ func (m *AuthMiddleware) APIMiddleware() schemas.BifrostHTTPMiddleware {
 		// /api/oauth/config/* (admin-only) and bypass the temp-token fallback
 		// in tryTempTokenOrUnauthorized.
 		"/api/dev",
+		// Tauri updater check for Zwitch desktop clients (no auth).
+		"/api/aone/zwitch/updates/",
 	}
 	return m.middleware(func(authConfig *configstore.AuthConfig, url string) bool {
-		if slices.Contains(systemWhitelistedRoutes, url) ||
+		if isPublicLoginUIPath(url) ||
+			slices.Contains(systemWhitelistedRoutes, url) ||
 			slices.IndexFunc(whitelistedPrefixes, func(prefix string) bool {
 				return strings.HasPrefix(url, prefix)
 			}) != -1 {

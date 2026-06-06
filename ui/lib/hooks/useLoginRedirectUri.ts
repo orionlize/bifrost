@@ -8,11 +8,11 @@ import {
 import { getEndpointUrl } from "@/lib/utils/port";
 import {
 	getLoginSourceFromSearch,
-	LOGIN_SOURCE_ZD_SWITCH,
+	LOGIN_SOURCE_ZWITCH,
 	normalizeLoginSource,
 	resolveLoginSourceForOAuth,
 	syncLoginSourceStashFromLocation,
-} from "@/lib/utils/zdSwitchLogin";
+} from "@/lib/utils/zwitchLogin";
 import { useSearch } from "@tanstack/react-router";
 import { useEffect, useMemo, useSyncExternalStore } from "react";
 
@@ -52,8 +52,8 @@ export function useLoginSourceFromUrl(): string | null {
 	}, [locationSearch, search.source]);
 }
 
-export function useIsZdSwitchLoginSource(): boolean {
-	return useLoginSourceFromUrl() === LOGIN_SOURCE_ZD_SWITCH;
+export function useIsZwitchLoginSource(): boolean {
+	return useLoginSourceFromUrl() === LOGIN_SOURCE_ZWITCH;
 }
 
 /** Same as URL-only — complete handoff always carries redirect_uri in query string. */
@@ -65,8 +65,8 @@ export function buildAoneOAuthAuthorizeUrl(options?: { redirectUri?: string | nu
 	const params = new URLSearchParams();
 	const redirectUri = options?.redirectUri ?? resolveLoginRedirectUriForOAuth();
 	const source = options?.source ?? resolveLoginSourceForOAuth();
-	if (source === LOGIN_SOURCE_ZD_SWITCH) {
-		params.set("source", LOGIN_SOURCE_ZD_SWITCH);
+	if (source === LOGIN_SOURCE_ZWITCH) {
+		params.set("source", LOGIN_SOURCE_ZWITCH);
 	} else if (redirectUri) {
 		params.set("redirect_uri", redirectUri);
 	}
@@ -79,6 +79,6 @@ export function navigateToAoneOAuthAuthorize(): void {
 	});
 }
 
-export function navigateToZdSwitchHandoff(): void {
-	window.location.replace(getEndpointUrl("/api/aone/oauth/zd-switch/handoff"));
+export function navigateToZwitchHandoff(): void {
+	window.location.replace(getEndpointUrl("/api/aone/oauth/zwitch/handoff"));
 }

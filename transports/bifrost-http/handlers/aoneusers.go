@@ -39,6 +39,8 @@ func (h *AoneUsersHandler) RegisterRoutes(r *router.Router, middlewares ...schem
 	r.GET("/api/aone/users/{id}", lib.ChainMiddlewares(h.getUser, middlewares...))
 	r.PUT("/api/aone/users/{id}", lib.ChainMiddlewares(h.updateUser, middlewares...))
 	r.POST("/api/aone/users/{id}/rotate-api-key", lib.ChainMiddlewares(h.rotateApiKey, middlewares...))
+	r.GET("/api/aone/departments", lib.ChainMiddlewares(h.listDepartments, middlewares...))
+	r.GET("/api/aone/departments/tree", lib.ChainMiddlewares(h.listDepartmentTree, middlewares...))
 }
 
 type updateAoneUserRequest struct {
@@ -79,6 +81,74 @@ func (h *AoneUsersHandler) listUsers(ctx *fasthttp.RequestCtx) {
 		"total_count": totalCount,
 		"limit":       limitOrDefault(limit),
 		"offset":      maxOffset(offset),
+	})
+}
+
+func (h *AoneUsersHandler) listDepartments(ctx *fasthttp.RequestCtx) {
+	if h.configStore == nil {
+		SendError(ctx, fasthttp.StatusServiceUnavailable, "Config store is not available")
+		return
+	}
+	if !requireLocalAdmin(ctx, h.configStore) {
+		SendError(ctx, fasthttp.StatusForbidden, "Admin access required")
+		return
+	}
+
+	limit, _ := strconv.Atoi(string(ctx.QueryArgs().Peek("limit")))
+	offset, _ := strconv.Atoi(string(ctx.QueryArgs().Peek("offset")))
+	search := strings.TrimSpace(string(ctx.QueryArgs().Peek("search")))
+
+	departments, totalCount, err := h.configStore.GetAoneDepartmentsPaginated(ctx, configstore.AoneDepartmentsQueryParams{
+		Limit:  limit,
+		Offset: offset,
+		Search: search,
+	})
+	if err != nil {
+		SendError(ctx, fasthttp.StatusInternalServerError, fmt.Sprintf("Failed to list departments: %v", err))
+		return
+	}
+
+	items := make([]map[string]any, 0, len(departments))
+	for i := range departments {
+		item := map[string]any{
+			"dept_id": departments[i].DeptID,
+			"name":    departments[i].Name,
+		}
+		if departments[i].ParentDeptID != nil {
+			item["parent_dept_id"] = *departments[i].ParentDeptID
+		}
+		if departments[i].FullPath != "" {
+			item["full_path"] = departments[i].FullPath
+		}
+		items = append(items, item)
+	}
+
+	SendJSON(ctx, map[string]any{
+		"departments": items,
+		"total_count": totalCount,
+		"limit":       limitOrDefault(limit),
+		"offset":      maxOffset(offset),
+	})
+}
+
+func (h *AoneUsersHandler) listDepartmentTree(ctx *fasthttp.RequestCtx) {
+	if h.configStore == nil {
+		SendError(ctx, fasthttp.StatusServiceUnavailable, "Config store is not available")
+		return
+	}
+	if !requireLocalAdmin(ctx, h.configStore) {
+		SendError(ctx, fasthttp.StatusForbidden, "Admin access required")
+		return
+	}
+
+	tree, err := h.configStore.GetAoneDepartmentTree(ctx)
+	if err != nil {
+		SendError(ctx, fasthttp.StatusInternalServerError, fmt.Sprintf("Failed to list department tree: %v", err))
+		return
+	}
+
+	SendJSON(ctx, map[string]any{
+		"departments": tree,
 	})
 }
 
@@ -336,7 +406,7 @@ func aoneUserListItem(user *tables.AoneUserTable) map[string]any {
 	if user.UserCreatedAt != nil {
 		item["created_at"] = user.UserCreatedAt
 	}
-	if depts := decodeAoneDepartments(user.DingtalkJSON); len(depts) > 0 {
+	if depts := decodeAoneDepartments(user.DingtalkJSON); depts != nil {
 		item["departments"] = depts
 	}
 	return item
@@ -366,7 +436,11 @@ func aoneUserDetail(user *tables.AoneUserTable) map[string]any {
 	if user.DingtalkJSON != "" {
 		var dingtalk aoneoauth.DingtalkInfo
 		if err := json.Unmarshal([]byte(user.DingtalkJSON), &dingtalk); err == nil {
-			result["dingtalk"] = dingtalk
+			result["dingtalk"] = map[string]any{
+				"profile":     dingtalk.Profile,
+				"departments": dingtalk.DepartmentsForResponse(),
+				"syncedAt":    dingtalk.SyncedAt,
+			}
 		}
 	}
 	if user.ApplicationJSON != "" {
@@ -388,7 +462,7 @@ func attachAoneUserAPIKeyFields(result map[string]any, user *tables.AoneUserTabl
 	result["api_key_active"] = vk.IsActiveValue()
 }
 
-func decodeAoneDepartments(dingtalkJSON string) []aoneoauth.DingtalkDepartment {
+func decodeAoneDepartments(dingtalkJSON string) any {
 	if dingtalkJSON == "" {
 		return nil
 	}
@@ -396,7 +470,25 @@ func decodeAoneDepartments(dingtalkJSON string) []aoneoauth.DingtalkDepartment {
 	if err := json.Unmarshal([]byte(dingtalkJSON), &dingtalk); err != nil {
 		return nil
 	}
-	return dingtalk.Departments
+	depts := dingtalk.DepartmentsForResponse()
+	if depts == nil {
+		return nil
+	}
+	switch typed := depts.(type) {
+	case []aoneoauth.DingtalkDepartment:
+		if len(typed) == 0 {
+			return nil
+		}
+	case [][]aoneoauth.DingtalkDepartment:
+		if len(typed) == 0 {
+			return nil
+		}
+	case []aoneoauth.DingtalkDepartmentAssignment:
+		if len(typed) == 0 {
+			return nil
+		}
+	}
+	return depts
 }
 
 func limitOrDefault(limit int) int {

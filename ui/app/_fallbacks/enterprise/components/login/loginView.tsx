@@ -8,8 +8,8 @@ import { configApi, getErrorMessage, sessionApi, useIsAuthEnabledQuery, useLogin
 import { DEFAULT_POST_LOGIN_PATH } from "@/lib/utils/loginGoto";
 import {
 	navigateToAoneOAuthAuthorize,
-	navigateToZdSwitchHandoff,
-	useIsZdSwitchLoginSource,
+	navigateToZwitchHandoff,
+	useIsZwitchLoginSource,
 	useLoginRedirectUriFromUrl,
 } from "@/lib/hooks/useLoginRedirectUri";
 import { executePostLoginRedirect } from "@/lib/utils/postLoginRedirect";
@@ -27,7 +27,7 @@ export default function LoginView() {
 	const navigate = useNavigate();
 	const search = useSearch({ strict: false }) as { error?: string; redirect_uri?: string };
 	const loginRedirectUri = useLoginRedirectUriFromUrl();
-	const isZdSwitchSource = useIsZdSwitchLoginSource();
+	const isZwitchSource = useIsZwitchLoginSource();
 	const [isLoading, setIsLoading] = useState(false);
 	const [login, { isLoading: isLoggingIn }] = useLoginMutation();
 	const dispatch = useAppDispatch();
@@ -35,19 +35,19 @@ export default function LoginView() {
 	const authReady = !authLoading && !authFetching && authState !== undefined;
 	const postLoginPath = loginRedirectUri ?? DEFAULT_POST_LOGIN_PATH;
 	const aoneOAuthEnabled = authState?.aone_oauth_enabled === true;
-	const showPasswordForm = authState?.is_auth_enabled === true && !isZdSwitchSource;
-	const shouldRedirectToZdSwitchHandoff =
-		authReady && isZdSwitchSource && authState?.has_valid_token === true && authState?.is_aone_user_session === true;
+	const showPasswordForm = authState?.is_auth_enabled === true && !isZwitchSource;
+	const shouldRedirectToZwitchHandoff =
+		authReady && isZwitchSource && authState?.has_valid_token === true && authState?.is_aone_user_session === true;
 	const shouldRedirectAway =
 		authReady &&
 		authState !== undefined &&
-		!isZdSwitchSource &&
+		!isZwitchSource &&
 		loginRedirectUri != null &&
 		(!authState.is_auth_enabled || authState.has_valid_token);
 
 	useEffect(() => {
-		if (shouldRedirectToZdSwitchHandoff) {
-			navigateToZdSwitchHandoff();
+		if (shouldRedirectToZwitchHandoff) {
+			navigateToZwitchHandoff();
 			return;
 		}
 		if (!shouldRedirectAway || !authState) {
@@ -58,7 +58,24 @@ export default function LoginView() {
 			return;
 		}
 		navigate({ to: DEFAULT_POST_LOGIN_PATH, replace: true });
-	}, [authState, loginRedirectUri, navigate, shouldRedirectAway, shouldRedirectToZdSwitchHandoff]);
+	}, [authState, loginRedirectUri, navigate, shouldRedirectAway, shouldRedirectToZwitchHandoff]);
+
+	useEffect(() => {
+		if (!authReady || !isZwitchSource || !aoneOAuthEnabled || search.error) {
+			return;
+		}
+		if (shouldRedirectToZwitchHandoff || shouldRedirectAway) {
+			return;
+		}
+		navigateToAoneOAuthAuthorize();
+	}, [
+		aoneOAuthEnabled,
+		authReady,
+		isZwitchSource,
+		search.error,
+		shouldRedirectAway,
+		shouldRedirectToZwitchHandoff,
+	]);
 
 	useEffect(() => {
 		if (search.error) {
@@ -100,7 +117,7 @@ export default function LoginView() {
 				<div className="border-border bg-card w-full space-y-6 rounded-sm border p-8">
 					<LoginBrandHeader />
 
-					{!authReady || shouldRedirectAway || shouldRedirectToZdSwitchHandoff ? (
+					{!authReady || shouldRedirectAway || shouldRedirectToZwitchHandoff ? (
 						<div className="flex items-center justify-center py-8">
 							<Loader2 className="text-muted-foreground h-5 w-5 animate-spin" />
 						</div>

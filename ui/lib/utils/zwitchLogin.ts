@@ -1,24 +1,24 @@
 import { stripBasePath } from "@/lib/utils/basePath";
 
-export const LOGIN_SOURCE_ZD_SWITCH = "zd-switch";
-export const LOGIN_ZD_SWITCH_SUCCESS_PATH = "/login/zd-switch/success";
+export const LOGIN_SOURCE_ZWITCH = "zwitch";
+export const LOGIN_ZWITCH_SUCCESS_PATH = "/login/zwitch/success";
 export const LOGIN_SOURCE_STORAGE_KEY = "bifrost.login.source";
-export const ZD_SWITCH_AUTH_STORAGE_KEY = "bifrost.zd-switch.auth";
-/** Must match zd-switch `DEEPLINK_SCHEME` / `DEEPLINK_HOST` in src-tauri/src/config.rs */
-export const ZD_SWITCH_DEEPLINK_SCHEME = "zd-switch";
-export const ZD_SWITCH_DEEPLINK_HOST = "open";
-export const ZD_SWITCH_BASE_URL_QUERY_KEY = "base_url";
+export const ZWITCH_AUTH_STORAGE_KEY = "bifrost.zwitch.auth";
+/** Must match zwitch `DEEPLINK_SCHEME` / `DEEPLINK_HOST` in src-tauri/src/config.rs */
+export const ZWITCH_DEEPLINK_SCHEME = "zwitch";
+export const ZWITCH_DEEPLINK_HOST = "open";
+export const ZWITCH_BASE_URL_QUERY_KEY = "base_url";
 
-export type ZdSwitchAuthByBaseUrl = Record<string, string>;
+export type ZwitchAuthByBaseUrl = Record<string, string>;
 
 export function normalizeLoginSource(value: string | null | undefined): string | null {
-	if (value?.trim() === LOGIN_SOURCE_ZD_SWITCH) {
-		return LOGIN_SOURCE_ZD_SWITCH;
+	if (value?.trim() === LOGIN_SOURCE_ZWITCH) {
+		return LOGIN_SOURCE_ZWITCH;
 	}
 	return null;
 }
 
-export function normalizeZdSwitchBaseUrl(value: string | null | undefined): string | null {
+export function normalizeZwitchBaseUrl(value: string | null | undefined): string | null {
 	if (!value?.trim()) {
 		return null;
 	}
@@ -40,12 +40,12 @@ export function normalizeZdSwitchBaseUrl(value: string | null | undefined): stri
 	}
 }
 
-export function readZdSwitchAuthByBaseUrl(): ZdSwitchAuthByBaseUrl {
+export function readZwitchAuthByBaseUrl(): ZwitchAuthByBaseUrl {
 	if (typeof window === "undefined") {
 		return {};
 	}
 	try {
-		const raw = sessionStorage.getItem(ZD_SWITCH_AUTH_STORAGE_KEY);
+		const raw = sessionStorage.getItem(ZWITCH_AUTH_STORAGE_KEY);
 		if (!raw) {
 			return {};
 		}
@@ -53,9 +53,9 @@ export function readZdSwitchAuthByBaseUrl(): ZdSwitchAuthByBaseUrl {
 		if (!parsed || typeof parsed !== "object" || Array.isArray(parsed)) {
 			return {};
 		}
-		const result: ZdSwitchAuthByBaseUrl = {};
+		const result: ZwitchAuthByBaseUrl = {};
 		for (const [key, value] of Object.entries(parsed)) {
-			const baseUrl = normalizeZdSwitchBaseUrl(key);
+			const baseUrl = normalizeZwitchBaseUrl(key);
 			if (!baseUrl || typeof value !== "string" || !value.trim()) {
 				continue;
 			}
@@ -67,30 +67,30 @@ export function readZdSwitchAuthByBaseUrl(): ZdSwitchAuthByBaseUrl {
 	}
 }
 
-export function stashZdSwitchAuth(baseUrl: string, accessToken: string): void {
+export function stashZwitchAuth(baseUrl: string, accessToken: string): void {
 	if (typeof window === "undefined") {
 		return;
 	}
-	const normalizedBaseUrl = normalizeZdSwitchBaseUrl(baseUrl);
+	const normalizedBaseUrl = normalizeZwitchBaseUrl(baseUrl);
 	const token = accessToken.trim();
 	if (!normalizedBaseUrl || !token) {
 		return;
 	}
 	try {
-		const authByBaseUrl = readZdSwitchAuthByBaseUrl();
+		const authByBaseUrl = readZwitchAuthByBaseUrl();
 		authByBaseUrl[normalizedBaseUrl] = token;
-		sessionStorage.setItem(ZD_SWITCH_AUTH_STORAGE_KEY, JSON.stringify(authByBaseUrl));
+		sessionStorage.setItem(ZWITCH_AUTH_STORAGE_KEY, JSON.stringify(authByBaseUrl));
 	} catch {
 		// Ignore storage failures.
 	}
 }
 
-export function readZdSwitchAuthForBaseUrl(baseUrl: string): string | null {
-	const normalizedBaseUrl = normalizeZdSwitchBaseUrl(baseUrl);
+export function readZwitchAuthForBaseUrl(baseUrl: string): string | null {
+	const normalizedBaseUrl = normalizeZwitchBaseUrl(baseUrl);
 	if (!normalizedBaseUrl) {
 		return null;
 	}
-	return readZdSwitchAuthByBaseUrl()[normalizedBaseUrl] ?? null;
+	return readZwitchAuthByBaseUrl()[normalizedBaseUrl] ?? null;
 }
 
 export function getLoginSourceFromSearch(search: string): string | null {
@@ -152,19 +152,19 @@ export function syncLoginSourceStashFromLocation(): void {
 	}
 }
 
-export function buildZdSwitchDeeplink(accessToken: string, baseUrl?: string | null): string {
-	const url = new URL(`${ZD_SWITCH_DEEPLINK_SCHEME}://${ZD_SWITCH_DEEPLINK_HOST}`);
+export function buildZwitchDeeplink(accessToken: string, baseUrl?: string | null): string {
+	const url = new URL(`${ZWITCH_DEEPLINK_SCHEME}://${ZWITCH_DEEPLINK_HOST}`);
 	url.searchParams.set("access_token", accessToken);
-	const normalizedBaseUrl = normalizeZdSwitchBaseUrl(baseUrl ?? undefined);
+	const normalizedBaseUrl = normalizeZwitchBaseUrl(baseUrl ?? undefined);
 	if (normalizedBaseUrl) {
-		url.searchParams.set(ZD_SWITCH_BASE_URL_QUERY_KEY, normalizedBaseUrl);
+		url.searchParams.set(ZWITCH_BASE_URL_QUERY_KEY, normalizedBaseUrl);
 	}
 	return url.toString();
 }
 
-/** Opens ZD Switch via custom URL scheme. Requires the desktop app to be installed or running. */
-export function openZdSwitchDeeplink(accessToken: string, baseUrl?: string | null): void {
-	const deeplink = buildZdSwitchDeeplink(accessToken, baseUrl);
+/** Opens Zwitch via custom URL scheme. Requires the desktop app to be installed or running. */
+export function openZwitchDeeplink(accessToken: string, baseUrl?: string | null): void {
+	const deeplink = buildZwitchDeeplink(accessToken, baseUrl);
 	const anchor = document.createElement("a");
 	anchor.href = deeplink;
 	anchor.rel = "noopener noreferrer";
@@ -174,26 +174,14 @@ export function openZdSwitchDeeplink(accessToken: string, baseUrl?: string | nul
 	document.body.removeChild(anchor);
 }
 
-export async function copyAccessTokenToClipboard(accessToken: string): Promise<boolean> {
-	if (typeof navigator === "undefined" || !navigator.clipboard?.writeText) {
-		return false;
-	}
-	try {
-		await navigator.clipboard.writeText(accessToken);
-		return true;
-	} catch {
-		return false;
-	}
-}
-
-export function resolveZdSwitchSuccessParams(search: string): {
+export function resolveZwitchSuccessParams(search: string): {
 	accessToken: string;
 	baseUrl: string | null;
 } {
 	const params = new URLSearchParams(search);
 	const accessToken = params.get("access_token")?.trim() ?? "";
 	const baseUrl =
-		normalizeZdSwitchBaseUrl(params.get(ZD_SWITCH_BASE_URL_QUERY_KEY)) ??
-		(typeof window !== "undefined" ? normalizeZdSwitchBaseUrl(window.location.origin) : null);
+		normalizeZwitchBaseUrl(params.get(ZWITCH_BASE_URL_QUERY_KEY)) ??
+		(typeof window !== "undefined" ? normalizeZwitchBaseUrl(window.location.origin) : null);
 	return { accessToken, baseUrl };
 }

@@ -199,7 +199,13 @@ export const baseApi = createApi({
 		"MCPPerUserHeaderCredentials",
 		"FeatureFlags",
 		"AoneUsers",
+		"AoneDepartments",
 		"AoneDevices",
+		"MarketplaceItems",
+		"MarketplaceConfig",
+		"MarketplaceGitCredentials",
+		"MarketplaceAssignments",
+		"TauriUpdateConfig",
 	],
 	endpoints: () => ({}),
 });

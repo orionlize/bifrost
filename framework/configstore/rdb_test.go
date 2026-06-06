@@ -941,6 +941,46 @@ func TestUpdateClientMetadata(t *testing.T) {
 	assert.Equal(t, "b", onboarding["step"])
 }
 
+func TestUpdateMarketplaceConfigRoundTrip(t *testing.T) {
+	store := setupRDBTestStore(t)
+	ctx := context.Background()
+
+	err := store.UpdateClientConfig(ctx, &ClientConfig{
+		EnableLogging:        new(true),
+		InitialPoolSize:      100,
+		LogRetentionDays:     30,
+		MaxRequestBodySizeMB: 50,
+	})
+	require.NoError(t, err)
+
+	cfg := &schemas.MarketplaceConfig{
+		Name: "acme-marketplace",
+		Owner: schemas.MarketplaceOwner{
+			Name:  "Acme",
+			Email: "ops@acme.com",
+		},
+		CatalogSources: []schemas.MarketplaceCatalogSource{
+			{
+				ID:       "official-claude",
+				Label:    "Official Claude",
+				URL:      "https://example.com/.claude-plugin/marketplace.json",
+				Platform: schemas.MarketplacePlatformClaude,
+				Enabled:  new(true),
+			},
+		},
+	}
+	require.NoError(t, store.UpdateMarketplaceConfig(ctx, cfg))
+
+	loaded, err := store.GetMarketplaceConfig(ctx)
+	require.NoError(t, err)
+	require.Equal(t, "acme-marketplace", loaded.Name)
+	require.Equal(t, "Acme", loaded.Owner.Name)
+	require.Equal(t, "ops@acme.com", loaded.Owner.Email)
+	require.Len(t, loaded.CatalogSources, 1)
+	require.Equal(t, "official-claude", loaded.CatalogSources[0].ID)
+	require.Equal(t, "Official Claude", loaded.CatalogSources[0].Label)
+}
+
 func TestUpdateClientMetadataRequiresClientConfig(t *testing.T) {
 	store := setupRDBTestStore(t)
 	ctx := context.Background()

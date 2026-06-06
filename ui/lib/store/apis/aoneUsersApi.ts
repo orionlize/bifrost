@@ -1,4 +1,12 @@
-import { AoneUserDetailResponse, AoneUsersListResponse, AoneUsersQueryParams, UpdateAoneUserRequest } from "@/lib/types/aoneUser";
+import {
+	AoneDepartmentTreeResponse,
+	AoneDepartmentsListResponse,
+	AoneDepartmentsQueryParams,
+	AoneUserDetailResponse,
+	AoneUsersListResponse,
+	AoneUsersQueryParams,
+	UpdateAoneUserRequest,
+} from "@/lib/types/aoneUser";
 import { baseApi } from "./baseApi";
 
 export const aoneUsersApi = baseApi.injectEndpoints({
@@ -21,6 +29,31 @@ export const aoneUsersApi = baseApi.injectEndpoints({
 				};
 			},
 			providesTags: ["AoneUsers"],
+		}),
+		listAoneDepartments: builder.query<AoneDepartmentsListResponse, AoneDepartmentsQueryParams | void>({
+			query: (params) => {
+				const searchParams = new URLSearchParams();
+				if (params?.limit) {
+					searchParams.set("limit", String(params.limit));
+				}
+				if (params?.offset) {
+					searchParams.set("offset", String(params.offset));
+				}
+				if (params?.search) {
+					searchParams.set("search", params.search);
+				}
+				const query = searchParams.toString();
+				return {
+					url: `/aone/departments${query ? `?${query}` : ""}`,
+				};
+			},
+			providesTags: ["AoneDepartments"],
+		}),
+		getAoneDepartmentTree: builder.query<AoneDepartmentTreeResponse, void>({
+			query: () => ({
+				url: "/aone/departments/tree",
+			}),
+			providesTags: ["AoneDepartments"],
 		}),
 		getAoneUser: builder.query<AoneUserDetailResponse, string>({
 			query: (id) => ({
@@ -54,6 +87,8 @@ export const aoneUsersApi = baseApi.injectEndpoints({
 
 export const {
 	useListAoneUsersQuery,
+	useListAoneDepartmentsQuery,
+	useGetAoneDepartmentTreeQuery,
 	useGetAoneUserQuery,
 	useGetCurrentAoneUserQuery,
 	useUpdateAoneUserMutation,
