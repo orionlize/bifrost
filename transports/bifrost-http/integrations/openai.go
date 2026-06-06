@@ -2836,6 +2836,21 @@ func extractContainerAndFileIDFromPath(handlerStore lib.HandlerStore) PreRequest
 	}
 }
 
+// OpenAIResponsesCompactPaths returns HTTP POST paths for the Responses compact API.
+// Mirrors the HTTP POST paths from CreateOpenAIRouteConfigs for /v1/responses and /responses.
+func OpenAIResponsesCompactPaths(pathPrefix string) []string {
+	basePaths := []string{
+		"/v1/responses/compact",
+		"/responses/compact",
+		"/openai/responses/compact",
+	}
+	paths := make([]string, 0, len(basePaths))
+	for _, p := range basePaths {
+		paths = append(paths, pathPrefix+p)
+	}
+	return paths
+}
+
 // OpenAIWSResponsesPaths returns WebSocket GET paths for the Responses API.
 // Mirrors the HTTP POST paths from CreateOpenAIRouteConfigs for /v1/responses and /responses.
 // No /deployments/ paths — model is specified in event body, not URL.

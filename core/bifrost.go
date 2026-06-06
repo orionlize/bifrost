@@ -4941,6 +4941,9 @@ func (bifrost *Bifrost) tryRequest(ctx *schemas.BifrostContext, req *schemas.Bif
 		}
 		drainAndAttachPluginLogs(msg.Context)
 		bifrost.releaseChannelMessage(msg)
+		if bifrostErrPtr != nil {
+			LogForwardError(bifrost.logger, msg.Context, nil, bifrostErrPtr)
+		}
 		// Strip raw fields on error path too.
 		dropReq, _ := ctx.Value(schemas.BifrostContextKeyDropRawRequestFromClient).(bool)
 		dropResp, _ := ctx.Value(schemas.BifrostContextKeyDropRawResponseFromClient).(bool)

@@ -151,7 +151,7 @@ func forwardErrorMessageFromBifrostError(bifrostErr *schemas.BifrostError) strin
 			return msg
 		}
 	}
-	return ""
+	return strings.TrimSpace(bifrostErr.GetErrorString())
 }
 
 // SecurityHeadersMiddleware sets security-related HTTP headers on every response.

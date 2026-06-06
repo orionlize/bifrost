@@ -174,6 +174,9 @@ func (g *GenericRouter) sendStreamError(ctx *fasthttp.RequestCtx, bifrostCtx *sc
 	// sendStreamError returns JSON, not SSE. StreamConfig.ErrorConverter is designed for
 	// in-stream SSE errors (e.g., Anthropic's returns a raw SSE string that would be
 	// double-escaped by JSON marshaling).
+	if bifrostErr.ExtraFields.Provider == "" {
+		bifrost.LogForwardError(g.logger, bifrostCtx, ctx, bifrostErr)
+	}
 	errorResponse := config.ErrorConverter(bifrostCtx, bifrostErr)
 
 	errorJSON, err := sonic.Marshal(errorResponse)
@@ -207,7 +210,11 @@ func (g *GenericRouter) sendError(ctx *fasthttp.RequestCtx, bifrostCtx *schemas.
 	}
 	ctx.SetContentType("application/json")
 
-	// Marshal the error for response and log the error for diagnostics
+	// Marshal the error for response and log transport-layer failures for diagnostics.
+	// Provider/upstream errors are logged earlier in core with upstream payload context.
+	if bifrostErr.ExtraFields.Provider == "" {
+		bifrost.LogForwardError(g.logger, bifrostCtx, ctx, bifrostErr)
+	}
 	responseObj := errorConverter(bifrostCtx, bifrostErr)
 	errorBody, err := sonic.Marshal(responseObj)
 	if err != nil {

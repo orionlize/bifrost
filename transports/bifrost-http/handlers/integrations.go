@@ -12,6 +12,8 @@ import (
 
 // IntegrationHandler manages HTTP requests for AI provider integrations
 type IntegrationHandler struct {
+	client                *bifrost.Bifrost
+	handlerStore          lib.HandlerStore
 	extensions            []integrations.ExtensionRouter
 	wsResponses           *WSResponsesHandler
 	wsRealtime            *WSRealtimeHandler
@@ -41,6 +43,8 @@ func NewIntegrationHandler(client *bifrost.Bifrost, handlerStore lib.HandlerStor
 	}
 
 	return &IntegrationHandler{
+		client:                client,
+		handlerStore:          handlerStore,
 		extensions:            extensions,
 		wsResponses:           wsResponses,
 		wsRealtime:            wsRealtime,
@@ -51,6 +55,14 @@ func NewIntegrationHandler(client *bifrost.Bifrost, handlerStore lib.HandlerStor
 
 // RegisterRoutes registers all integration routes for AI provider compatibility endpoints
 func (h *IntegrationHandler) RegisterRoutes(r *router.Router, middlewares ...schemas.BifrostHTTPMiddleware) {
+	compactHandler := lib.ChainMiddlewares(
+		ResponsesCompactHandler(h.client, h.handlerStore),
+		responsesCompactMiddlewares(middlewares...)...,
+	)
+	for _, path := range integrations.OpenAIResponsesCompactPaths("/openai") {
+		r.POST(path, compactHandler)
+	}
+
 	// Register routes for each integration extension
 	for _, extension := range h.extensions {
 		extension.RegisterRoutes(r, middlewares...)

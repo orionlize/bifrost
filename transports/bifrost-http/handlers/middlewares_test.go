@@ -2205,6 +2205,17 @@ func TestApplyGlobalAPIKeyAuth_SetsAdminUserForLogging(t *testing.T) {
 	}
 }
 
+func TestForwardErrorMessageFromBifrostError_FallsBackToStatusText(t *testing.T) {
+	statusCode := 502
+	msg := forwardErrorMessageFromBifrostError(&schemas.BifrostError{
+		StatusCode: &statusCode,
+		Error:      &schemas.ErrorField{},
+	})
+	if msg != "bad gateway" {
+		t.Fatalf("expected bad gateway fallback, got %q", msg)
+	}
+}
+
 func TestForwardRequestLogMiddleware_SkipsNonInferenceRequests(t *testing.T) {
 	capture := &httpRequestLogCapture{}
 	SetLogger(capture)
