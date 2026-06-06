@@ -2,6 +2,8 @@ package openai
 
 import (
 	"encoding/json"
+	"errors"
+	"fmt"
 	"strings"
 	"testing"
 
@@ -1849,6 +1851,45 @@ func valuesEqual(v1, v2 interface{}) bool {
 	default:
 		// For primitives, use direct comparison
 		return v1 == v2
+	}
+}
+
+func TestResponsesStreamParseErrorContext(t *testing.T) {
+	pad := strings.Repeat("a", 40700)
+	jsonData := fmt.Sprintf(
+		`{"type":"response.completed","sequence_number":7,"response":{"object":"response","created_at":1,"model":"gpt-5","status":"completed","output":[{"type":"message","role":"assistant","content":[{"type":"output_text","text":"%s"}]}],"usage":{"input_tokens":1,"output_tokens":19452,"total_tokens":19453},"user":null,"metadata":{}}}`,
+		pad,
+	)
+	errorIndex := strings.Index(jsonData, `"total_tokens":19453`)
+	if errorIndex < 0 {
+		t.Fatal("expected total_tokens marker in fixture")
+	}
+
+	parseErr := fmt.Errorf(
+		`Mismatch type string with value number "at index %d: mismatched type with value"`,
+		errorIndex,
+	)
+
+	context := responsesStreamParseErrorContext(jsonData, parseErr)
+	if !strings.Contains(context, "chunk_bytes=") {
+		t.Fatalf("expected chunk_bytes in context, got %q", context)
+	}
+	if !strings.Contains(context, "event_type=response.completed") {
+		t.Fatalf("expected event_type in context, got %q", context)
+	}
+	if !strings.Contains(context, "sequence_number=7") {
+		t.Fatalf("expected sequence_number in context, got %q", context)
+	}
+	if !strings.Contains(context, fmt.Sprintf("error_index=%d", errorIndex)) {
+		t.Fatalf("expected error_index in context, got %q", context)
+	}
+	if !strings.Contains(context, "total_tokens") {
+		t.Fatalf("expected local snippet around error_index, got %q", context)
+	}
+
+	fallback := responsesStreamParseErrorContext(strings.Repeat("x", 3000), errors.New("generic parse error"))
+	if !strings.Contains(fallback, "...(truncated)...") {
+		t.Fatalf("expected truncated fallback snippet, got %q", fallback)
 	}
 }
 

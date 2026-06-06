@@ -12,6 +12,8 @@ import (
 	"mime/multipart"
 	"net/http"
 	"net/url"
+	"regexp"
+	"strconv"
 	"strings"
 	"time"
 
@@ -1594,6 +1596,82 @@ func (provider *OpenAIProvider) ResponsesStream(ctx *schemas.BifrostContext, pos
 	)
 }
 
+const (
+	responsesStreamParseErrorSnippetRadius = 256
+	responsesStreamParseErrorFallbackBytes = 1024
+)
+
+var responsesStreamParseErrorIndexRE = regexp.MustCompile(`at index (\d+):`)
+
+// responsesStreamParseErrorContext returns chunk size, optional sonic error offset, and a
+// local JSON snippet to pinpoint schema mismatches in large terminal SSE events.
+func responsesStreamParseErrorContext(jsonData string, err error) string {
+	if err == nil {
+		return ""
+	}
+
+	var b strings.Builder
+	fmt.Fprintf(&b, "chunk_bytes=%d", len(jsonData))
+
+	var peek struct {
+		Type     string `json:"type"`
+		Sequence int    `json:"sequence_number"`
+		Response struct {
+			Model  string `json:"model"`
+			Status string `json:"status"`
+		} `json:"response"`
+	}
+	if sonic.UnmarshalString(jsonData, &peek) == nil {
+		if peek.Type != "" {
+			fmt.Fprintf(&b, " event_type=%s", peek.Type)
+		}
+		if peek.Sequence > 0 {
+			fmt.Fprintf(&b, " sequence_number=%d", peek.Sequence)
+		}
+		if peek.Response.Model != "" {
+			fmt.Fprintf(&b, " model=%s", peek.Response.Model)
+		}
+		if peek.Response.Status != "" {
+			fmt.Fprintf(&b, " response_status=%s", peek.Response.Status)
+		}
+	}
+
+	errMsg := err.Error()
+	snippetLogged := false
+	if matches := responsesStreamParseErrorIndexRE.FindStringSubmatch(errMsg); len(matches) == 2 {
+		if idx, convErr := strconv.Atoi(matches[1]); convErr == nil && idx >= 0 && idx <= len(jsonData) {
+			fmt.Fprintf(&b, " error_index=%d snippet=%s", idx, strconv.Quote(responsesStreamParseSnippetAt(jsonData, idx)))
+			snippetLogged = true
+		}
+	}
+	if !snippetLogged {
+		fmt.Fprintf(&b, " snippet=%s", strconv.Quote(responsesStreamParseFallbackSnippet(jsonData)))
+	}
+
+	return b.String()
+}
+
+func responsesStreamParseSnippetAt(jsonData string, index int) string {
+	start := index - responsesStreamParseErrorSnippetRadius
+	if start < 0 {
+		start = 0
+	}
+	end := index + responsesStreamParseErrorSnippetRadius
+	if end > len(jsonData) {
+		end = len(jsonData)
+	}
+	return jsonData[start:end]
+}
+
+func responsesStreamParseFallbackSnippet(jsonData string) string {
+	if len(jsonData) <= responsesStreamParseErrorFallbackBytes*2 {
+		return jsonData
+	}
+	head := jsonData[:responsesStreamParseErrorFallbackBytes]
+	tail := jsonData[len(jsonData)-responsesStreamParseErrorFallbackBytes:]
+	return head + "...(truncated)..." + tail
+}
+
 // tryPassthroughTerminalResponsesStreamChunk forwards a terminal SSE event verbatim when
 // structured parsing fails. Clients still receive response.completed/incomplete/failed.
 func tryPassthroughTerminalResponsesStreamChunk(jsonData string, providerName schemas.ModelProvider) (*schemas.BifrostResponsesStreamResponse, bool) {
@@ -1818,7 +1896,11 @@ func HandleOpenAIResponsesStreaming(
 				if err := schemas.UnmarshalBifrostResponsesStreamResponse(jsonData, &response); err != nil {
 					if passthrough, ok := tryPassthroughTerminalResponsesStreamChunk(jsonData, providerName); ok {
 						response = *passthrough
-						logger.Warn("Failed to parse stream response, forwarding terminal event as raw passthrough: %v", err)
+						logger.Warn(
+							"Failed to parse stream response, forwarding terminal event as raw passthrough: %v | %s",
+							err,
+							responsesStreamParseErrorContext(jsonData, err),
+						)
 					} else {
 						rawChunk := jsonData
 						if len(rawChunk) > 4096 {
