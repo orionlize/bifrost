@@ -243,7 +243,7 @@ func (h *AoneOAuthHandler) authorize(ctx *fasthttp.RequestCtx) {
 	var returnTo string
 	var oauthRedirectURI string
 	if loginSource == loginSourceZwitch {
-		oauthRedirectURI = buildZwitchOAuthCallbackURI(ctx, cfg.RedirectURI.GetValue(), basePath)
+		oauthRedirectURI = resolveZwitchOAuthRedirectURI(ctx, cfg.RedirectURI.GetValue(), basePath)
 		returnTo = buildZwitchSuccessReturnTo(ctx, "", cfg.RedirectURI.GetValue(), basePath)
 	} else {
 		configuredCallbackURI := resolveAoneOAuthCallbackBaseURI(ctx, cfg.RedirectURI.GetValue(), basePath)
@@ -317,7 +317,7 @@ func (h *AoneOAuthHandler) callback(ctx *fasthttp.RequestCtx) {
 	client := aoneoauth.NewClient(cfg.BaseURL.GetValue())
 	if oauthRedirectURI == "" {
 		if loginSource == loginSourceZwitch {
-			oauthRedirectURI = buildZwitchOAuthCallbackURI(ctx, cfg.RedirectURI.GetValue(), basePath)
+			oauthRedirectURI = resolveZwitchOAuthRedirectURI(ctx, cfg.RedirectURI.GetValue(), basePath)
 		} else {
 			oauthRedirectURI = buildOAuthCallbackRedirectURI(
 				resolveAoneOAuthCallbackBaseURI(ctx, cfg.RedirectURI.GetValue(), basePath),
@@ -728,6 +728,43 @@ func extractLoginSourceFromLoginReferer(ctx *fasthttp.RequestCtx, basePath strin
 	return validateLoginSource(parsed.Query().Get("source"))
 }
 
+func resolveZwitchOAuthRedirectURI(ctx *fasthttp.RequestCtx, configuredRedirectURI, basePath string) string {
+	if rawQuery := string(ctx.URI().QueryString()); rawQuery != "" {
+		if values, err := url.ParseQuery(rawQuery); err == nil {
+			if validated := validateZwitchOAuthCallbackURI(values.Get("redirect_uri"), basePath); validated != "" {
+				return validated
+			}
+		}
+	}
+	if validated := validateZwitchOAuthCallbackURI(extractRedirectURIFromLoginReferer(ctx, basePath), basePath); validated != "" {
+		return validated
+	}
+	return buildZwitchOAuthCallbackURI(ctx, configuredRedirectURI, basePath)
+}
+
+func validateZwitchOAuthCallbackURI(raw, basePath string) string {
+	raw = strings.TrimSpace(raw)
+	if raw == "" {
+		return ""
+	}
+	parsed, err := url.Parse(raw)
+	if err != nil || (parsed.Scheme != "http" && parsed.Scheme != "https") || parsed.Host == "" {
+		return ""
+	}
+	if !strings.HasSuffix(lib.StripBasePath(basePath, parsed.Path), zwitchOAuthCallbackPath) {
+		return ""
+	}
+	if !isLocalhostHost(parsed.Host) && parsed.Scheme == "http" {
+		parsed.Scheme = "https"
+		if parsed.Port() == "80" {
+			parsed.Host = parsed.Hostname()
+		}
+	}
+	parsed.RawQuery = ""
+	parsed.Fragment = ""
+	return parsed.String()
+}
+
 func buildZwitchOAuthCallbackURI(ctx *fasthttp.RequestCtx, configuredRedirectURI, basePath string) string {
 	if origin := bifrostAPIOrigin(ctx, configuredRedirectURI); origin != "" {
 		if u, err := url.Parse(origin); err == nil {
@@ -862,15 +899,7 @@ func isLocalhostHost(host string) bool {
 }
 
 func requestHostOrigin(ctx *fasthttp.RequestCtx) string {
-	scheme := "http"
-	if string(ctx.Request.Header.Peek("X-Forwarded-Proto")) == "https" {
-		scheme = "https"
-	}
-	host := string(ctx.Host())
-	if host == "" {
-		return ""
-	}
-	return scheme + "://" + host
+	return lib.BuildBaseURL(ctx, "")
 }
 
 // buildOAuthCallbackRedirectURI returns the redirect_uri registered with Aone and used

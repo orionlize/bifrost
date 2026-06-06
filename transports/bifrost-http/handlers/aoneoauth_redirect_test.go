@@ -212,6 +212,24 @@ func TestBuildZwtichOAuthCallbackURI(t *testing.T) {
 	}
 }
 
+func TestValidateZwitchOAuthCallbackURIUpgradesRemoteHTTP(t *testing.T) {
+	got := validateZwitchOAuthCallbackURI("http://ft-app.wxhand.com/zai/api/aone/oauth/zwitch/callback", "/zai")
+	want := "https://ft-app.wxhand.com/zai/api/aone/oauth/zwitch/callback"
+	if got != want {
+		t.Fatalf("got %q, want %q", got, want)
+	}
+}
+
+func TestResolveZwitchOAuthRedirectURIPrefersExplicitHTTPS(t *testing.T) {
+	ctx := &fasthttp.RequestCtx{}
+	ctx.URI().SetQueryString("source=zwitch&redirect_uri=https%3A%2F%2Fft-app.wxhand.com%2Fzai%2Fapi%2Faone%2Foauth%2Fzwitch%2Fcallback")
+	got := resolveZwitchOAuthRedirectURI(ctx, "http://ft-app.wxhand.com/zai/api/aone/oauth/callback", "/zai")
+	want := "https://ft-app.wxhand.com/zai/api/aone/oauth/zwitch/callback"
+	if got != want {
+		t.Fatalf("got %q, want %q", got, want)
+	}
+}
+
 func TestBuildZwtichDeeplink(t *testing.T) {
 	got := buildZwitchDeeplink("token-123", "http://localhost:8080")
 	want := "zwitch://open?access_token=token-123&base_url=http%3A%2F%2Flocalhost%3A8080"

@@ -67,6 +67,9 @@ export function buildAoneOAuthAuthorizeUrl(options?: { redirectUri?: string | nu
 	const source = options?.source ?? resolveLoginSourceForOAuth();
 	if (source === LOGIN_SOURCE_ZWITCH) {
 		params.set("source", LOGIN_SOURCE_ZWITCH);
+		if (redirectUri) {
+			params.set("redirect_uri", redirectUri);
+		}
 	} else if (redirectUri) {
 		params.set("redirect_uri", redirectUri);
 	}
