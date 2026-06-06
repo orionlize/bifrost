@@ -2,12 +2,9 @@ import { ThemeProvider } from "@/components/themeProvider";
 import { WebsiteDocumentHead } from "@/components/websiteDocumentHead";
 import { ReduxProvider } from "@/lib/store/provider";
 import { defaultAuthenticatedPath, probeAuthSession, shouldEnterDashboard } from "@/lib/utils/authRedirect";
-import { LOGIN_COMPLETE_PATH } from "@/lib/utils/loginGoto";
-import { LOGIN_SOURCE_ZD_SWITCH, LOGIN_ZD_SWITCH_SUCCESS_PATH } from "@/lib/utils/zdSwitchLogin";
-import { createFileRoute, redirect, useChildMatches, useLocation } from "@tanstack/react-router";
-import LoginCompletePage from "./complete/page";
+import { LOGIN_SOURCE_ZWITCH } from "@/lib/utils/zwitchLogin";
+import { createFileRoute, redirect, Outlet, useChildMatches } from "@tanstack/react-router";
 import LoginPage from "./page";
-import ZdSwitchSuccessPage from "./zd-switch/success/page";
 
 type LoginSearch = {
 	redirect_uri?: string;
@@ -17,17 +14,13 @@ type LoginSearch = {
 
 function RouteComponent() {
 	const childMatches = useChildMatches();
-	const pathname = useLocation({ select: (location) => location.pathname });
-	const isCompleteRoute = childMatches.length > 0 || pathname === LOGIN_COMPLETE_PATH;
-	const isZdSwitchSuccessRoute = pathname === LOGIN_ZD_SWITCH_SUCCESS_PATH || pathname.startsWith(`${LOGIN_ZD_SWITCH_SUCCESS_PATH}/`);
+	const hasChildRoute = childMatches.length > 0;
 
 	return (
 		<ThemeProvider attribute="class" defaultTheme="system" enableSystem>
 			<ReduxProvider>
 				<WebsiteDocumentHead preferPublicApi />
-				<div className="bg-background min-h-screen">
-					{isZdSwitchSuccessRoute ? <ZdSwitchSuccessPage /> : isCompleteRoute ? <LoginCompletePage /> : <LoginPage />}
-				</div>
+				<div className="bg-background min-h-screen">{hasChildRoute ? <Outlet /> : <LoginPage />}</div>
 			</ReduxProvider>
 		</ThemeProvider>
 	);
@@ -40,11 +33,11 @@ export const Route = createFileRoute("/login")({
 		error: typeof search.error === "string" ? search.error : undefined,
 	}),
 	beforeLoad: async ({ location, search }) => {
-		// Only the bare /login page — not /login/complete or /login/zd-switch/success.
+		// Only the bare /login page — not /login/complete or /login/zwitch/success.
 		if (location.pathname !== "/login") {
 			return;
 		}
-		if (search.source === LOGIN_SOURCE_ZD_SWITCH || search.redirect_uri) {
+		if (search.source === LOGIN_SOURCE_ZWITCH || search.redirect_uri) {
 			return;
 		}
 		if (search.error) {

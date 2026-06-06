@@ -205,6 +205,7 @@ export const baseApi = createApi({
 		"MarketplaceConfig",
 		"MarketplaceGitCredentials",
 		"MarketplaceAssignments",
+		"TauriUpdateConfig",
 	],
 	endpoints: () => ({}),
 });

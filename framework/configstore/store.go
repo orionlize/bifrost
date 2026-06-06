@@ -310,6 +310,10 @@ type ConfigStore interface {
 	TouchAoneDeviceTemporaryCredentialLastUsed(ctx context.Context, id int) error
 	DeleteExpiredAoneDeviceTemporaryCredentials(ctx context.Context, before time.Time) (int64, error)
 
+	// Tauri desktop updater config (client metadata)
+	GetTauriUpdateConfig(ctx context.Context) (*schemas.TauriUpdateConfig, error)
+	UpdateTauriUpdateConfig(ctx context.Context, cfg *schemas.TauriUpdateConfig) error
+
 	// Marketplace CRUD
 	GetMarketplaceConfig(ctx context.Context) (*schemas.MarketplaceConfig, error)
 	UpdateMarketplaceConfig(ctx context.Context, cfg *schemas.MarketplaceConfig) error

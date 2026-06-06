@@ -1,7 +1,6 @@
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Switch } from "@/components/ui/switch";
 import { useT } from "@/lib/i18n";
 import { useUpdateMarketplaceConfigMutation } from "@/lib/store/apis/marketplaceApi";
 import { MarketplaceConfig } from "@/lib/types/marketplace";
@@ -58,7 +57,6 @@ export function MarketplaceSettingsPanel({
 					...draft.owner,
 					name: draft.owner?.name?.trim() ?? "",
 				},
-				public_read: draft.public_read ?? true,
 				catalog_sources: draft.catalog_sources ?? [],
 			}).unwrap();
 			toast.success(t("marketplace.source.configUpdated"));
@@ -128,14 +126,6 @@ export function MarketplaceSettingsPanel({
 									data-testid="marketplace-config-owner"
 								/>
 							</div>
-						</div>
-						<div className="flex items-center gap-2">
-							<Switch
-								checked={draft.public_read ?? true}
-								onCheckedChange={(public_read) => setDraft((current) => (current ? { ...current, public_read } : current))}
-								data-testid="marketplace-config-public-read"
-							/>
-							<Label className="text-[13px]">{t("marketplace.source.publicCatalog")}</Label>
 						</div>
 						<div className="flex justify-end pt-2">
 							<Button

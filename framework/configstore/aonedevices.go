@@ -183,7 +183,7 @@ func (s *RDBConfigStore) CreateAoneUserDeviceAccessSession(
 		return "", fmt.Errorf("aone user id is required")
 	}
 	if loginSource == "" {
-		loginSource = "zd-switch"
+		loginSource = "zwitch"
 	}
 	now := time.Now()
 	token = uuid.NewString()

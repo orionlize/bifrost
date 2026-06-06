@@ -83,9 +83,8 @@ type CodexMarketplacePolicy struct {
 
 // MarketplaceConfig holds marketplace-wide metadata persisted in client config.
 type MarketplaceConfig struct {
-	Name           string                    `json:"name"`
-	Owner          MarketplaceOwner          `json:"owner"`
-	PublicRead     bool                      `json:"public_read,omitempty"`
+	Name           string                     `json:"name"`
+	Owner          MarketplaceOwner           `json:"owner"`
 	CatalogSources []MarketplaceCatalogSource `json:"catalog_sources,omitempty"`
 }
 

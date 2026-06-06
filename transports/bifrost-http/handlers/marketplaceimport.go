@@ -345,6 +345,10 @@ func (h *MarketplaceHandler) serveItemIcon(ctx *fasthttp.RequestCtx) {
 		SendError(ctx, fasthttp.StatusNotFound, "Marketplace item not found")
 		return
 	}
+	if authErr := h.requireMarketplaceItemAccess(ctx, item.ID); authErr != nil {
+		SendError(ctx, authErr.status, authErr.message)
+		return
+	}
 	if strings.TrimSpace(item.IconURL) != "" {
 		ctx.Redirect(item.IconURL, fasthttp.StatusFound)
 		return

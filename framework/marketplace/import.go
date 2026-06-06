@@ -9,6 +9,7 @@ import (
 	"fmt"
 	"io"
 	"net/http"
+	"net/url"
 	"path"
 	"regexp"
 	"strings"
@@ -115,6 +116,7 @@ func ImportFromGitRemote(remoteURL, ref, token string, sourceType schemas.Market
 	if err != nil {
 		return nil, err
 	}
+	opts = withGitRemoteNameFallback(opts, remoteURL)
 	return buildImportResult(contents.Files, contents.Icons, opts)
 }
 
@@ -163,6 +165,7 @@ func ImportFromGitRemoteSubdir(remoteURL, ref, subDir, token string, sourceType 
 	if err != nil {
 		return nil, err
 	}
+	opts = withGitRemoteNameFallback(opts, remoteURL)
 	return buildImportResult(contents.Files, contents.Icons, opts)
 }
 
@@ -567,51 +570,56 @@ func buildImportResult(files map[string][]byte, icons map[string][]byte, opts Im
 	}
 
 	platform := detectPlatform(files, opts.Platform)
-	pluginPath := pluginManifestPath(files, platform)
-	if content, ok := files[pluginPath]; ok {
+	pluginPath, pluginContent := findPluginManifest(files, platform)
+	if len(pluginContent) > 0 {
 		var pluginJSON map[string]any
-		if err := json.Unmarshal(content, &pluginJSON); err != nil {
+		if err := json.Unmarshal(pluginContent, &pluginJSON); err != nil {
 			return nil, fmt.Errorf("parse plugin.json: %w", err)
 		}
 		bundle.PluginJSON = pluginJSON
 		delete(bundle.Files, pluginPath)
 	}
-	if content, ok := files["SKILL.md"]; ok && itemType == schemas.MarketplaceItemTypeSkill {
-		bundle.SkillMD = string(content)
-		delete(bundle.Files, "SKILL.md")
+
+	skillPath, skillContent := findSkillFile(files)
+	if skillPath != "" {
+		useSkill := itemType == schemas.MarketplaceItemTypeSkill || bundle.PluginJSON == nil
+		if useSkill {
+			itemType = schemas.MarketplaceItemTypeSkill
+			bundle.SkillMD = skillContent
+			delete(bundle.Files, skillPath)
+		}
 	}
 
-	name := strings.TrimSpace(opts.Name)
-	description := strings.TrimSpace(opts.Description)
-	version := strings.TrimSpace(opts.Version)
-
+	var fileName, fileDescription, fileVersion string
 	if bundle.PluginJSON != nil {
-		if name == "" {
-			name = pluginNameFromManifest(bundle.PluginJSON)
-		}
-		if description == "" {
-			description = pluginDescriptionFromManifest(bundle.PluginJSON)
-		}
-		if version == "" {
-			version = stringField(bundle.PluginJSON, "version")
+		fileName = pluginNameFromManifest(bundle.PluginJSON)
+		fileDescription = pluginDescriptionFromManifest(bundle.PluginJSON)
+		fileVersion = stringField(bundle.PluginJSON, "version")
+		if fileName == "" {
+			fileName = nameFromPluginManifestPath(pluginPath)
 		}
 	}
 	if bundle.SkillMD != "" {
-		if name == "" || description == "" {
-			fmName, fmDesc := parseSkillFrontmatter(bundle.SkillMD)
-			if name == "" {
-				name = fmName
-			}
-			if description == "" {
-				description = fmDesc
-			}
+		fmName, fmDesc := parseSkillFrontmatter(bundle.SkillMD)
+		if fileName == "" {
+			fileName = fmName
+		}
+		if fileDescription == "" {
+			fileDescription = fmDesc
+		}
+		if fileName == "" {
+			fileName = nameFromSkillPath(skillPath)
 		}
 	}
+
+	name := coalesceNonEmpty(fileName, strings.TrimSpace(opts.Name))
+	description := coalesceNonEmpty(fileDescription, strings.TrimSpace(opts.Description))
+	version := coalesceNonEmpty(fileVersion, strings.TrimSpace(opts.Version))
 	if version == "" {
 		version = "1.0.0"
 	}
 	if name == "" {
-		return nil, fmt.Errorf("name is required and could not be inferred from content")
+		return nil, fmt.Errorf("name is required and could not be inferred from content; include name in plugin.json or SKILL.md frontmatter")
 	}
 
 	if len(bundle.Files) == 0 {
@@ -637,11 +645,17 @@ func detectPlatform(files map[string][]byte, override schemas.MarketplacePlatfor
 	case schemas.MarketplacePlatformCodex, schemas.MarketplacePlatformClaude:
 		return override
 	}
-	if _, ok := files[".codex-plugin/plugin.json"]; ok {
-		return schemas.MarketplacePlatformCodex
+	for name := range files {
+		lower := strings.ToLower(name)
+		if strings.HasSuffix(lower, "/.codex-plugin/plugin.json") || lower == ".codex-plugin/plugin.json" {
+			return schemas.MarketplacePlatformCodex
+		}
 	}
-	if _, ok := files[".claude-plugin/plugin.json"]; ok {
-		return schemas.MarketplacePlatformClaude
+	for name := range files {
+		lower := strings.ToLower(name)
+		if strings.HasSuffix(lower, "/.claude-plugin/plugin.json") || lower == ".claude-plugin/plugin.json" {
+			return schemas.MarketplacePlatformClaude
+		}
 	}
 	for name := range files {
 		lower := strings.ToLower(name)
@@ -652,23 +666,129 @@ func detectPlatform(files map[string][]byte, override schemas.MarketplacePlatfor
 	return schemas.MarketplacePlatformClaude
 }
 
-func pluginManifestPath(files map[string][]byte, platform schemas.MarketplacePlatform) string {
-	if platform == schemas.MarketplacePlatformCodex {
-		if _, ok := files[".codex-plugin/plugin.json"]; ok {
-			return ".codex-plugin/plugin.json"
+func findPluginManifest(files map[string][]byte, platform schemas.MarketplacePlatform) (string, []byte) {
+	candidates := make([]string, 0, 2)
+	switch platform {
+	case schemas.MarketplacePlatformCodex:
+		candidates = append(candidates, ".codex-plugin/plugin.json", ".claude-plugin/plugin.json")
+	default:
+		candidates = append(candidates, ".claude-plugin/plugin.json", ".codex-plugin/plugin.json")
+	}
+	for _, candidate := range candidates {
+		if content, ok := files[candidate]; ok {
+			return candidate, content
 		}
 	}
-	if _, ok := files[".claude-plugin/plugin.json"]; ok {
-		return ".claude-plugin/plugin.json"
+
+	var bestPath string
+	var bestContent []byte
+	for name, content := range files {
+		lower := strings.ToLower(name)
+		switch {
+		case strings.HasSuffix(lower, "/.codex-plugin/plugin.json"):
+			if platform == schemas.MarketplacePlatformCodex || bestPath == "" {
+				if bestPath == "" || len(name) < len(bestPath) {
+					bestPath = name
+					bestContent = content
+				}
+			}
+		case strings.HasSuffix(lower, "/.claude-plugin/plugin.json"):
+			if platform != schemas.MarketplacePlatformCodex || bestPath == "" {
+				if bestPath == "" || len(name) < len(bestPath) {
+					bestPath = name
+					bestContent = content
+				}
+			}
+		}
 	}
-	if _, ok := files[".codex-plugin/plugin.json"]; ok {
-		return ".codex-plugin/plugin.json"
+	return bestPath, bestContent
+}
+
+func findSkillFile(files map[string][]byte) (string, string) {
+	if content, ok := files["SKILL.md"]; ok {
+		return "SKILL.md", string(content)
 	}
-	return ".claude-plugin/plugin.json"
+
+	var bestPath string
+	var bestContent []byte
+	for name, content := range files {
+		lower := strings.ToLower(name)
+		if lower == "skill.md" || strings.HasSuffix(lower, "/skill.md") {
+			if bestPath == "" || len(name) < len(bestPath) {
+				bestPath = name
+				bestContent = content
+			}
+		}
+	}
+	if bestPath == "" {
+		return "", ""
+	}
+	return bestPath, string(bestContent)
+}
+
+func nameFromPluginManifestPath(pluginPath string) string {
+	pluginPath = strings.TrimSpace(pluginPath)
+	if pluginPath == "" {
+		return ""
+	}
+	manifestDir := path.Base(path.Dir(pluginPath))
+	if manifestDir == ".claude-plugin" || manifestDir == ".codex-plugin" {
+		parentDir := path.Base(path.Dir(path.Dir(pluginPath)))
+		if parentDir != "." && parentDir != "/" && parentDir != "" {
+			return parentDir
+		}
+		return ""
+	}
+	if manifestDir != "." && manifestDir != "/" && manifestDir != "" {
+		return manifestDir
+	}
+	return ""
+}
+
+func nameFromSkillPath(skillPath string) string {
+	skillPath = strings.TrimSpace(skillPath)
+	if skillPath == "" {
+		return ""
+	}
+	segments := strings.Split(strings.Trim(path.Dir(skillPath), "/"), "/")
+	if len(segments) == 0 {
+		return ""
+	}
+	return segments[len(segments)-1]
+}
+
+func withGitRemoteNameFallback(opts ImportOptions, remoteURL string) ImportOptions {
+	if strings.TrimSpace(opts.Name) != "" {
+		return opts
+	}
+	if repoName := repoNameFromURL(remoteURL); repoName != "" {
+		opts.Name = repoName
+	}
+	return opts
+}
+
+func repoNameFromURL(remoteURL string) string {
+	remoteURL = strings.TrimSpace(remoteURL)
+	if remoteURL == "" {
+		return ""
+	}
+	remoteURL = strings.TrimSuffix(remoteURL, ".git")
+	parsed, err := url.Parse(remoteURL)
+	if err != nil {
+		return ""
+	}
+	parts := strings.Split(strings.Trim(parsed.Path, "/"), "/")
+	if len(parts) == 0 {
+		return ""
+	}
+	return parts[len(parts)-1]
 }
 
 func pluginNameFromManifest(pluginJSON map[string]any) string {
 	if name := stringField(pluginJSON, "name"); name != "" {
+		return name
+	}
+	if name := stringField(pluginJSON, "displayName"); name != "" {
 		return name
 	}
 	if iface, ok := pluginJSON["interface"].(map[string]any); ok {
@@ -695,19 +815,11 @@ func pluginDescriptionFromManifest(pluginJSON map[string]any) string {
 }
 
 func detectItemType(files map[string][]byte) schemas.MarketplaceItemType {
-	if _, ok := files[".claude-plugin/plugin.json"]; ok {
+	if _, content := findPluginManifest(files, ""); len(content) > 0 {
 		return schemas.MarketplaceItemTypePlugin
 	}
-	if _, ok := files[".codex-plugin/plugin.json"]; ok {
-		return schemas.MarketplaceItemTypePlugin
-	}
-	if _, ok := files["SKILL.md"]; ok {
+	if _, content := findSkillFile(files); content != "" {
 		return schemas.MarketplaceItemTypeSkill
-	}
-	for name := range files {
-		if strings.HasSuffix(strings.ToLower(name), "/skill.md") {
-			return schemas.MarketplaceItemTypeSkill
-		}
 	}
 	return ""
 }
@@ -727,6 +839,15 @@ func stringField(obj map[string]any, key string) string {
 
 var frontmatterRe = regexp.MustCompile(`(?s)^---\s*\n(.*?)\n---`)
 
+func coalesceNonEmpty(values ...string) string {
+	for _, value := range values {
+		if strings.TrimSpace(value) != "" {
+			return strings.TrimSpace(value)
+		}
+	}
+	return ""
+}
+
 func parseSkillFrontmatter(skillMD string) (name, description string) {
 	match := frontmatterRe.FindStringSubmatch(skillMD)
 	if len(match) < 2 {
@@ -735,11 +856,21 @@ func parseSkillFrontmatter(skillMD string) (name, description string) {
 	for _, line := range strings.Split(match[1], "\n") {
 		line = strings.TrimSpace(line)
 		if strings.HasPrefix(line, "name:") {
-			name = strings.TrimSpace(strings.TrimPrefix(line, "name:"))
+			name = trimYAMLScalar(strings.TrimSpace(strings.TrimPrefix(line, "name:")))
 		}
 		if strings.HasPrefix(line, "description:") {
-			description = strings.TrimSpace(strings.TrimPrefix(line, "description:"))
+			description = trimYAMLScalar(strings.TrimSpace(strings.TrimPrefix(line, "description:")))
 		}
 	}
 	return name, description
+}
+
+func trimYAMLScalar(value string) string {
+	value = strings.TrimSpace(value)
+	if len(value) >= 2 {
+		if (value[0] == '"' && value[len(value)-1] == '"') || (value[0] == '\'' && value[len(value)-1] == '\'') {
+			return strings.TrimSpace(value[1 : len(value)-1])
+		}
+	}
+	return value
 }

@@ -38,6 +38,60 @@ func TestImportFromZipPlugin(t *testing.T) {
 	require.Equal(t, "# Data Engineer", result.Bundle.Files["agents/data-engineer.md"])
 }
 
+func TestImportFromZipPrefersFileMetadataOverOpts(t *testing.T) {
+	data := buildTestZip(t, map[string]string{
+		"repo-main/.claude-plugin/plugin.json": `{"name":"from-file","description":"From file","version":"3.0.0"}`,
+	})
+
+	result, err := ImportFromZip(data, ImportOptions{
+		Name:        "override-name",
+		Description: "Override description",
+		Version:     "9.9.9",
+	})
+	require.NoError(t, err)
+	require.Equal(t, "from-file", result.Name)
+	require.Equal(t, "From file", result.Description)
+	require.Equal(t, "3.0.0", result.Version)
+}
+
+func TestImportFromZipNestedCodexSkill(t *testing.T) {
+	data := buildTestZip(t, map[string]string{
+		"repo-main/.agents/skills/docs-helper/SKILL.md": "---\ndescription: Docs helper\n---\nBody",
+	})
+
+	result, err := ImportFromZip(data, ImportOptions{ItemType: schemas.MarketplaceItemTypeSkill})
+	require.NoError(t, err)
+	require.Equal(t, schemas.MarketplaceItemTypeSkill, result.ItemType)
+	require.Equal(t, "docs-helper", result.Name)
+	require.Equal(t, "Docs helper", result.Description)
+}
+
+func TestImportFromZipNestedPlugin(t *testing.T) {
+	data := buildTestZip(t, map[string]string{
+		"repo-main/plugins/data-toolkit/.claude-plugin/plugin.json": `{"description":"Data tools","version":"2.0.0"}`,
+	})
+
+	result, err := ImportFromZip(data, ImportOptions{})
+	require.NoError(t, err)
+	require.Equal(t, "data-toolkit", result.Name)
+	require.Equal(t, "Data tools", result.Description)
+}
+
+func TestImportFromZipSkillWithoutFrontmatterName(t *testing.T) {
+	data := buildTestZip(t, map[string]string{
+		"repo-main/skills/my-skill/SKILL.md": "---\ndescription: Helper\n---\nBody",
+	})
+
+	result, err := ImportFromZip(data, ImportOptions{})
+	require.NoError(t, err)
+	require.Equal(t, "my-skill", result.Name)
+}
+
+func TestRepoNameFromURL(t *testing.T) {
+	require.Equal(t, "docs-helper", repoNameFromURL("https://github.com/acme/docs-helper"))
+	require.Equal(t, "docs-helper", repoNameFromURL("https://github.com/acme/docs-helper.git"))
+}
+
 func TestImportFromZipSkill(t *testing.T) {
 	data := buildTestZip(t, map[string]string{
 		"docs-skill-main/SKILL.md": "---\nname: docs-skill\ndescription: Docs helper\n---\nBody",

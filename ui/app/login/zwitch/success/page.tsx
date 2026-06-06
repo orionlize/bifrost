@@ -1,32 +1,26 @@
 import { Button } from "@/components/ui/button";
 import { LoginBrandHeader } from "@/components/loginBrandHeader";
 import { useT } from "@/lib/i18n";
-import {
-	copyAccessTokenToClipboard,
-	openZdSwitchDeeplink,
-	resolveZdSwitchSuccessParams,
-	stashZdSwitchAuth,
-} from "@/lib/utils/zdSwitchLogin";
+import { LOGIN_SOURCE_ZWITCH, openZwitchDeeplink, resolveZwitchSuccessParams, stashZwitchAuth } from "@/lib/utils/zwitchLogin";
 import { getEndpointUrl } from "@/lib/utils/port";
 import { CheckCircle2 } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
 
-export default function ZdSwitchSuccessPage() {
+export default function ZwitchSuccessPage() {
 	const t = useT();
 	const { accessToken, baseUrl } = useMemo(() => {
 		if (typeof window === "undefined") {
 			return { accessToken: "", baseUrl: null };
 		}
-		return resolveZdSwitchSuccessParams(window.location.search);
+		return resolveZwitchSuccessParams(window.location.search);
 	}, []);
-	const [copied, setCopied] = useState(false);
 	const [deeplinkAttempted, setDeeplinkAttempted] = useState(false);
 
 	useEffect(() => {
 		if (!accessToken || !baseUrl) {
 			return;
 		}
-		stashZdSwitchAuth(baseUrl, accessToken);
+		stashZwitchAuth(baseUrl, accessToken);
 	}, [accessToken, baseUrl]);
 
 	useEffect(() => {
@@ -35,7 +29,7 @@ export default function ZdSwitchSuccessPage() {
 		}
 		setDeeplinkAttempted(true);
 		const timer = window.setTimeout(() => {
-			openZdSwitchDeeplink(accessToken, baseUrl);
+			openZwitchDeeplink(accessToken, baseUrl);
 		}, 500);
 		return () => window.clearTimeout(timer);
 	}, [accessToken, baseUrl, deeplinkAttempted]);
@@ -44,18 +38,7 @@ export default function ZdSwitchSuccessPage() {
 		if (!accessToken) {
 			return;
 		}
-		openZdSwitchDeeplink(accessToken, baseUrl);
-	};
-
-	const handleCopyToken = async () => {
-		if (!accessToken) {
-			return;
-		}
-		const ok = await copyAccessTokenToClipboard(accessToken);
-		if (ok) {
-			setCopied(true);
-			window.setTimeout(() => setCopied(false), 2000);
-		}
+		openZwitchDeeplink(accessToken, baseUrl);
 	};
 
 	return (
@@ -76,17 +59,8 @@ export default function ZdSwitchSuccessPage() {
 									<p className="text-muted-foreground text-xs break-all">{t("auth.zdSwitch.serviceUrl", { url: baseUrl })}</p>
 								) : null}
 							</div>
-							<Button type="button" className="h-9 w-full text-sm" onClick={handleOpenApp} data-testid="zd-switch-open-deeplink-button">
+							<Button type="button" className="h-9 w-full text-sm" onClick={handleOpenApp} data-testid="zwitch-open-deeplink-button">
 								{t("auth.zdSwitch.openApp")}
-							</Button>
-							<Button
-								type="button"
-								variant="outline"
-								className="h-9 w-full text-sm"
-								onClick={() => void handleCopyToken()}
-								data-testid="zd-switch-copy-token-button"
-							>
-								{copied ? t("auth.zdSwitch.tokenCopied") : t("auth.zdSwitch.copyToken")}
 							</Button>
 						</div>
 					) : (
@@ -98,9 +72,9 @@ export default function ZdSwitchSuccessPage() {
 								variant="outline"
 								className="h-9 w-full text-sm"
 								onClick={() => {
-									window.location.href = getEndpointUrl("/login?source=zd-switch");
+									window.location.href = getEndpointUrl(`/login?source=${LOGIN_SOURCE_ZWITCH}`);
 								}}
-								data-testid="zd-switch-retry-login-button"
+								data-testid="zwitch-retry-login-button"
 							>
 								{t("auth.zdSwitch.backToLogin")}
 							</Button>

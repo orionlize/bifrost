@@ -75,8 +75,8 @@ func (h *MarketplaceHandler) RegisterRoutes(r *router.Router, middlewares ...sch
 type marketplaceItemRequest struct {
 	Name        string                      `json:"name"`
 	ItemType    schemas.MarketplaceItemType `json:"item_type"`
-	Description string                      `json:"description"`
-	Version     string                      `json:"version"`
+	Description *string                     `json:"description,omitempty"`
+	Version     *string                     `json:"version,omitempty"`
 	IconURL     string                      `json:"icon_url"`
 	ClearIcon   bool                        `json:"clear_icon"`
 	Enabled     *bool                       `json:"enabled"`
@@ -205,8 +205,12 @@ func (h *MarketplaceHandler) updateItem(ctx *fasthttp.RequestCtx) {
 	if req.ItemType != "" {
 		item.ItemType = req.ItemType
 	}
-	item.Description = strings.TrimSpace(req.Description)
-	item.Version = strings.TrimSpace(req.Version)
+	if req.Description != nil {
+		item.Description = strings.TrimSpace(*req.Description)
+	}
+	if req.Version != nil {
+		item.Version = strings.TrimSpace(*req.Version)
+	}
 	if req.ClearIcon {
 		item.IconURL = ""
 		item.IconData = ""
@@ -586,29 +590,28 @@ func (h *MarketplaceHandler) getPublicManifest(ctx *fasthttp.RequestCtx, platfor
 		return
 	}
 
-	if cfg != nil && !cfg.PublicRead && !requireLocalAdmin(ctx, h.configStore) {
+	var items []tables.TableMarketplaceItem
+	if requireLocalAdmin(ctx, h.configStore) {
+		enabled := true
+		items, _, err = h.configStore.GetMarketplaceItemsPaginated(ctx, configstore.MarketplaceItemsQueryParams{
+			Enabled: &enabled,
+			Limit:   10000,
+		})
+		if err != nil {
+			SendError(ctx, fasthttp.StatusInternalServerError, fmt.Sprintf("Failed to list marketplace items: %v", err))
+			return
+		}
+	} else {
 		aoneUserID, authErr := resolveMarketplaceAoneUserID(ctx, h.configStore)
 		if authErr != nil {
 			SendError(ctx, authErr.status, authErr.message)
 			return
 		}
-		items, err := h.configStore.GetMarketplaceItemsForUser(ctx, aoneUserID)
+		items, err = h.configStore.GetMarketplaceItemsForUser(ctx, aoneUserID)
 		if err != nil {
 			SendError(ctx, fasthttp.StatusInternalServerError, fmt.Sprintf("Failed to get user marketplace items: %v", err))
 			return
 		}
-		SendJSON(ctx, buildManifestResponse(cfg, filterMarketplaceItemsByPlatform(items, platform), claudeFormat))
-		return
-	}
-
-	enabled := true
-	items, _, err := h.configStore.GetMarketplaceItemsPaginated(ctx, configstore.MarketplaceItemsQueryParams{
-		Enabled: &enabled,
-		Limit:   10000,
-	})
-	if err != nil {
-		SendError(ctx, fasthttp.StatusInternalServerError, fmt.Sprintf("Failed to list marketplace items: %v", err))
-		return
 	}
 
 	SendJSON(ctx, buildManifestResponse(cfg, filterMarketplaceItemsByPlatform(items, platform), claudeFormat))
@@ -716,35 +719,9 @@ func (h *MarketplaceHandler) serveItemContent(ctx *fasthttp.RequestCtx) {
 		return
 	}
 
-	cfg, err := h.configStore.GetMarketplaceConfig(ctx)
-	if err != nil {
-		SendError(ctx, fasthttp.StatusInternalServerError, fmt.Sprintf("Failed to get marketplace config: %v", err))
+	if authErr := h.requireMarketplaceItemAccess(ctx, item.ID); authErr != nil {
+		SendError(ctx, authErr.status, authErr.message)
 		return
-	}
-	if cfg == nil || cfg.PublicRead {
-		// public catalog — no auth required
-	} else if !requireLocalAdmin(ctx, h.configStore) {
-		aoneUserID, authErr := resolveMarketplaceAoneUserID(ctx, h.configStore)
-		if authErr != nil {
-			SendError(ctx, authErr.status, authErr.message)
-			return
-		}
-		assigned, err := h.configStore.GetMarketplaceItemsForUser(ctx, aoneUserID)
-		if err != nil {
-			SendError(ctx, fasthttp.StatusInternalServerError, fmt.Sprintf("Failed to verify assignment: %v", err))
-			return
-		}
-		allowed := false
-		for i := range assigned {
-			if assigned[i].ID == item.ID {
-				allowed = true
-				break
-			}
-		}
-		if !allowed {
-			SendError(ctx, fasthttp.StatusForbidden, "Item not assigned to user")
-			return
-		}
 	}
 
 	content, contentType, ok := resolveMarketplaceContent(item, relPath)
@@ -965,6 +942,26 @@ func parseUintPathParam(ctx *fasthttp.RequestCtx, key string) (uint, error) {
 type marketplaceAuthError struct {
 	status  int
 	message string
+}
+
+func (h *MarketplaceHandler) requireMarketplaceItemAccess(ctx *fasthttp.RequestCtx, itemID uint) *marketplaceAuthError {
+	if requireLocalAdmin(ctx, h.configStore) {
+		return nil
+	}
+	aoneUserID, authErr := resolveMarketplaceAoneUserID(ctx, h.configStore)
+	if authErr != nil {
+		return authErr
+	}
+	assigned, err := h.configStore.GetMarketplaceItemsForUser(ctx, aoneUserID)
+	if err != nil {
+		return &marketplaceAuthError{fasthttp.StatusInternalServerError, fmt.Sprintf("Failed to verify assignment: %v", err)}
+	}
+	for i := range assigned {
+		if assigned[i].ID == itemID {
+			return nil
+		}
+	}
+	return &marketplaceAuthError{fasthttp.StatusForbidden, "Item not assigned to user"}
 }
 
 func resolveMarketplaceAoneUserID(ctx *fasthttp.RequestCtx, store configstore.ConfigStore) (string, *marketplaceAuthError) {

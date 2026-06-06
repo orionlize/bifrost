@@ -36,7 +36,7 @@ func TestGetCurrentUserWithDeviceCredential(t *testing.T) {
 		UpdatedAt:    time.Now(),
 	}).Error)
 
-	code, err := store.UpsertAoneDeviceAuthorization(ctx, aoneID, "fp-me", "zd-switch")
+	code, err := store.UpsertAoneDeviceAuthorization(ctx, aoneID, "fp-me", "zwitch")
 	require.NoError(t, err)
 	device, err := store.GetActiveAoneDeviceAuthorizationByCode(ctx, code)
 	require.NoError(t, err)

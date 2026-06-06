@@ -3,6 +3,7 @@ package configstore
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"strings"
 	"time"
@@ -132,7 +133,6 @@ func defaultMarketplaceConfig() *schemas.MarketplaceConfig {
 		Owner: schemas.MarketplaceOwner{
 			Name: "Bifrost",
 		},
-		PublicRead: true,
 	}
 }
 
@@ -209,6 +209,19 @@ func (s *RDBConfigStore) GetMarketplaceItemByNameAndPlatform(ctx context.Context
 func (s *RDBConfigStore) CreateMarketplaceItem(ctx context.Context, item *tables.TableMarketplaceItem) error {
 	if item == nil {
 		return fmt.Errorf("marketplace item is nil")
+	}
+	if item.Platform == "" {
+		item.Platform = schemas.MarketplacePlatformClaude
+	}
+	var existing tables.TableMarketplaceItem
+	err := s.DB().WithContext(ctx).
+		Where("name = ? AND platform = ?", strings.TrimSpace(item.Name), item.Platform).
+		First(&existing).Error
+	if err == nil {
+		return fmt.Errorf("marketplace item %q already exists for platform %q", item.Name, item.Platform)
+	}
+	if !errors.Is(err, gorm.ErrRecordNotFound) {
+		return err
 	}
 	now := time.Now()
 	item.CreatedAt = now

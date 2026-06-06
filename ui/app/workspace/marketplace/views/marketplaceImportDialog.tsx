@@ -5,7 +5,6 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Textarea } from "@/components/ui/textarea";
 import { useT } from "@/lib/i18n";
 import {
 	useGetMarketplaceItemAssignmentsQuery,
@@ -50,9 +49,6 @@ export function MarketplaceImportDialog({
 
 	const [importTab, setImportTab] = useState<ImportTab>("zip");
 	const [platform, setPlatform] = useState<MarketplacePlatform>("claude");
-	const [name, setName] = useState("");
-	const [description, setDescription] = useState("");
-	const [version, setVersion] = useState("1.0.0");
 	const [enabled, setEnabled] = useState(true);
 	const [zipFile, setZipFile] = useState<File | null>(null);
 	const [remoteURL, setRemoteURL] = useState("");
@@ -82,8 +78,6 @@ export function MarketplaceImportDialog({
 	useEffect(() => {
 		if (!editor) return;
 		if (editor.mode === "edit" && editor.item) {
-			setDescription(editor.item.description ?? "");
-			setVersion(editor.item.version ?? "1.0.0");
 			setEnabled(editor.item.enabled);
 			setRemoteURL(editor.item.remote_url ?? "");
 			setRemoteRef(editor.item.remote_ref ?? "main");
@@ -95,9 +89,6 @@ export function MarketplaceImportDialog({
 		}
 		setImportTab("zip");
 		setPlatform("claude");
-		setName("");
-		setDescription("");
-		setVersion("1.0.0");
 		setEnabled(true);
 		setZipFile(null);
 		setRemoteURL("");
@@ -117,8 +108,6 @@ export function MarketplaceImportDialog({
 				await updateItem({
 					id: editItem.id,
 					body: {
-						description: description.trim(),
-						version: version.trim(),
 						enabled,
 						icon_url: iconURL.trim() || undefined,
 						clear_icon: clearIcon,
@@ -172,10 +161,7 @@ export function MarketplaceImportDialog({
 				remote_ref: remoteRef.trim() || undefined,
 				catalog_url: catalogURL.trim() || undefined,
 				catalog_plugin: catalogPlugin.trim() || undefined,
-				name: name.trim() || undefined,
 				item_type: lockedItemType,
-				description: description.trim() || undefined,
-				version: version.trim() || undefined,
 				enabled,
 				assignments,
 			}).unwrap();
@@ -209,8 +195,15 @@ export function MarketplaceImportDialog({
 							<div className="min-w-0">
 								<p className="font-medium">{editItem.name}</p>
 								<p className="text-muted-foreground text-sm capitalize">{editItem.item_type}</p>
+								{editItem.description ? (
+									<p className="text-muted-foreground mt-1 text-sm">{editItem.description}</p>
+								) : null}
+								{editItem.version ? (
+									<p className="text-muted-foreground text-xs">v{editItem.version}</p>
+								) : null}
 							</div>
 						</div>
+						<p className="text-muted-foreground text-xs">{t("marketplace.import.metadataFromSource")}</p>
 						{(editItem.source_type === "github" || editItem.source_type === "gitlab") && (
 							<div className="grid gap-2">
 								<Label>{t("marketplace.edit.remoteRepository")}</Label>
@@ -218,14 +211,6 @@ export function MarketplaceImportDialog({
 								<Input value={remoteRef} disabled />
 							</div>
 						)}
-						<div className="grid gap-2">
-							<Label>{t("marketplace.import.descriptionOptional")}</Label>
-							<Textarea value={description} onChange={(e) => setDescription(e.target.value)} data-testid="marketplace-item-description" />
-						</div>
-						<div className="grid gap-2">
-							<Label>{t("marketplace.import.versionOptional")}</Label>
-							<Input value={version} onChange={(e) => setVersion(e.target.value)} />
-						</div>
 						<div className="grid gap-2">
 							<Label>{t("marketplace.import.iconUrl")}</Label>
 							<Input
@@ -341,42 +326,13 @@ export function MarketplaceImportDialog({
 											setCatalogSourceId(source.id);
 											setCatalogURL(source.url);
 											setCatalogPlugin(plugin.name);
-											if (!name.trim()) setName(plugin.name);
-											if (!description.trim() && plugin.description) setDescription(plugin.description);
-											if (!version.trim() && plugin.version) setVersion(plugin.version);
 										}}
 									/>
 								</TabsContent>
 							)}
 						</Tabs>
 
-						{importTab !== "catalog" && (
-							<div className="grid gap-2">
-								<Label>{t("marketplace.import.nameOptional")}</Label>
-								<Input
-									value={name}
-									onChange={(e) => setName(e.target.value)}
-									placeholder={t("marketplace.import.namePlaceholder")}
-									data-testid="marketplace-item-name"
-								/>
-							</div>
-						)}
-						{importTab !== "catalog" && (
-							<div className="grid gap-2">
-								<Label>{t("marketplace.import.descriptionOptional")}</Label>
-								<Textarea value={description} onChange={(e) => setDescription(e.target.value)} />
-							</div>
-						)}
-						{importTab !== "catalog" && (
-							<div className="grid gap-2">
-								<Label>{t("marketplace.import.versionOptional")}</Label>
-								<Input
-									value={version}
-									onChange={(e) => setVersion(e.target.value)}
-									placeholder={t("marketplace.import.versionPlaceholder")}
-								/>
-							</div>
-						)}
+						<p className="text-muted-foreground text-xs">{t("marketplace.import.metadataFromSource")}</p>
 						<div className="grid gap-2">
 							<Label>{t("marketplace.import.iconUrl")}</Label>
 							<Input

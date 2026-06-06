@@ -9,7 +9,7 @@ import (
 )
 
 // AoneUserOAuthTokenTable stores Aone OAuth2 tokens obtained during source-scoped login flows
-// (e.g. /login?source=zd-switch).
+// (e.g. /login?source=zwitch).
 type AoneUserOAuthTokenTable struct {
 	ID               int        `gorm:"primaryKey;autoIncrement" json:"-"`
 	AoneUserID         string `gorm:"column:aone_user_id;type:varchar(255);not null;uniqueIndex:idx_aone_user_oauth_token_scope,priority:1" json:"aone_user_id"`

@@ -20,7 +20,7 @@ Bifrost provides a unified marketplace for **skills** and **plugins** (Claude Co
 | `description` | text | Human-readable summary |
 | `version` | string | Semantic version |
 | `source` | string | Relative path in manifest (e.g. `./marketplace/plugins/data-toolkit`) |
-| `enabled` | bool | Whether item appears in public catalog |
+| `enabled` | bool | Whether item is eligible for assignment and client manifest |
 | `category` | string | Optional grouping label |
 | `tags_json` | text | JSON array of tags |
 | `content_json` | text | JSON bundle (SKILL.md, plugin.json, agents/commands/skills files) |
@@ -41,11 +41,11 @@ Unique index on `(aone_user_id, item_id)`.
 {
   "name": "bifrost-marketplace",
   "owner": { "name": "Bifrost", "email": "admin@example.com" },
-  "public_read": true
+  "catalog_sources": []
 }
 ```
 
-When `public_read` is `false`, unauthenticated manifest/content requests require the caller to be assigned the item (or be a local admin).
+All marketplace content is **private**. Manifest and content endpoints require authentication. Regular users only see items assigned to them (or their department); local admins see all enabled items.
 
 ## API
 
@@ -74,11 +74,11 @@ When `public_read` is `false`, unauthenticated manifest/content requests require
 
 | Method | Path | Description |
 | --- | --- | --- |
-| GET | `/.claude-plugin/marketplace.json` | Claude Code compatible manifest |
-| GET | `/api/marketplace/manifest` | Same manifest via API |
+| GET | `/.claude-plugin/marketplace.json` | Claude Code compatible manifest (auth required) |
+| GET | `/api/marketplace/manifest` | Same manifest via API (auth required) |
 | GET | `/api/marketplace/my/manifest` | Current user's assigned manifest |
 | GET | `/api/marketplace/my/items` | Current user's assigned items (with content) |
-| GET | `/marketplace/{plugins\|skills}/{name}/*` | Serve item files (SKILL.md, plugin.json, etc.) |
+| GET | `/marketplace/{plugins\|skills}/{name}/*` | Serve item files (auth + assignment required) |
 
 ## Manifest format
 
@@ -118,10 +118,11 @@ Standalone skills appear in the same `plugins` array; their `source` points to `
 
 ```bash
 # Add Bifrost as a marketplace source (within Claude Code)
+# CLI requests must carry a valid session or device token
 /plugin marketplace add https://your-gateway
 
 # Install a plugin from the catalog
 /plugin install data-toolkit@bifrost-marketplace
 ```
 
-For private deployments (`public_read: false`), authenticate with a dashboard session token or device credential (`bf-tmp-...`) when fetching `/api/marketplace/my/manifest`.
+Authenticate with a dashboard session token or device credential (`bf-tmp-...`) when fetching manifests or content. Prefer `/api/marketplace/my/manifest` for self-built clients.

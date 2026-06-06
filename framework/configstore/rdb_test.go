@@ -954,8 +954,7 @@ func TestUpdateMarketplaceConfigRoundTrip(t *testing.T) {
 	require.NoError(t, err)
 
 	cfg := &schemas.MarketplaceConfig{
-		Name:       "acme-marketplace",
-		PublicRead: false,
+		Name: "acme-marketplace",
 		Owner: schemas.MarketplaceOwner{
 			Name:  "Acme",
 			Email: "ops@acme.com",
@@ -975,7 +974,6 @@ func TestUpdateMarketplaceConfigRoundTrip(t *testing.T) {
 	loaded, err := store.GetMarketplaceConfig(ctx)
 	require.NoError(t, err)
 	require.Equal(t, "acme-marketplace", loaded.Name)
-	require.False(t, loaded.PublicRead)
 	require.Equal(t, "Acme", loaded.Owner.Name)
 	require.Equal(t, "ops@acme.com", loaded.Owner.Email)
 	require.Len(t, loaded.CatalogSources, 1)

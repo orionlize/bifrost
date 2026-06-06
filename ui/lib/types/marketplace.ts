@@ -12,7 +12,6 @@ export interface MarketplaceOwner {
 export interface MarketplaceConfig {
 	name: string;
 	owner: MarketplaceOwner;
-	public_read?: boolean;
 	catalog_sources?: MarketplaceCatalogSource[];
 }
 

@@ -96,9 +96,9 @@ func TestAoneOAuthLoginRedirectPreservesRedirectURI(t *testing.T) {
 	}
 }
 
-func TestAoneOAuthLoginRedirectPreservesZdSwitchSource(t *testing.T) {
-	got := aoneOAuthLoginRedirect("", "", loginSourceZdSwitch, "failed", "/bifrost")
-	want := "/bifrost/login?error=failed&source=zd-switch"
+func TestAoneOAuthLoginRedirectPreservesZwtichSource(t *testing.T) {
+	got := aoneOAuthLoginRedirect("", "", loginSourceZwitch, "failed", "/bifrost")
+	want := "/bifrost/login?error=failed&source=zwitch"
 	if got != want {
 		t.Fatalf("got %q, want %q", got, want)
 	}
@@ -201,20 +201,20 @@ func TestResolveOAuthRedirectURIUsesConfiguredCallback(t *testing.T) {
 	}
 }
 
-func TestBuildZdSwitchOAuthCallbackURI(t *testing.T) {
+func TestBuildZwtichOAuthCallbackURI(t *testing.T) {
 	ctx := &fasthttp.RequestCtx{}
-	ctx.Request.Header.Set("Referer", "http://localhost:8080/login?source=zd-switch")
+	ctx.Request.Header.Set("Referer", "http://localhost:8080/login?source=zwitch")
 	ctx.Request.SetHost("localhost:8080")
-	got := buildZdSwitchOAuthCallbackURI(ctx, "http://localhost:8080/api/aone/oauth/callback", "")
-	want := "http://localhost:8080/api/aone/oauth/zd-switch/callback"
+	got := buildZwitchOAuthCallbackURI(ctx, "http://localhost:8080/api/aone/oauth/callback", "")
+	want := "http://localhost:8080/api/aone/oauth/zwitch/callback"
 	if got != want {
 		t.Fatalf("got %q, want %q", got, want)
 	}
 }
 
-func TestBuildZdSwitchDeeplink(t *testing.T) {
-	got := buildZdSwitchDeeplink("token-123", "http://localhost:8080")
-	want := "zd-switch://open?access_token=token-123&base_url=http%3A%2F%2Flocalhost%3A8080"
+func TestBuildZwtichDeeplink(t *testing.T) {
+	got := buildZwitchDeeplink("token-123", "http://localhost:8080")
+	want := "zwitch://open?access_token=token-123&base_url=http%3A%2F%2Flocalhost%3A8080"
 	if got != want {
 		t.Fatalf("got %q, want %q", got, want)
 	}
@@ -274,12 +274,12 @@ func TestDashboardOriginPrefersReferer(t *testing.T) {
 	}
 }
 
-func TestBuildZdSwitchSuccessReturnTo(t *testing.T) {
+func TestBuildZwtichSuccessReturnTo(t *testing.T) {
 	ctx := &fasthttp.RequestCtx{}
-	ctx.Request.Header.Set("Referer", "http://localhost:8080/login?source=zd-switch")
+	ctx.Request.Header.Set("Referer", "http://localhost:8080/login?source=zwitch")
 	ctx.Request.SetHost("localhost:8080")
-	got := buildZdSwitchSuccessReturnTo(ctx, "token-123", "http://localhost:8080/api/aone/oauth/callback", "")
-	want := "http://localhost:8080/login/zd-switch/success?access_token=token-123&base_url=http%3A%2F%2Flocalhost%3A8080"
+	got := buildZwitchSuccessReturnTo(ctx, "token-123", "http://localhost:8080/api/aone/oauth/callback", "")
+	want := "http://localhost:8080/login/zwitch/success?access_token=token-123&base_url=http%3A%2F%2Flocalhost%3A8080"
 	if got != want {
 		t.Fatalf("got %q, want %q", got, want)
 	}
@@ -367,14 +367,14 @@ func TestResolveEffectiveBasePathFromForwardedPrefix(t *testing.T) {
 
 func TestResolveLoginSource(t *testing.T) {
 	ctx := &fasthttp.RequestCtx{}
-	ctx.URI().SetQueryString("source=zd-switch")
-	if got := resolveLoginSource(ctx, ""); got != loginSourceZdSwitch {
-		t.Fatalf("got %q, want %q", got, loginSourceZdSwitch)
+	ctx.URI().SetQueryString("source=zwitch")
+	if got := resolveLoginSource(ctx, ""); got != loginSourceZwitch {
+		t.Fatalf("got %q, want %q", got, loginSourceZwitch)
 	}
 }
 
-func TestValidateLoginRedirectURIRejectsZdSwitchCallback(t *testing.T) {
-	got := validateLoginRedirectURI("http://localhost:8080/api/aone/oauth/zd-switch/callback", "")
+func TestValidateLoginRedirectURIRejectsZwitchCallback(t *testing.T) {
+	got := validateLoginRedirectURI("http://localhost:8080/api/aone/oauth/zwitch/callback", "")
 	if got != "" {
 		t.Fatalf("got %q, want empty", got)
 	}

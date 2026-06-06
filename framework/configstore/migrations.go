@@ -873,6 +873,9 @@ func triggerMigrations(ctx context.Context, db *gorm.DB) error {
 	if err := migrationAddMarketplacePlatformColumn(ctx, db); err != nil {
 		return err
 	}
+	if err := migrationMarketplaceNamePlatformUniqueIndex(ctx, db); err != nil {
+		return err
+	}
 	if err := migrationAddAoneOrganizationTables(ctx, db); err != nil {
 		return err
 	}
@@ -9598,6 +9601,47 @@ func migrationAddMarketplaceUserCredentialsTable(ctx context.Context, db *gorm.D
 		return fmt.Errorf("error running add_marketplace_user_credentials_table migration: %s", err.Error())
 	}
 	return nil
+}
+
+// migrationMarketplaceNamePlatformUniqueIndex replaces legacy name-only unique
+// constraints with a composite (name, platform) index so the same plugin name
+// can exist for both claude and codex.
+func migrationMarketplaceNamePlatformUniqueIndex(ctx context.Context, db *gorm.DB) error {
+	return RunSingleMigration(ctx, nil, db, &migrator.Migration{
+		ID: "marketplace_name_platform_unique_index",
+		Migrate: func(tx *gorm.DB) error {
+			tx = tx.WithContext(ctx)
+			for _, idx := range []string{
+				"idx_marketplace_items_name",
+				"idx_marketplace_name",
+				"idx_marketplace_name_platform",
+				"uni_marketplace_items_name",
+			} {
+				if err := tx.Exec("DROP INDEX IF EXISTS " + idx).Error; err != nil {
+					return fmt.Errorf("drop legacy marketplace name index %s: %w", idx, err)
+				}
+			}
+			if tx.Dialector.Name() == "postgres" {
+				if err := tx.Exec(`ALTER TABLE marketplace_items DROP CONSTRAINT IF EXISTS uni_marketplace_items_name`).Error; err != nil {
+					return fmt.Errorf("drop legacy marketplace name constraint: %w", err)
+				}
+			}
+			mg := tx.Migrator()
+			if mg.HasIndex(&tables.TableMarketplaceItem{}, "Name") {
+				_ = mg.DropIndex(&tables.TableMarketplaceItem{}, "Name")
+			}
+			if !mg.HasIndex(&tables.TableMarketplaceItem{}, "idx_marketplace_name_platform") {
+				if err := mg.CreateIndex(&tables.TableMarketplaceItem{}, "idx_marketplace_name_platform"); err != nil {
+					return fmt.Errorf("create marketplace (name, platform) unique index: %w", err)
+				}
+			}
+			return nil
+		},
+		Rollback: func(tx *gorm.DB) error {
+			_ = tx.Migrator().DropIndex(&tables.TableMarketplaceItem{}, "idx_marketplace_name_platform")
+			return nil
+		},
+	})
 }
 
 func migrationAddMarketplacePlatformColumn(ctx context.Context, db *gorm.DB) error {

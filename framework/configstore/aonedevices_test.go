@@ -54,10 +54,10 @@ func TestDeviceAuthorizationTokenFlow(t *testing.T) {
 	store := setupAoneDeviceAuthTestStore(t)
 	ctx := context.Background()
 
-	code, err := store.UpsertAoneDeviceAuthorization(ctx, "user-1", "fp-1", "zd-switch")
+	code, err := store.UpsertAoneDeviceAuthorization(ctx, "user-1", "fp-1", "zwitch")
 	require.NoError(t, err)
 
-	token, err := store.CreateAoneUserDeviceAccessSession(ctx, "user-1", "zd-switch", nil, time.Now().Add(time.Hour))
+	token, err := store.CreateAoneUserDeviceAccessSession(ctx, "user-1", "zwitch", nil, time.Now().Add(time.Hour))
 	require.NoError(t, err)
 	require.NotEmpty(t, token)
 

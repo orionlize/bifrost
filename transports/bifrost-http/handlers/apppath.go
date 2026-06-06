@@ -107,7 +107,7 @@ func basePathFromOAuthCallbackURI(raw string) string {
 	if err != nil || parsed.Path == "" {
 		return ""
 	}
-	for _, suffix := range []string{aoneOAuthCallbackPathSuffix, zdSwitchOAuthCallbackPath} {
+	for _, suffix := range []string{aoneOAuthCallbackPathSuffix, zwitchOAuthCallbackPath} {
 		if strings.HasSuffix(parsed.Path, suffix) {
 			return lib.NormalizeBasePath(strings.TrimSuffix(parsed.Path, suffix))
 		}

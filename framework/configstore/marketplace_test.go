@@ -70,6 +70,72 @@ func TestBuildCodexMarketplaceManifest(t *testing.T) {
 	require.Equal(t, "AVAILABLE", manifest.Plugins[0].Policy.Installation)
 }
 
+func TestMarketplaceSameNameDifferentPlatform(t *testing.T) {
+	db := setupMarketplaceTestDB(t)
+	store := &RDBConfigStore{}
+	store.db.Store(db)
+	ctx := context.Background()
+
+	claude := &tables.TableMarketplaceItem{
+		Name:       "shared-toolkit",
+		Platform:   schemas.MarketplacePlatformClaude,
+		ItemType:   schemas.MarketplaceItemTypePlugin,
+		Enabled:    true,
+		Source:     "./marketplace/claude/plugins/shared-toolkit",
+		SourceType: schemas.MarketplaceImportSourceZip,
+	}
+	require.NoError(t, store.CreateMarketplaceItem(ctx, claude))
+
+	codex := &tables.TableMarketplaceItem{
+		Name:       "shared-toolkit",
+		Platform:   schemas.MarketplacePlatformCodex,
+		ItemType:   schemas.MarketplaceItemTypePlugin,
+		Enabled:    true,
+		Source:     "./marketplace/codex/plugins/shared-toolkit",
+		SourceType: schemas.MarketplaceImportSourceZip,
+	}
+	require.NoError(t, store.CreateMarketplaceItem(ctx, codex))
+
+	err := store.CreateMarketplaceItem(ctx, &tables.TableMarketplaceItem{
+		Name:       "shared-toolkit",
+		Platform:   schemas.MarketplacePlatformClaude,
+		ItemType:   schemas.MarketplaceItemTypePlugin,
+		Enabled:    true,
+		Source:     "./marketplace/claude/plugins/shared-toolkit",
+		SourceType: schemas.MarketplaceImportSourceZip,
+	})
+	require.Error(t, err)
+	require.Contains(t, err.Error(), `already exists for platform "claude"`)
+}
+
+func TestMigrationMarketplaceNamePlatformUniqueIndex(t *testing.T) {
+	db := setupMarketplaceTestDB(t)
+	require.NoError(t, db.Exec("DROP INDEX IF EXISTS idx_marketplace_name_platform").Error)
+	require.NoError(t, db.Exec("CREATE UNIQUE INDEX idx_marketplace_items_name ON marketplace_items(name)").Error)
+
+	ctx := context.Background()
+	require.NoError(t, migrationMarketplaceNamePlatformUniqueIndex(ctx, db))
+
+	store := &RDBConfigStore{}
+	store.db.Store(db)
+	require.NoError(t, store.CreateMarketplaceItem(ctx, &tables.TableMarketplaceItem{
+		Name:       "shared-toolkit",
+		Platform:   schemas.MarketplacePlatformClaude,
+		ItemType:   schemas.MarketplaceItemTypePlugin,
+		Enabled:    true,
+		Source:     "./marketplace/claude/plugins/shared-toolkit",
+		SourceType: schemas.MarketplaceImportSourceZip,
+	}))
+	require.NoError(t, store.CreateMarketplaceItem(ctx, &tables.TableMarketplaceItem{
+		Name:       "shared-toolkit",
+		Platform:   schemas.MarketplacePlatformCodex,
+		ItemType:   schemas.MarketplaceItemTypePlugin,
+		Enabled:    true,
+		Source:     "./marketplace/codex/plugins/shared-toolkit",
+		SourceType: schemas.MarketplaceImportSourceZip,
+	}))
+}
+
 func TestMarketplaceItemAssignments(t *testing.T) {
 	db := setupMarketplaceTestDB(t)
 	store := &RDBConfigStore{}

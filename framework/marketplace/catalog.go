@@ -265,7 +265,7 @@ func ImportFromRemoteCatalog(catalogInput, pluginName, token string, opts Import
 			entryOpts.Version = entry.Version
 		}
 		if entryOpts.ItemType == "" {
-			entryOpts.ItemType = schemas.MarketplaceItemTypePlugin
+			entryOpts.ItemType = inferCatalogEntryItemType(entry.Category, spec)
 		}
 		return importFromPluginSourceSpec(spec, token, entryOpts)
 	}
@@ -283,6 +283,7 @@ type remoteManifestEntry struct {
 	Name        string          `json:"name"`
 	Description string          `json:"description"`
 	Version     string          `json:"version"`
+	Category    string          `json:"category"`
 	Source      json.RawMessage `json:"source"`
 }
 
@@ -299,6 +300,19 @@ type sourceObject struct {
 	Path   string `json:"path"`
 	Ref    string `json:"ref"`
 	SHA    string `json:"sha"`
+}
+
+func inferCatalogEntryItemType(category string, spec *pluginSourceSpec) schemas.MarketplaceItemType {
+	if strings.EqualFold(strings.TrimSpace(category), "skills") {
+		return schemas.MarketplaceItemTypeSkill
+	}
+	if spec != nil {
+		lower := strings.ToLower(strings.Trim(strings.TrimSpace(spec.subDir), "/"))
+		if strings.HasPrefix(lower, "skills/") || strings.Contains(lower, "/skills/") {
+			return schemas.MarketplaceItemTypeSkill
+		}
+	}
+	return schemas.MarketplaceItemTypePlugin
 }
 
 func parsePluginSourceSpec(raw json.RawMessage, repoCtx *marketplaceRepoContext) (*pluginSourceSpec, error) {
