@@ -7,7 +7,6 @@ import { getErrorMessage, useGetCoreConfigQuery, useGetDroppedRequestsQuery, use
 import { CoreConfig, DefaultCoreConfig, DefaultGlobalHeaderFilterConfig, GlobalHeaderFilterConfig } from "@/lib/types/config";
 import { cn } from "@/lib/utils";
 import LargePayloadSettingsFragment from "@enterprise/components/large-payload/largePayloadSettingsFragment";
-import TauriUpdateSettingsSection from "./tauriUpdateSettingsSection";
 import { RbacOperation, RbacResource, useRbac } from "@enterprise/lib";
 import { useGetLargePayloadConfigQuery, useUpdateLargePayloadConfigMutation } from "@enterprise/lib/store/apis/largePayloadApi";
 import { DefaultLargePayloadConfig, LargePayloadConfig } from "@enterprise/lib/types/largePayload";
@@ -518,8 +517,6 @@ export default function ClientSettingsView() {
 					</div>
 				</div>
 			</div>
-
-			<TauriUpdateSettingsSection />
 
 			{/* Large Payload Optimization - Enterprise only */}
 			<LargePayloadSettingsFragment

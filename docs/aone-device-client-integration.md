@@ -237,6 +237,5 @@ curl -s -X POST "$BASE_URL/v1/chat/completions" \
 | 换取凭证 | POST | `/api/aone/devices/token` | 无（设备码即凭据） | 每 24h |
 | 调用 AI | POST | `/v1/...`（或其它前缀） | `Bearer <credential>` + `X-Device-Fingerprint` | 高频 |
 | 撤销设备 | POST | `/api/aone/devices/revoke` | 无（设备码即凭据） | 登出时 |
-| 检查更新 | GET | `/api/aone/zwitch/updates/{target}/{arch}/{current_version}` | 无 | 按需 |
 
-桌面端 Tauri updater 在 `tauri.conf.json` 中配置上述检查更新地址（支持 `{{target}}` / `{{arch}}` / `{{current_version}}` 变量）。管理员在 **设置 → 客户端设置 → Tauri 桌面端更新** 中配置最新版本号、更新说明及各平台安装包 URL 与 minisign 签名；无可用更新时接口返回 `204 No Content`。
+桌面端应用更新通过 GitHub Releases 获取，在 `tauri.conf.json` 的 updater 插件中配置 GitHub 源即可，无需经过 Bifrost 网关。

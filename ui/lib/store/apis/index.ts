@@ -19,4 +19,3 @@ export * from "./aoneUsersApi";
 export * from "./aoneDevicesApi";
 export * from "./globalApiKeysApi";
 export * from "./marketplaceApi";
-export * from "./tauriUpdateApi";

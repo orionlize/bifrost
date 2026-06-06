@@ -1355,8 +1355,6 @@ func (m *AuthMiddleware) APIMiddleware() schemas.BifrostHTTPMiddleware {
 		// /api/oauth/config/* (admin-only) and bypass the temp-token fallback
 		// in tryTempTokenOrUnauthorized.
 		"/api/dev",
-		// Tauri updater check for Zwitch desktop clients (no auth).
-		"/api/aone/zwitch/updates/",
 	}
 	return m.middleware(func(authConfig *configstore.AuthConfig, url string) bool {
 		if isPublicLoginUIPath(url) ||

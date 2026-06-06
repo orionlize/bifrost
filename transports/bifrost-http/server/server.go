@@ -1253,7 +1253,6 @@ func (s *BifrostHTTPServer) RegisterAPIRoutes(ctx context.Context, callbacks Ser
 	aoneUsersHandler := handlers.NewAoneUsersHandler(s.Config.ConfigStore, s)
 	marketplaceHandler := handlers.NewMarketplaceHandler(s.Config.ConfigStore)
 	aoneDevicesHandler := handlers.NewAoneDevicesHandler(s.Config.ConfigStore, s)
-	zwitchUpdateHandler := handlers.NewZwitchUpdateHandler(s.Config.ConfigStore)
 	globalAPIKeysHandler := handlers.NewGlobalAPIKeysHandler(s.Config.ConfigStore, s)
 	promptsHandler := handlers.NewPromptsHandler(s.Config.ConfigStore, promptsReloader)
 	featureFlagsHandler := handlers.NewFeatureFlagsHandler(s.Config.FeatureFlags, s.Config.ConfigStore)
@@ -1282,9 +1281,6 @@ func (s *BifrostHTTPServer) RegisterAPIRoutes(ctx context.Context, callbacks Ser
 	}
 	if aoneDevicesHandler != nil {
 		aoneDevicesHandler.RegisterRoutes(s.Router, middlewares...)
-	}
-	if zwitchUpdateHandler != nil {
-		zwitchUpdateHandler.RegisterRoutes(s.Router, middlewares...)
 	}
 	if globalAPIKeysHandler != nil {
 		globalAPIKeysHandler.RegisterRoutes(s.Router, middlewares...)
