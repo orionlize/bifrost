@@ -65,9 +65,7 @@ func (m *MCPManager) GetToolPerClient(ctx context.Context) map[string][]schemas.
 	var includeClients []string
 
 	// Extract client filtering from request context
-	if existingIncludeClients, ok := ctx.Value(schemas.MCPContextKeyIncludeClients).([]string); ok && existingIncludeClients != nil {
-		includeClients = existingIncludeClients
-	}
+	includeClients = ResolveMCPIncludeClientsList(ctx, ctx.Value(schemas.MCPContextKeyIncludeClients))
 
 	m.logger.Debug("%s GetToolPerClient: Total clients in manager: %d, Filter: %v", MCPLogPrefix, len(m.clientMap), includeClients)
 
@@ -376,6 +374,56 @@ func retrieveExternalToolsDetailed(ctx context.Context, client *client.Client, c
 	}, nil
 }
 
+// isMCPGatewayRequest reports whether ctx is handling an inbound /mcp gateway request.
+func isMCPGatewayRequest(ctx context.Context) bool {
+	v, ok := ctx.Value(schemas.BifrostContextKeyIsMCPGateway).(bool)
+	return ok && v
+}
+
+// hasEffectiveMCPIncludeList reports whether an include list carries at least one
+// non-blank entry. Empty slices and slices of only "" (from blank header values)
+// are treated as ineffective.
+func hasEffectiveMCPIncludeList(list []string) bool {
+	for _, item := range list {
+		if strings.TrimSpace(item) != "" {
+			return true
+		}
+	}
+	return false
+}
+
+// ResolveMCPIncludeClientsList returns the client include list to apply, or nil
+// when no request-context client filter should run. On the MCP gateway path,
+// blank/empty header values are ignored because tools are already scoped at sync
+// time. On the inference path, an empty slice (or only blank entries) means
+// deny-all.
+func ResolveMCPIncludeClientsList(ctx context.Context, raw any) []string {
+	if raw == nil {
+		return nil
+	}
+	list, ok := raw.([]string)
+	if !ok {
+		return nil
+	}
+	if isMCPGatewayRequest(ctx) {
+		if hasEffectiveMCPIncludeList(list) {
+			return list
+		}
+		return nil
+	}
+	if len(list) == 0 || !hasEffectiveMCPIncludeList(list) {
+		return []string{}
+	}
+	return list
+}
+
+// ResolveMCPIncludeToolsList returns the tool include list to apply, or nil when
+// no request-context tool filter should run. Semantics mirror
+// ResolveMCPIncludeClientsList.
+func ResolveMCPIncludeToolsList(ctx context.Context, raw any) []string {
+	return ResolveMCPIncludeClientsList(ctx, raw)
+}
+
 // shouldIncludeClient determines if a client should be included based on filtering rules.
 func shouldIncludeClient(clientName string, includeClients []string, logger schemas.Logger) bool {
 	// If includeClients is specified (not nil), apply whitelist filtering
@@ -469,33 +517,28 @@ func canAutoExecuteTool(toolName string, config *schemas.MCPClientConfig) bool {
 // Context filtering can only NARROW the tools available, NOT expand beyond client configuration.
 // This is checked AFTER client-level filtering (shouldSkipToolForConfig).
 func shouldSkipToolForRequest(ctx context.Context, clientName, toolName string) bool {
-	includeTools := ctx.Value(schemas.MCPContextKeyIncludeTools)
-
-	if includeTools != nil {
-		// Try []string first (preferred type)
-		if includeToolsList, ok := includeTools.([]string); ok {
-			// Handle empty array [] - means no tools are included
-			if len(includeToolsList) == 0 {
-				return true // No tools allowed
-			}
-
-			// Handle wildcard "clientName-*" - if present, all tools are included for this client
-			if slices.Contains(includeToolsList, fmt.Sprintf("%s-*", clientName)) {
-				return false // All tools allowed
-			}
-
-			// Check if specific tool is in the list (format: clientName-toolName)
-			// Note: toolName is already prefixed when coming from ToolMap, so use it directly
-			if slices.Contains(includeToolsList, toolName) {
-				return false // Tool is explicitly allowed
-			}
-
-			// If includeTools is specified but this tool is not in it, skip it
-			return true
-		}
+	includeToolsList := ResolveMCPIncludeToolsList(ctx, ctx.Value(schemas.MCPContextKeyIncludeTools))
+	if includeToolsList == nil {
+		return false
 	}
 
-	return false // Tool is allowed (default when no filtering specified)
+	// Handle empty array [] - means no tools are included (inference path only;
+	// gateway path never reaches here because resolve returns nil).
+	if len(includeToolsList) == 0 {
+		return true
+	}
+
+	// Handle wildcard "clientName-*" - if present, all tools are included for this client
+	if slices.Contains(includeToolsList, fmt.Sprintf("%s-*", clientName)) {
+		return false
+	}
+
+	// Check if specific tool is in the list (format: clientName-toolName)
+	if slices.Contains(includeToolsList, toolName) {
+		return false
+	}
+
+	return true
 }
 
 // convertMCPToolToBifrostSchema converts an MCP tool definition to Bifrost format.

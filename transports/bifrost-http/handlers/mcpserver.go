@@ -15,6 +15,7 @@ import (
 	"github.com/mark3labs/mcp-go/mcp"
 	"github.com/mark3labs/mcp-go/server"
 	bifrost "github.com/maximhq/bifrost/core"
+	mcpcore "github.com/maximhq/bifrost/core/mcp"
 	"github.com/maximhq/bifrost/core/schemas"
 	"github.com/maximhq/bifrost/framework/configstore/tables"
 	"github.com/maximhq/bifrost/plugins/governance"
@@ -516,7 +517,9 @@ func (h *MCPServerHandler) fetchToolsForVK(vk *tables.TableVirtualKey) ([]schema
 // When neither header is present the filter is a no-op, preserving existing behaviour.
 func (h *MCPServerHandler) makeIncludeClientsFilter() server.ToolFilterFunc {
 	return func(ctx context.Context, tools []mcp.Tool) []mcp.Tool {
-		if ctx.Value(schemas.MCPContextKeyIncludeClients) == nil && ctx.Value(schemas.MCPContextKeyIncludeTools) == nil {
+		includeClients := mcpcore.ResolveMCPIncludeClientsList(ctx, ctx.Value(schemas.MCPContextKeyIncludeClients))
+		includeTools := mcpcore.ResolveMCPIncludeToolsList(ctx, ctx.Value(schemas.MCPContextKeyIncludeTools))
+		if includeClients == nil && includeTools == nil {
 			return tools
 		}
 		allowed := h.toolManager.GetAvailableMCPTools(ctx)

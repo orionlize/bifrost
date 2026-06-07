@@ -1,6 +1,7 @@
 package mcp
 
 import (
+	"context"
 	"encoding/json"
 	"testing"
 
@@ -168,4 +169,32 @@ func TestConvertMCPToolToBifrostSchema_WithParameters(t *testing.T) {
 	if bifrostTool.Function.Parameters.Required[0] != "param1" {
 		t.Errorf("Expected required field 'param1', got '%s'", bifrostTool.Function.Parameters.Required[0])
 	}
+}
+
+func TestResolveMCPIncludeToolsList_GatewayIgnoresBlankHeader(t *testing.T) {
+	t.Parallel()
+
+	gatewayCtx := schemas.NewBifrostContext(context.Background(), schemas.NoDeadline)
+	gatewayCtx.SetValue(schemas.BifrostContextKeyIsMCPGateway, true)
+
+	assert.Nil(t, ResolveMCPIncludeToolsList(gatewayCtx, []string{""}))
+	assert.Nil(t, ResolveMCPIncludeToolsList(gatewayCtx, []string{}))
+
+	inferenceCtx := schemas.NewBifrostContext(context.Background(), schemas.NoDeadline)
+	assert.Equal(t, []string{}, ResolveMCPIncludeToolsList(inferenceCtx, []string{""}))
+	assert.Equal(t, []string{}, ResolveMCPIncludeToolsList(inferenceCtx, []string{}))
+}
+
+func TestShouldSkipToolForRequest_GatewayAllowsWhenIncludeHeaderBlank(t *testing.T) {
+	t.Parallel()
+
+	gatewayCtx := schemas.NewBifrostContext(context.Background(), schemas.NoDeadline)
+	gatewayCtx.SetValue(schemas.BifrostContextKeyIsMCPGateway, true)
+	gatewayCtx.SetValue(schemas.MCPContextKeyIncludeTools, []string{""})
+
+	assert.False(t, shouldSkipToolForRequest(gatewayCtx, "filesystem", "filesystem-read_file"))
+
+	inferenceCtx := schemas.NewBifrostContext(context.Background(), schemas.NoDeadline)
+	inferenceCtx.SetValue(schemas.MCPContextKeyIncludeTools, []string{""})
+	assert.True(t, shouldSkipToolForRequest(inferenceCtx, "filesystem", "filesystem-read_file"))
 }

@@ -169,10 +169,7 @@ func (m *MCPManager) prepareToolExecution(ctx *schemas.BifrostContext, request *
 	if state.State == schemas.MCPConnectionStateDisabled {
 		return nil, nil, nil, fmt.Errorf("tool '%s' is not permitted (client %s is disabled)", toolName, clientName)
 	}
-	var includeClients []string
-	if v, ok := ctx.Value(schemas.MCPContextKeyIncludeClients).([]string); ok {
-		includeClients = v
-	}
+	includeClients := ResolveMCPIncludeClientsList(ctx, ctx.Value(schemas.MCPContextKeyIncludeClients))
 	if !shouldIncludeClient(clientName, includeClients, m.logger) {
 		return nil, nil, nil, fmt.Errorf("tool '%s' is not permitted (client %s is not in request-context include list)", toolName, clientName)
 	}
