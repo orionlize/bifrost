@@ -120,6 +120,22 @@ export function SettingsPanel() {
 		return undefined;
 	}, [apiKeyId, providerVirtualKeys]);
 
+	const keyAllowedModels = useMemo(() => {
+		if (!filterKeys?.length) {
+			return [];
+		}
+		const models = new Set<string>();
+		for (const keyId of filterKeys) {
+			const key = providerKeys.find((k) => k.key_id === keyId);
+			for (const model of key?.models ?? []) {
+				if (model && model !== "*") {
+					models.add(model);
+				}
+			}
+		}
+		return Array.from(models);
+	}, [filterKeys, providerKeys]);
+
 	const handleModelParamsChange = useCallback(
 		(params: Record<string, any>) => {
 			onModelParamsChange(params as ModelParams);
@@ -197,12 +213,13 @@ export function SettingsPanel() {
 										provider={provider}
 										keys={filterKeys && filterKeys.length > 0 ? filterKeys : undefined}
 										vks={filterVks}
+										extraModels={keyAllowedModels}
 										value={model}
 										onChange={(v) => onModelChange(v)}
 										isSingleSelect
+										allowCustomModels={!!provider}
 										placeholder={!provider ? t("prompts.selectProviderFirst") : t("prompts.selectModel")}
 										disabled={!provider}
-										unfiltered={true}
 									/>
 								</div>
 

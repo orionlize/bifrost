@@ -208,14 +208,16 @@ function TierMappingRow({ mapping, providers, allKeys, onChange, onRemove }: Tie
 				<div className="space-y-1.5">
 					<Label className="text-xs">{t("tables.model")}</Label>
 					<ModelMultiselect
-						key={`source-model-${mapping.source_provider || "any"}`}
+						key={`source-model-${mapping.source_provider || "any"}-${mapping.source_key_id || "any"}`}
 						isSingleSelect
 						provider={mapping.source_provider || undefined}
+						keys={mapping.source_key_id ? [mapping.source_key_id] : undefined}
 						value={mapping.source_model}
 						onChange={(source_model) => onChange({ source_model })}
 						placeholder={mapping.source_provider ? t("governance.userGroups.selectModel") : t("governance.userGroups.anyModel")}
 						allowAllOption
 						allowAllOptionWithoutProvider
+						allowCustomModels={!!mapping.source_key_id}
 						className="!h-9 !min-h-9"
 						menuPosition="fixed"
 					/>
@@ -248,12 +250,14 @@ function TierMappingRow({ mapping, providers, allKeys, onChange, onRemove }: Tie
 					<Label className="text-xs">{t("tables.model")}</Label>
 					{mapping.target_provider ? (
 						<ModelMultiselect
-							key={`target-model-${mapping.target_provider}`}
+							key={`target-model-${mapping.target_provider}-${mapping.target_key_id || "any"}`}
 							isSingleSelect
 							provider={mapping.target_provider}
+							keys={mapping.target_key_id ? [mapping.target_key_id] : undefined}
 							value={mapping.target_model}
 							onChange={(target_model) => onChange({ target_model })}
 							placeholder={t("governance.userGroups.selectModel")}
+							allowCustomModels={!!mapping.target_key_id}
 							className="!h-9 !min-h-9"
 							menuPosition="fixed"
 						/>

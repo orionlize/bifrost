@@ -649,7 +649,40 @@ func StripUnsupportedFieldsFromRawBody(jsonBody []byte, provider schemas.ModelPr
 		}
 	}
 
+	jsonBody, err = flattenSystemArrayForPassthrough(jsonBody)
+	if err != nil {
+		return nil, err
+	}
+
 	return jsonBody, nil
+}
+
+// flattenSystemArrayForPassthrough converts a system prompt sent as a content-block
+// array (Claude Code's default shape) into the plain string form that many Anthropic-
+// compatible upstream relays (e.g. sub2api) accept. Native Anthropic accepts both
+// forms; relays that only implement the string variant return 502 when given an array.
+// Non-text blocks (image, document, …) are left unchanged.
+func flattenSystemArrayForPassthrough(jsonBody []byte) ([]byte, error) {
+	systemResult := providerUtils.GetJSONField(jsonBody, "system")
+	if !systemResult.Exists() || !systemResult.IsArray() {
+		return jsonBody, nil
+	}
+
+	blocks := systemResult.Array()
+	if len(blocks) == 0 {
+		return providerUtils.DeleteJSONField(jsonBody, "system")
+	}
+
+	var parts []string
+	for _, block := range blocks {
+		blockType := block.Get("type").String()
+		if blockType != string(AnthropicContentBlockTypeText) {
+			return jsonBody, nil
+		}
+		parts = append(parts, block.Get("text").String())
+	}
+
+	return providerUtils.SetJSONField(jsonBody, "system", strings.Join(parts, ""))
 }
 
 // IsOpus47 returns true if the model is Claude Opus 4.7 or a later generation where:

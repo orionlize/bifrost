@@ -343,13 +343,19 @@ func checkAnthropicPassthrough(ctx *fasthttp.RequestCtx, bifrostCtx *schemas.Bif
 		bifrostCtx.SetValue(schemas.BifrostContextKeyPassthroughOverridesPresent, true)
 		bifrostCtx.SetValue(schemas.BifrostContextKeyUseRawRequestBody, true)
 		bifrostCtx.SetValue(schemas.BifrostContextKeySendBackRawResponse, true)
-		if !isAnthropicAPIKeyAuth(ctx) && (provider == schemas.Anthropic || provider == "") {
-			url := extractExactPath(ctx)
-			if !strings.HasPrefix(url, "/") {
-				url = "/" + url
+
+		preserveNativeAnthropicPath := provider == schemas.Anthropic || provider == ""
+		var urlPath string
+		if preserveNativeAnthropicPath {
+			urlPath = extractExactPath(ctx)
+			if !strings.HasPrefix(urlPath, "/") {
+				urlPath = "/" + urlPath
 			}
+		}
+
+		if !isAnthropicAPIKeyAuth(ctx) && preserveNativeAnthropicPath {
 			bifrostCtx.SetValue(schemas.BifrostContextKeyExtraHeaders, headers)
-			bifrostCtx.SetValue(schemas.BifrostContextKeyURLPath, url)
+			bifrostCtx.SetValue(schemas.BifrostContextKeyURLPath, urlPath)
 			// This key is also used in IsClaudeCodeMaxMode
 			// So if you are changing the behaviour of this key, make sure to change IsClaudeCodeMaxMode as well
 			bifrostCtx.SetValue(schemas.BifrostContextKeySkipKeySelection, true)
@@ -358,6 +364,10 @@ func checkAnthropicPassthrough(ctx *fasthttp.RequestCtx, bifrostCtx *schemas.Bif
 			passthroughHeaders := extractPassthroughHeaders(headers)
 			if len(passthroughHeaders) > 0 {
 				bifrostCtx.SetValue(schemas.BifrostContextKeyExtraHeaders, passthroughHeaders)
+			}
+			// Preserve client query string (e.g. ?beta=true) for Claude Code API-key passthrough.
+			if preserveNativeAnthropicPath {
+				bifrostCtx.SetValue(schemas.BifrostContextKeyURLPath, urlPath)
 			}
 		}
 		if provider == schemas.Vertex && (hasPromptCachingScopeBetaHeader(headers) || hasFastModeBetaHeader(headers) || hasOutputConfigFormat(req)) {

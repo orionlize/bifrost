@@ -19,6 +19,7 @@ type CELValueEditorContext = CelBuilderI18nContext & {
 	validateRegex?: (pattern: string) => string | null;
 	menuPosition?: "absolute" | "fixed";
 	menuPortalTarget?: HTMLElement | null;
+	allowCustomModels?: boolean;
 };
 
 export function ValueEditor({
@@ -37,6 +38,7 @@ export function ValueEditor({
 	const validateRegex = context?.validateRegex;
 	const menuPosition = context?.menuPosition;
 	const menuPortalTarget = context?.menuPortalTarget;
+	const allowCustomModels = context?.allowCustomModels ?? false;
 
 	// Get valueEditorType, handling both string and function types
 	const valueEditorType =
@@ -126,6 +128,7 @@ export function ValueEditor({
 					onChange={handleMultiModelChange}
 					placeholder={celBuilderT(context, "routing.celBuilder.selectModels")}
 					loadModelsOnEmptyProvider
+					allowCustomModels={allowCustomModels}
 					className="!min-h-9 w-[360px]"
 					menuPosition={menuPosition}
 					menuPortalTarget={menuPortalTarget}
@@ -155,6 +158,7 @@ export function ValueEditor({
 				isSingleSelect
 				clearable={true}
 				loadModelsOnEmptyProvider
+				allowCustomModels={allowCustomModels}
 				className="border-input w-[360px]"
 				menuPosition={menuPosition}
 				menuPortalTarget={menuPortalTarget}

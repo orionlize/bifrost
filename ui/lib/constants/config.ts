@@ -201,7 +201,4 @@ export const PROVIDER_SUPPORTED_REQUESTS: Record<BaseProvider, string[]> = {
 };
 
 export const IS_ENTERPRISE = process.env.BIFROST_IS_ENTERPRISE === "true";
-
-/** Temporarily hide Prompt Repository from navigation and redirects. */
-export const SHOW_PROMPT_REPOSITORY = false;
 export const TRIAL_EXPIRY = parseTrialExpiry(process.env.BIFROST_ENTERPRISE_TRIAL_EXPIRY);

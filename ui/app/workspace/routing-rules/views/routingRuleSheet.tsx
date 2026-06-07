@@ -687,11 +687,13 @@ function TargetRow({ target, index, availableProviders, allKeys, showRemove, onU
 						<div className="flex-1" data-testid={`routing-target-${index}-model-select`}>
 							<ModelMultiselect
 								provider={target.provider || undefined}
+								keys={target.key_id ? [target.key_id] : undefined}
 								value={target.model}
 								onChange={(value) => onUpdate(index, "model", value)}
 								placeholder={t("routing.incomingOptional")}
 								isSingleSelect
 								loadModelsOnEmptyProvider
+								allowCustomModels={!!target.key_id}
 								className="!h-9 !min-h-9"
 								inputId={`routing-target-${index}-model-input`}
 								ariaLabelledBy={`routing-target-${index}-model-label`}

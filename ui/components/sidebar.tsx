@@ -62,7 +62,7 @@ import {
 	useSidebar,
 } from "@/components/ui/sidebar";
 import { useWebSocket } from "@/hooks/useWebSocket";
-import { IS_ENTERPRISE, SHOW_PROMPT_REPOSITORY } from "@/lib/constants/config";
+import { IS_ENTERPRISE } from "@/lib/constants/config";
 import { AONE_USER_DEFAULT_WORKSPACE_PATH } from "@/lib/constants/aoneUserSession";
 import { useGetCoreConfigQuery, useGetLatestReleaseQuery, useGetVersionQuery, useIsAuthEnabledQuery, useLogoutMutation } from "@/lib/store";
 import { RbacOperation, RbacResource, useRbac } from "@enterprise/lib";
@@ -538,6 +538,7 @@ export default function AppSidebar() {
 		showAuditLogs;
 	const { data: coreConfig } = useGetCoreConfigQuery({});
 	const isDbConnected = coreConfig?.is_db_connected ?? false;
+	const showPromptRepository = hasPromptRepositoryAccess && isDbConnected && !isAoneUserSession;
 
 	const nav = (key: string) => ({
 		navKey: key,
@@ -663,21 +664,11 @@ export default function AppSidebar() {
 				icon: Shuffle,
 				hasAccess: showAdaptiveRouting,
 			},
-			...(SHOW_PROMPT_REPOSITORY && isDbConnected
-				? [
-						{
-							...nav("promptRepository"),
-							url: "/workspace/prompt-repo",
-							icon: FolderGit,
-							hasAccess: hasPromptRepositoryAccess,
-						},
-					]
-				: []),
 			{
 				...nav("settings"),
 				url: "/workspace/config",
 				icon: Settings2Icon,
-				hasAccess: hasSettingsAccess || showAuditLogs || showUserProvisioning,
+				hasAccess: hasSettingsAccess || showAuditLogs || showUserProvisioning || showPromptRepository,
 				subItems: [
 					{ ...nav("clientSettings"), url: "/workspace/config/client-settings", icon: Settings, hasAccess: hasSettingsAccess },
 					{ ...nav("website"), url: "/workspace/config/website", icon: LayoutTemplate, hasAccess: hasSettingsAccess },
@@ -692,6 +683,12 @@ export default function AppSidebar() {
 						url: "/workspace/config/api-keys",
 						icon: KeyRound,
 						hasAccess: hasAPIKeyAccess && (!showAoneUsers || isLocalAdmin),
+					},
+					{
+						...nav("promptRepository"),
+						url: "/workspace/prompt-repo",
+						icon: FolderGit,
+						hasAccess: showPromptRepository,
 					},
 					{ ...nav("performanceTuning"), url: "/workspace/config/performance-tuning", icon: TrendingUp, hasAccess: hasSettingsAccess },
 				],
@@ -734,6 +731,7 @@ export default function AppSidebar() {
 			showGuardrailsProviders,
 			showClusterConfig,
 			showAdaptiveRouting,
+			showPromptRepository,
 			isDbConnected,
 		],
 	);
@@ -757,9 +755,7 @@ export default function AppSidebar() {
 		if (!isAoneUserSession) {
 			return accessibleItems;
 		}
-		const allowedUrls = new Set(
-			SHOW_PROMPT_REPOSITORY ? ["/workspace/prompt-repo"] : [AONE_USER_DEFAULT_WORKSPACE_PATH],
-		);
+		const allowedUrls = new Set([AONE_USER_DEFAULT_WORKSPACE_PATH]);
 		return accessibleItems.filter((item) => allowedUrls.has(item.url));
 	}, [accessibleItems, isAoneUserSession]);
 

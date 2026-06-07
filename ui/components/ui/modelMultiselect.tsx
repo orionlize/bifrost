@@ -41,6 +41,10 @@ interface ModelMultiselectPropsBase {
 	menuPosition?: "absolute" | "fixed";
 	/** Target element for the menu portal. */
 	menuPortalTarget?: HTMLElement | null;
+	/** When true, allows typing custom model names even when a provider is selected. */
+	allowCustomModels?: boolean;
+	/** Additional model names to include in the dropdown (e.g. key-configured custom models). */
+	extraModels?: string[];
 }
 
 interface ModelMultiselectPropsSingle extends ModelMultiselectPropsBase {
@@ -81,6 +85,26 @@ function toModelOptions(models: ModelResponse[]): ModelOption[] {
 	}));
 }
 
+function mergeExtraModelOptions(options: ModelOption[], extraModels: string[] | undefined, provider: string | undefined, query?: string): ModelOption[] {
+	if (!extraModels?.length) {
+		return options;
+	}
+	const seen = new Set(options.map((option) => option.value));
+	const merged = [...options];
+	const normalizedQuery = query?.trim().toLowerCase() ?? "";
+	for (const model of extraModels) {
+		if (!model || model === "*" || seen.has(model)) {
+			continue;
+		}
+		if (normalizedQuery && !model.toLowerCase().includes(normalizedQuery)) {
+			continue;
+		}
+		seen.add(model);
+		merged.push({ label: model, value: model, provider });
+	}
+	return merged;
+}
+
 function buildModelsQueryArgs(
 	provider: string | undefined,
 	keys: string[] | undefined,
@@ -118,11 +142,14 @@ export function ModelMultiselect(props: ModelMultiselectProps) {
 		loadModelsOnEmptyProvider = false,
 		allowAllOption = false,
 		allowAllOptionWithoutProvider = false,
+		allowCustomModels = false,
+		extraModels,
 		clearable = false,
 	} = props;
 	const isSingleSelect = props.isSingleSelect === true;
 
 	const providerScoped = !!provider;
+	const creatable = allowCustomModels || !providerScoped;
 	const shouldUseBaseModels = loadModelsOnEmptyProvider === "base_models" && !provider;
 	const shouldLoadOnEmpty = !!loadModelsOnEmptyProvider;
 	const wildcardOnlyWithoutProvider = allowAllOptionWithoutProvider && allowAllOption && !provider;
@@ -206,10 +233,16 @@ export function ModelMultiselect(props: ModelMultiselectProps) {
 				searchModels(buildModelsQueryArgs(provider, keys, vks, unfiltered, query ? 50 : 20, query))
 					.unwrap()
 					.then((response) => {
-						callback([...prefix, ...toModelOptions(filterModelsByProvider(response.models, provider))]);
+						const options = mergeExtraModelOptions(
+							[...prefix, ...toModelOptions(filterModelsByProvider(response.models, provider))],
+							extraModels,
+							provider,
+							query,
+						);
+						callback(options);
 					})
 					.catch(() => {
-						callback(prefix);
+						callback(mergeExtraModelOptions(prefix, extraModels, provider, query));
 					});
 				return;
 			}
@@ -232,6 +265,7 @@ export function ModelMultiselect(props: ModelMultiselectProps) {
 			searchModels,
 			shouldLoadOnEmpty,
 			shouldUseBaseModels,
+			extraModels,
 			unfiltered,
 			vks,
 			wildcardOnlyWithoutProvider,
@@ -302,13 +336,13 @@ export function ModelMultiselect(props: ModelMultiselectProps) {
 			];
 		}
 		if (providerScoped) {
-			return [...prefix, ...toModelOptions(scopedModels)];
+			return mergeExtraModelOptions([...prefix, ...toModelOptions(scopedModels)], extraModels, provider);
 		}
 		if (shouldLoadOnEmpty && !shouldUseBaseModels) {
 			return [...prefix, ...toModelOptions(scopedModels)];
 		}
 		return prefix;
-	}, [scopedModels, baseModelsData?.models, shouldUseBaseModels, shouldLoadOnEmpty, allowAllOption, providerScoped]);
+	}, [scopedModels, baseModelsData?.models, shouldUseBaseModels, shouldLoadOnEmpty, allowAllOption, providerScoped, extraModels, provider, allModelsOption]);
 
 	const shouldBeDisabled = disabled || (!provider && !shouldLoadOnEmpty && !wildcardOnlyWithoutProvider);
 	const isLoading = providerScoped
@@ -330,10 +364,10 @@ export function ModelMultiselect(props: ModelMultiselectProps) {
 			onChange={handleChange}
 			reload={loadOptions}
 			debounce={300}
-			isCreatable={!providerScoped}
-			dynamicOptionCreation={!providerScoped}
+			isCreatable={creatable}
+			dynamicOptionCreation={creatable}
 			createOptionText={t("shared.modelMultiselect.createOption")}
-			selectKey={[provider ?? "", keys?.join(",") ?? "", vks?.join(",") ?? "", String(unfiltered), String(shouldUseBaseModels)].join("|")}
+			selectKey={[provider ?? "", keys?.join(",") ?? "", vks?.join(",") ?? "", String(unfiltered), String(shouldUseBaseModels), extraModels?.join(",") ?? ""].join("|")}
 			defaultOptions={defaultOptions.length > 0 ? defaultOptions : ([] as Option<ModelOption>[])}
 			isLoading={isLoading}
 			placeholder={placeholder}

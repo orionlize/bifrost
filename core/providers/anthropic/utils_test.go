@@ -13,6 +13,7 @@ import (
 	"github.com/bytedance/sonic"
 	providerUtils "github.com/maximhq/bifrost/core/providers/utils"
 	"github.com/maximhq/bifrost/core/schemas"
+	"github.com/tidwall/gjson"
 )
 
 func TestExtractTypesFromValue(t *testing.T) {
@@ -1633,6 +1634,41 @@ func TestStripUnsupportedFieldsFromRawBody(t *testing.T) {
 		}
 		if !providerUtils.JSONFieldExists(result, "speed") {
 			t.Errorf("expected speed preserved for unknown provider (safe default), got: %s", string(result))
+		}
+	})
+
+	t.Run("flattens_system_array_of_text_blocks_to_string", func(t *testing.T) {
+		input := []byte(`{"model":"claude-sonnet-4-6","system":[{"type":"text","text":"Part1"},{"type":"text","text":"Part2"}]}`)
+		result, err := StripUnsupportedFieldsFromRawBody(input, schemas.Anthropic, "claude-sonnet-4-6")
+		if err != nil {
+			t.Fatalf("unexpected error: %v", err)
+		}
+		got := providerUtils.GetJSONField(result, "system")
+		if !got.Exists() || got.Type != gjson.String || got.String() != "Part1Part2" {
+			t.Fatalf("expected flattened system string, got: %s", string(result))
+		}
+	})
+
+	t.Run("drops_empty_system_array", func(t *testing.T) {
+		input := []byte(`{"model":"claude-sonnet-4-6","system":[]}`)
+		result, err := StripUnsupportedFieldsFromRawBody(input, schemas.Anthropic, "claude-sonnet-4-6")
+		if err != nil {
+			t.Fatalf("unexpected error: %v", err)
+		}
+		if providerUtils.JSONFieldExists(result, "system") {
+			t.Fatalf("expected empty system array removed, got: %s", string(result))
+		}
+	})
+
+	t.Run("preserves_system_array_with_non_text_blocks", func(t *testing.T) {
+		input := []byte(`{"model":"claude-sonnet-4-6","system":[{"type":"document","source":{"type":"text","media_type":"text/plain","data":"aGVsbG8="}}]}`)
+		result, err := StripUnsupportedFieldsFromRawBody(input, schemas.Anthropic, "claude-sonnet-4-6")
+		if err != nil {
+			t.Fatalf("unexpected error: %v", err)
+		}
+		system := providerUtils.GetJSONField(result, "system")
+		if !system.IsArray() {
+			t.Fatalf("expected non-text system array preserved, got: %s", string(result))
 		}
 	})
 
