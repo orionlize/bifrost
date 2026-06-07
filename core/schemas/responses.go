@@ -86,6 +86,7 @@ type BifrostResponsesResponse struct {
 	ToolChoice         *ResponsesToolChoice                `json:"tool_choice,omitempty"` // Whether to call a tool
 	Tools              []ResponsesTool                     `json:"tools"`                 // Tools to use
 	Truncation         *string                             `json:"truncation,omitempty"`
+	User               *string                             `json:"user,omitempty"`
 	Usage              *ResponsesResponseUsage             `json:"usage"`
 	ExtraFields        BifrostResponseExtraFields          `json:"extra_fields"`
 
@@ -2723,15 +2724,134 @@ func (resp *BifrostResponsesStreamResponse) WithDefaults() *BifrostResponsesStre
 	return result
 }
 
-// NormalizeResponsesStreamJSONForParse coerces "arguments" from object/array to a JSON string when
-// providers send values like "arguments":{} (tool_search_call output_item.added).
+// NormalizeResponsesStreamJSONForParse coerces stream chunks into shapes our structs accept:
+// object-shaped tool arguments, numeric enums coerced to strings, and 0/1 strict flags as bools.
 func NormalizeResponsesStreamJSONForParse(jsonData string) (string, error) {
 	var root any
 	if err := Unmarshal([]byte(jsonData), &root); err != nil {
 		return jsonData, err
 	}
-	normalizeResponsesStreamArgumentsValue(root)
+	normalizeResponsesStreamFlexibleFields(root)
 	return MarshalString(root)
+}
+
+func normalizeResponsesStreamFlexibleFields(v any) {
+	normalizeResponsesStreamArgumentsValue(v)
+	root, ok := v.(map[string]any)
+	if !ok {
+		return
+	}
+	response, ok := root["response"].(map[string]any)
+	if !ok {
+		return
+	}
+	normalizeResponsesStreamResponseFlexibleFields(response)
+}
+
+func normalizeResponsesStreamResponseFlexibleFields(response map[string]any) {
+	coerceStringFieldsInMap(response,
+		"truncation",
+		"service_tier",
+		"prompt_cache_key",
+		"safety_identifier",
+		"previous_response_id",
+		"user",
+		"stop_reason",
+	)
+	if usage, ok := response["usage"].(map[string]any); ok {
+		coerceStringFieldsInMap(usage, "type")
+	}
+	if text, ok := response["text"].(map[string]any); ok {
+		coerceStringFieldsInMap(text, "verbosity")
+		if format, ok := text["format"].(map[string]any); ok {
+			coerceStringFieldsInMap(format, "type", "name", "description")
+			coerceBoolFieldsInMap(format, "strict")
+		}
+	}
+	if reasoning, ok := response["reasoning"].(map[string]any); ok {
+		coerceStringFieldsInMap(reasoning, "effort", "summary", "generate_summary")
+	}
+	if prompt, ok := response["prompt"].(map[string]any); ok {
+		coerceStringFieldsInMap(prompt, "id", "version")
+	}
+	if tools, ok := response["tools"].([]any); ok {
+		for _, tool := range tools {
+			normalizeResponsesStreamToolFlexibleFields(tool)
+		}
+	}
+}
+
+func normalizeResponsesStreamToolFlexibleFields(tool any) {
+	m, ok := tool.(map[string]any)
+	if !ok {
+		return
+	}
+	coerceBoolFieldsInMap(m, "strict")
+	if params, ok := m["parameters"].(map[string]any); ok {
+		coerceStringFieldsInMap(params, "type")
+	}
+	if nested, ok := m["tools"].([]any); ok {
+		for _, child := range nested {
+			normalizeResponsesStreamToolFlexibleFields(child)
+		}
+	}
+}
+
+func coerceStringFieldsInMap(m map[string]any, keys ...string) {
+	for _, key := range keys {
+		value, ok := m[key]
+		if !ok || value == nil {
+			continue
+		}
+		if _, ok := value.(string); ok {
+			continue
+		}
+		if coerced, err := coerceAnyToString(value); err == nil {
+			m[key] = coerced
+		}
+	}
+}
+
+func coerceBoolFieldsInMap(m map[string]any, keys ...string) {
+	for _, key := range keys {
+		value, ok := m[key]
+		if !ok || value == nil {
+			continue
+		}
+		if _, ok := value.(bool); ok {
+			continue
+		}
+		switch typed := value.(type) {
+		case float64:
+			m[key] = typed != 0
+		case int:
+			m[key] = typed != 0
+		case int64:
+			m[key] = typed != 0
+		}
+	}
+}
+
+func coerceAnyToString(value any) (string, error) {
+	switch typed := value.(type) {
+	case string:
+		return typed, nil
+	case bool:
+		return strconv.FormatBool(typed), nil
+	case float64:
+		if typed == float64(int64(typed)) {
+			return strconv.FormatInt(int64(typed), 10), nil
+		}
+		return strconv.FormatFloat(typed, 'f', -1, 64), nil
+	case int:
+		return strconv.Itoa(typed), nil
+	case int64:
+		return strconv.FormatInt(typed, 10), nil
+	case json.Number:
+		return typed.String(), nil
+	default:
+		return "", fmt.Errorf("expected string, bool, or number")
+	}
 }
 
 func normalizeResponsesStreamArgumentsValue(v any) {

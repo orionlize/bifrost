@@ -1420,3 +1420,61 @@ func TestSonic_ResponsesCompleted_UsageTypeNumber(t *testing.T) {
 	require.NotNil(t, resp.Response.Usage.Type)
 	assert.Equal(t, "61312", *resp.Response.Usage.Type)
 }
+
+// TestUnmarshalBifrostResponsesStreamResponse_CompletedFlexibleFields ensures large
+// response.completed echoes with numeric enums still parse instead of raw passthrough.
+func TestUnmarshalBifrostResponsesStreamResponse_CompletedFlexibleFields(t *testing.T) {
+	pad := strings.Repeat("a", 40000)
+	base := func(middle string) string {
+		return `{"type":"response.completed","sequence_number":6,"response":{"object":"response","created_at":1,"model":"gpt-5.4","status":"completed","output":[{"type":"message","role":"assistant","content":[{"type":"output_text","text":"` + pad + `"}]}],` + middle + `,"tools":[{"type":"function","name":"t","parameters":{"type":"object","properties":{}},"strict":false}],"top_logprobs":0,"top_p":0.98,"truncation":"disabled","usage":{"input_tokens":14805,"input_tokens_details":{"cached_tokens":2432},"output_tokens":61,"output_tokens_details":{"reasoning_tokens":18},"total_tokens":14866},"user":null,"metadata":{}}}`
+	}
+
+	cases := []struct {
+		name   string
+		chunk  string
+		assert func(t *testing.T, resp *BifrostResponsesStreamResponse)
+	}{
+		{
+			name:  "text_format_type_number",
+			chunk: base(`"text":{"format":{"type":1}}`),
+			assert: func(t *testing.T, resp *BifrostResponsesStreamResponse) {
+				require.NotNil(t, resp.Response.Text)
+				require.NotNil(t, resp.Response.Text.Format)
+				assert.Equal(t, "1", resp.Response.Text.Format.Type)
+			},
+		},
+		{
+			name:  "truncation_number",
+			chunk: strings.Replace(base(`"text":{"format":{"type":"text"}}`), `"truncation":"disabled"`, `"truncation":0`, 1),
+			assert: func(t *testing.T, resp *BifrostResponsesStreamResponse) {
+				require.NotNil(t, resp.Response.Truncation)
+				assert.Equal(t, "0", *resp.Response.Truncation)
+			},
+		},
+		{
+			name:  "prompt_id_number",
+			chunk: base(`"prompt":{"id":123,"variables":{}}`),
+			assert: func(t *testing.T, resp *BifrostResponsesStreamResponse) {
+				require.NotNil(t, resp.Response.Prompt)
+				assert.Equal(t, "123", resp.Response.Prompt.ID)
+			},
+		},
+		{
+			name:  "user_number",
+			chunk: strings.Replace(base(`"text":{"format":{"type":"text"}}`), `"user":null`, `"user":42`, 1),
+			assert: func(t *testing.T, resp *BifrostResponsesStreamResponse) {
+				require.NotNil(t, resp.Response.User)
+				assert.Equal(t, "42", *resp.Response.User)
+			},
+		},
+	}
+
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			var resp BifrostResponsesStreamResponse
+			require.NoError(t, UnmarshalBifrostResponsesStreamResponse(tc.chunk, &resp))
+			require.NotNil(t, resp.Response)
+			tc.assert(t, &resp)
+		})
+	}
+}
