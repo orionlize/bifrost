@@ -444,3 +444,72 @@ func TestHTTPTransportPreHook_GlobalAPIKeyRoutingRuleMatchesBeforeAuth(t *testin
 	require.NoError(t, json.Unmarshal(req.Body, &payload))
 	require.Equal(t, "openai/gpt-4o-mini", payload.Model)
 }
+
+// TestHTTPTransportPreHook_RoutingRuleInfersProviderFromModel verifies routing rules
+// see the catalog-resolved provider when the request model has no provider prefix.
+func TestHTTPTransportPreHook_RoutingRuleInfersProviderFromModel(t *testing.T) {
+	logger := NewMockLogger()
+	mc := modelcatalog.NewTestCatalog(map[string]string{
+		"claude-mythos-preview": "claude-mythos-preview",
+	})
+	mc.UpsertModelDataForProvider(schemas.Anthropic, &schemas.BifrostListModelsResponse{
+		Data: []schemas.Model{{ID: "anthropic/claude-mythos-preview"}},
+	}, nil)
+
+	routingRule := configstoreTables.TableRoutingRule{
+		ID:            "rule-anthropic-responses",
+		Name:          "Anthropic Responses",
+		Enabled:       bifrost.Ptr(true),
+		CelExpression: `provider == "anthropic" && request_type == "responses"`,
+		Targets: []configstoreTables.TableRoutingTarget{
+			{
+				RuleID:   "rule-anthropic-responses",
+				Provider: bifrost.Ptr("anthropic"),
+				Model:    bifrost.Ptr("claude-mythos-preview"),
+				Weight:   1.0,
+			},
+		},
+		Scope:    "global",
+		Priority: 0,
+	}
+
+	store, err := NewLocalGovernanceStore(context.Background(), logger, nil, &configstore.GovernanceConfig{
+		RoutingRules: []configstoreTables.TableRoutingRule{routingRule},
+	}, mc)
+	require.NoError(t, err)
+
+	plugin, err := InitFromStore(context.Background(), &Config{IsVkMandatory: boolPtr(false)}, logger, store, nil, mc, nil, &mockInMemoryStore{
+		configuredProviders: map[schemas.ModelProvider]configstore.ProviderConfig{
+			schemas.Anthropic: {},
+		},
+	})
+	require.NoError(t, err)
+	defer func() {
+		require.NoError(t, plugin.Cleanup())
+	}()
+
+	req := schemas.AcquireHTTPRequest()
+	defer schemas.ReleaseHTTPRequest(req)
+	req.Method = "POST"
+	req.Path = "/v1/responses"
+	req.Headers["Content-Type"] = "application/json"
+	req.Body = []byte(`{"model":"claude-mythos-preview","input":"hello"}`)
+
+	bfCtx := schemas.NewBifrostContext(context.Background(), schemas.NoDeadline)
+	bfCtx.SetValue(schemas.BifrostContextKeyHTTPRequestType, schemas.ResponsesRequest)
+
+	resp, err := plugin.HTTPTransportPreHook(bfCtx, req)
+	require.NoError(t, err)
+	require.Nil(t, resp)
+
+	var payload struct {
+		Model string `json:"model"`
+	}
+	require.NoError(t, json.Unmarshal(req.Body, &payload))
+	require.Equal(t, "anthropic/claude-mythos-preview", payload.Model)
+
+	logs := bfCtx.GetRoutingEngineLogs()
+	require.NotEmpty(t, logs)
+	require.Contains(t, logs[0].Message, "provider=anthropic")
+	require.Contains(t, logs[0].Message, "requestType=responses")
+}

@@ -1023,6 +1023,9 @@ func (p *GovernancePlugin) applyRoutingRules(ctx *schemas.BifrostContext, req *s
 
 	// Parse provider and model from modelStr (format: "provider/model" or just "model")
 	provider, model := schemas.ParseModelString(modelStr, "")
+	if provider == "" {
+		provider = p.resolveProviderForRouting(model, virtualKey)
+	}
 
 	// Extract normalized request type from context (set by HTTP middleware)
 	requestType := ""

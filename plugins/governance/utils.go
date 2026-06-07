@@ -9,6 +9,7 @@ import (
 	bifrost "github.com/maximhq/bifrost/core"
 	"github.com/maximhq/bifrost/core/schemas"
 	"github.com/maximhq/bifrost/framework/configstore"
+	configstoreTables "github.com/maximhq/bifrost/framework/configstore/tables"
 	"github.com/valyala/fasthttp"
 )
 
@@ -200,4 +201,55 @@ func (p *GovernancePlugin) filterModelsForVirtualKey(
 	}
 
 	return filteredModels
+}
+
+// resolveProviderForRouting infers the provider for routing rule evaluation when the
+// request model has no "provider/model" prefix. This mirrors the model-catalog lookup
+// that handlers perform later, so CEL expressions and routing logs see the same provider
+// the request will ultimately use.
+func (p *GovernancePlugin) resolveProviderForRouting(model string, virtualKey *configstoreTables.TableVirtualKey) schemas.ModelProvider {
+	if p.modelCatalog == nil || model == "" {
+		return ""
+	}
+
+	providers := p.modelCatalog.GetProvidersForModel(model)
+	if len(providers) == 0 {
+		return ""
+	}
+
+	if p.inMemoryStore != nil {
+		configured := p.inMemoryStore.GetConfiguredProviders()
+		filtered := make([]schemas.ModelProvider, 0, len(providers))
+		for _, provider := range providers {
+			if _, ok := configured[provider]; ok {
+				filtered = append(filtered, provider)
+			}
+		}
+		providers = filtered
+	}
+
+	if virtualKey != nil && len(virtualKey.ProviderConfigs) > 0 {
+		vkProviders := make(map[string]struct{}, len(virtualKey.ProviderConfigs))
+		for _, pc := range virtualKey.ProviderConfigs {
+			vkProviders[pc.Provider] = struct{}{}
+		}
+		filtered := make([]schemas.ModelProvider, 0, len(providers))
+		for _, provider := range providers {
+			if _, ok := vkProviders[string(provider)]; ok {
+				filtered = append(filtered, provider)
+			}
+		}
+		if len(filtered) > 0 {
+			providers = filtered
+		}
+	}
+
+	if len(providers) == 0 {
+		return ""
+	}
+
+	slices.SortFunc(providers, func(a, b schemas.ModelProvider) int {
+		return strings.Compare(string(a), string(b))
+	})
+	return providers[0]
 }
