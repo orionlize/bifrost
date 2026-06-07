@@ -466,6 +466,15 @@ func (p *ProviderConfig) Redacted() *ProviderConfig {
 		} else {
 			redactedConfig.Keys[i].UseForBatchAPI = bifrost.Ptr(false)
 		}
+		if key.GrayscaleEnabled != nil {
+			grayscaleEnabled := *key.GrayscaleEnabled
+			redactedConfig.Keys[i].GrayscaleEnabled = &grayscaleEnabled
+		}
+		if len(key.GrayscaleUsers) > 0 {
+			redactedConfig.Keys[i].GrayscaleUsers = append([]string(nil), key.GrayscaleUsers...)
+		} else {
+			redactedConfig.Keys[i].GrayscaleUsers = []string{}
+		}
 
 		// Add model discovery status and error
 		redactedConfig.Keys[i].Status = key.Status
@@ -753,6 +762,23 @@ func GenerateKeyHash(key schemas.Key) (string, error) {
 	}
 	if useForBatchAPI {
 		hash.Write([]byte("useForBatchAPI:true"))
+	}
+	grayscaleEnabled := false
+	if key.GrayscaleEnabled != nil {
+		grayscaleEnabled = *key.GrayscaleEnabled
+	}
+	if grayscaleEnabled {
+		hash.Write([]byte("grayscaleEnabled:true"))
+	}
+	if len(key.GrayscaleUsers) > 0 {
+		sortedUsers := append([]string(nil), key.GrayscaleUsers...)
+		sort.Strings(sortedUsers)
+		data, err := sonic.Marshal(sortedUsers)
+		if err != nil {
+			return "", err
+		}
+		hash.Write([]byte("grayscaleUsers:"))
+		hash.Write(data)
 	}
 	return hex.EncodeToString(hash.Sum(nil)), nil
 }

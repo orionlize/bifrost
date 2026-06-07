@@ -7438,9 +7438,18 @@ func (bifrost *Bifrost) selectKeyFromProviderForModelWithPool(ctx *schemas.Bifro
 	skipModelCheck := (model == "" && (isFileRequestType(requestType) || isBatchRequestType(requestType) || isContainerRequestType(requestType) || isCachedContentRequestType(requestType) || isModellessVideoRequestType(requestType) || isPassthroughRequestType(requestType))) || requestType == schemas.ListModelsRequest
 	if skipModelCheck {
 		// When skipping model check: just verify keys are enabled and have values
+		userID := ""
+		if ctx != nil {
+			if uid, ok := ctx.Value(schemas.BifrostContextKeyUserID).(string); ok {
+				userID = uid
+			}
+		}
 		for _, key := range keys {
 			// Skip disabled keys
 			if key.Enabled != nil && !*key.Enabled {
+				continue
+			}
+			if !key.IsAccessibleByUser(userID) {
 				continue
 			}
 			if err := validateKey(baseProviderType, &key); err != nil {
@@ -7453,9 +7462,18 @@ func (bifrost *Bifrost) selectKeyFromProviderForModelWithPool(ctx *schemas.Bifro
 		}
 	} else {
 		// When NOT skipping model check: do full model filtering
+		userID := ""
+		if ctx != nil {
+			if uid, ok := ctx.Value(schemas.BifrostContextKeyUserID).(string); ok {
+				userID = uid
+			}
+		}
 		for _, key := range keys {
 			// Skip disabled keys
 			if key.Enabled != nil && !*key.Enabled {
+				continue
+			}
+			if !key.IsAccessibleByUser(userID) {
 				continue
 			}
 			if err := validateKey(baseProviderType, &key); err != nil {

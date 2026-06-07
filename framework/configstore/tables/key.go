@@ -23,6 +23,8 @@ type TableKey struct {
 	BlacklistedModelsJSON string         `gorm:"type:text" json:"-"` // JSON serialized []string
 	Weight                *float64       `json:"weight"`
 	Enabled               *bool          `gorm:"default:true" json:"enabled,omitempty"`
+	GrayscaleEnabled      *bool          `gorm:"default:false" json:"grayscale_enabled,omitempty"`
+	GrayscaleUsersJSON    string         `gorm:"type:text" json:"-"` // JSON serialized []string
 	CreatedAt             time.Time      `gorm:"index;not null" json:"created_at"`
 	UpdatedAt             time.Time      `gorm:"index;not null" json:"updated_at"`
 
@@ -80,6 +82,7 @@ type TableKey struct {
 	// Virtual fields for runtime use (not stored in DB)
 	Models             schemas.WhiteList           `gorm:"-" json:"models"` // ["*"] allows all models; empty denies all (deny-by-default)
 	BlacklistedModels  schemas.BlackList           `gorm:"-" json:"blacklisted_models"`
+	GrayscaleUsers     []string                    `gorm:"-" json:"grayscale_users,omitempty"`
 	Aliases            schemas.KeyAliases          `gorm:"-" json:"aliases,omitempty"`
 	AzureKeyConfig     *schemas.AzureKeyConfig     `gorm:"-" json:"azure_key_config,omitempty"`
 	VertexKeyConfig    *schemas.VertexKeyConfig    `gorm:"-" json:"vertex_key_config,omitempty"`
@@ -115,6 +118,15 @@ func (k *TableKey) BeforeSave(tx *gorm.DB) error {
 		return err
 	}
 	k.BlacklistedModelsJSON = string(data)
+	grayscaleUsers := k.GrayscaleUsers
+	if grayscaleUsers == nil {
+		grayscaleUsers = []string{}
+	}
+	data, err = json.Marshal(grayscaleUsers)
+	if err != nil {
+		return err
+	}
+	k.GrayscaleUsersJSON = string(data)
 	if k.Enabled == nil {
 		enabled := true // DB default
 		k.Enabled = &enabled
@@ -498,6 +510,14 @@ func (k *TableKey) AfterFind(tx *gorm.DB) error {
 		if err := json.Unmarshal([]byte(k.BlacklistedModelsJSON), &k.BlacklistedModels); err != nil {
 			return err
 		}
+	}
+	if k.GrayscaleUsersJSON != "" {
+		if err := json.Unmarshal([]byte(k.GrayscaleUsersJSON), &k.GrayscaleUsers); err != nil {
+			return err
+		}
+	}
+	if k.GrayscaleUsers == nil {
+		k.GrayscaleUsers = []string{}
 	}
 	if k.Enabled == nil {
 		enabled := true // DB default

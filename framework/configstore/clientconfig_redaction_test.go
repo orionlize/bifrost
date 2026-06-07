@@ -128,6 +128,25 @@ func TestProviderConfig_Redacted_PreservesEnvVarReferenceForVertex(t *testing.T)
 	assert.True(t, out.FromEnv)
 }
 
+func TestProviderConfig_Redacted_PreservesGrayscaleFields(t *testing.T) {
+	grayscaleEnabled := true
+	config := ProviderConfig{
+		Keys: []schemas.Key{{
+			ID:               "k1",
+			Name:             "test",
+			Value:            *schemas.NewEnvVar("sk-test"),
+			GrayscaleEnabled: &grayscaleEnabled,
+			GrayscaleUsers:   []string{"user-a", "user-b"},
+		}},
+	}
+
+	redacted := config.Redacted()
+	require.Len(t, redacted.Keys, 1)
+	require.NotNil(t, redacted.Keys[0].GrayscaleEnabled)
+	assert.True(t, *redacted.Keys[0].GrayscaleEnabled)
+	assert.Equal(t, []string{"user-a", "user-b"}, redacted.Keys[0].GrayscaleUsers)
+}
+
 // TestProviderConfig_Redacted_DoesNotMutateOriginal ensures Redacted() does not
 // mutate the original config in memory. The inference path reads from the in-memory
 // config and calls GetValue() to build outgoing LLM requests.

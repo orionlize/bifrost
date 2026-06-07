@@ -2412,6 +2412,18 @@
             "minLength": 1
           },
           "description": "Model alias mappings: maps a model name to a provider-specific identifier (deployment name, inference profile ID, fine-tuned model ID, etc.)"
+        },
+        "grayscale_enabled": {
+          "type": "boolean",
+          "description": "When true, only users listed in grayscale_users may use this key (default: false)",
+          "default": false
+        },
+        "grayscale_users": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          },
+          "description": "Aone user IDs allowed to use this key when grayscale_enabled is true"
         }
       },
       "required": ["name", "weight"]

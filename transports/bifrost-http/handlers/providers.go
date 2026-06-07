@@ -128,6 +128,7 @@ func (h *ProviderHandler) RegisterRoutes(r *router.Router, middlewares ...schema
 	r.GET("/api/models/details", lib.ChainMiddlewares(h.listModelDetails, middlewares...))
 	r.GET("/api/models/parameters", lib.ChainMiddlewares(h.getModelParameters, middlewares...))
 	r.GET("/api/models/base", lib.ChainMiddlewares(h.listBaseModels, middlewares...))
+	h.registerZwitchGrayscaleModelRoutes(r, middlewares...)
 }
 
 // listProviders handles GET /api/providers - List all providers
@@ -631,6 +632,9 @@ type modelListQuery struct {
 	// HasVKFilter=true restricts providers/models to those allowed by the VK.
 	HasVKFilter       bool
 	VKProviderConfigs []tables.TableVirtualKeyProviderConfig
+	// AoneUserID is set when the request is scoped to a personal Aone virtual key.
+	// Used to filter grayscale-restricted models and keys for end users.
+	AoneUserID string
 }
 
 type listedModel struct {
@@ -782,6 +786,9 @@ func (h *ProviderHandler) parseModelListQuery(ctx *fasthttp.RequestCtx, defaultL
 		if vk != nil {
 			query.HasVKFilter = true
 			query.VKProviderConfigs = vk.ProviderConfigs
+			if vk.CreatedByUserID != nil {
+				query.AoneUserID = strings.TrimSpace(*vk.CreatedByUserID)
+			}
 		}
 	}
 
@@ -852,7 +859,13 @@ func (h *ProviderHandler) listManagementModelsForProvider(
 		}
 	}
 
-	if len(query.KeyIDs) == 0 || query.Unfiltered {
+	if len(query.KeyIDs) == 0 {
+		if query.AoneUserID != "" && !query.Unfiltered {
+			config, err := h.inMemoryStore.GetProviderConfigRaw(provider)
+			if err == nil && config != nil {
+				models = filterModelsByGrayscaleAccess(config, h.inMemoryStore.ModelCatalog, models, query.AoneUserID)
+			}
+		}
 		return buildListedModels(provider, models, nil, query.Query)
 	}
 
@@ -869,6 +882,11 @@ func (h *ProviderHandler) listManagementModelsForProvider(
 	validKeyIDs := getValidKeyIDsForProvider(config, query.KeyIDs)
 	if len(validKeyIDs) == 0 {
 		return buildListedModels(provider, models, nil, query.Query)
+	}
+
+	validKeyIDs = filterKeyIDsByGrayscaleAccess(config, validKeyIDs, query.AoneUserID, query.Unfiltered)
+	if len(validKeyIDs) == 0 {
+		return buildListedModels(provider, []string{}, nil, query.Query)
 	}
 
 	filteredModels, accessByModel := filterModelsByKeysWithAccessMap(
@@ -1010,6 +1028,70 @@ func getValidKeyIDsForProvider(config *configstore.ProviderConfig, keyIDs []stri
 	return valid
 }
 
+// filterKeyIDsByGrayscaleAccess removes grayscale-restricted keys the user cannot access.
+func filterKeyIDsByGrayscaleAccess(config *configstore.ProviderConfig, keyIDs []string, userID string, unfiltered bool) []string {
+	if config == nil || len(keyIDs) == 0 || unfiltered || strings.TrimSpace(userID) == "" {
+		return keyIDs
+	}
+
+	keysByID := make(map[string]schemas.Key, len(config.Keys))
+	for _, key := range config.Keys {
+		keysByID[key.ID] = key
+	}
+
+	filtered := make([]string, 0, len(keyIDs))
+	for _, keyID := range keyIDs {
+		key, ok := keysByID[keyID]
+		if !ok {
+			continue
+		}
+		if key.IsAccessibleByUser(userID) {
+			filtered = append(filtered, keyID)
+		}
+	}
+	return filtered
+}
+
+// filterModelsByGrayscaleAccess keeps only models reachable through at least one key
+// the user may access when grayscale restrictions apply.
+func filterModelsByGrayscaleAccess(
+	config *configstore.ProviderConfig,
+	modelCatalog *modelcatalog.ModelCatalog,
+	models []string,
+	userID string,
+) []string {
+	if config == nil || len(models) == 0 || strings.TrimSpace(userID) == "" {
+		return models
+	}
+
+	filtered := make([]string, 0, len(models))
+	for _, model := range models {
+		if modelAccessibleToUser(config, model, userID, modelCatalog) {
+			filtered = append(filtered, model)
+		}
+	}
+	return filtered
+}
+
+// modelAccessibleToUser reports whether any enabled provider key grants the user access to model.
+func modelAccessibleToUser(config *configstore.ProviderConfig, model, userID string, modelCatalog *modelcatalog.ModelCatalog) bool {
+	if config == nil {
+		return true
+	}
+	for _, key := range config.Keys {
+		if key.Enabled != nil && !*key.Enabled {
+			continue
+		}
+		if !key.IsAccessibleByUser(userID) {
+			continue
+		}
+		if keyAllowsModelForList(key, model, modelCatalog) {
+			return true
+		}
+	}
+	return false
+}
+
 // filterModelsByKeysWithAccessMap filters models based on key-level model restrictions
 // and returns the exact key IDs that grant access to each returned model.
 func filterModelsByKeysWithAccessMap(config *configstore.ProviderConfig, provider schemas.ModelProvider, modelCatalog *modelcatalog.ModelCatalog, models []string, keyIDs []string) ([]string, map[string][]string) {
@@ -1057,6 +1139,37 @@ func filterModelsByKeysWithAccessMap(config *configstore.ProviderConfig, provide
 		filtered = append(filtered, model)
 		accessByModel[model] = grantedBy
 	}
+
+	// Include key-configured models that are not in the catalog (custom upstream models).
+	catalogModels := make(map[string]bool, len(models))
+	for _, model := range models {
+		catalogModels[model] = true
+	}
+	for _, matched := range matchedKeys {
+		if len(matched.key.Models) == 0 {
+			continue
+		}
+		for _, allowedModel := range matched.key.Models {
+			if allowedModel == "*" || catalogModels[allowedModel] {
+				continue
+			}
+			if matched.key.BlacklistedModels.IsBlocked(allowedModel) {
+				continue
+			}
+			if !keyAllowsModelForList(matched.key, allowedModel, modelCatalog) {
+				continue
+			}
+			if existing, ok := accessByModel[allowedModel]; ok {
+				if !slices.Contains(existing, matched.id) {
+					accessByModel[allowedModel] = append(existing, matched.id)
+				}
+				continue
+			}
+			filtered = append(filtered, allowedModel)
+			accessByModel[allowedModel] = []string{matched.id}
+		}
+	}
+
 	return filtered, accessByModel
 }
 

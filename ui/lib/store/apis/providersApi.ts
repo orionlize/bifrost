@@ -182,6 +182,7 @@ export const providersApi = baseApi.injectEndpoints({
 				method: "POST",
 				body: key,
 			}),
+			invalidatesTags: ["Models"],
 			async onQueryStarted({ provider }, { dispatch, queryFulfilled }) {
 				try {
 					const { data: newKey } = await queryFulfilled;
@@ -217,6 +218,7 @@ export const providersApi = baseApi.injectEndpoints({
 				method: "PUT",
 				body: key,
 			}),
+			invalidatesTags: ["Models"],
 			async onQueryStarted({ provider, keyId }, { dispatch, queryFulfilled }) {
 				try {
 					const { data: updatedKey } = await queryFulfilled;
@@ -246,6 +248,7 @@ export const providersApi = baseApi.injectEndpoints({
 				url: `/providers/${encodeURIComponent(provider)}/keys/${encodeURIComponent(keyId)}`,
 				method: "DELETE",
 			}),
+			invalidatesTags: ["Models"],
 			async onQueryStarted({ provider, keyId }, { dispatch, queryFulfilled }) {
 				try {
 					await queryFulfilled;

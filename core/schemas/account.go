@@ -135,6 +135,8 @@ type Key struct {
 	OllamaKeyConfig    *OllamaKeyConfig    `json:"ollama_key_config,omitempty"`    // Ollama-specific key configuration
 	SGLKeyConfig       *SGLKeyConfig       `json:"sgl_key_config,omitempty"`       // SGLang-specific key configuration
 	Enabled            *bool               `json:"enabled,omitempty"`              // Whether the key is active (default:true)
+	GrayscaleEnabled   *bool               `json:"grayscale_enabled,omitempty"`    // When true, only users in GrayscaleUsers may use this key (default:false)
+	GrayscaleUsers     []string            `json:"grayscale_users,omitempty"`      // Aone user IDs allowed to use this key when GrayscaleEnabled is true
 	UseForBatchAPI     *bool               `json:"use_for_batch_api,omitempty"`    // Whether this key can be used for batch API operations (default:false for new keys, migrated keys default to true)
 	ConfigHash         string              `json:"config_hash,omitempty"`          // Hash of config.json version, used for change detection
 	Status             KeyStatusType       `json:"status,omitempty"`               // Status of key
@@ -181,6 +183,30 @@ func (ka KeyAliases) Resolve(model string) string {
 		}
 	}
 	return model
+}
+
+// IsGrayscaleEnabled reports whether the key is in grayscale (restricted) mode.
+func (k Key) IsGrayscaleEnabled() bool {
+	return k.GrayscaleEnabled != nil && *k.GrayscaleEnabled
+}
+
+// IsAccessibleByUser reports whether the key may be used by the given user.
+// When grayscale is disabled, all users may access the key. When enabled, only
+// listed Aone user IDs may access it; requests without a user ID are denied.
+func (k Key) IsAccessibleByUser(userID string) bool {
+	if !k.IsGrayscaleEnabled() {
+		return true
+	}
+	userID = strings.TrimSpace(userID)
+	if userID == "" {
+		return false
+	}
+	for _, allowed := range k.GrayscaleUsers {
+		if strings.TrimSpace(allowed) == userID {
+			return true
+		}
+	}
+	return false
 }
 
 type AzureAuthType string

@@ -882,6 +882,9 @@ func triggerMigrations(ctx context.Context, db *gorm.DB) error {
 	if err := migrationAddMarketplaceItemAssignmentsTable(ctx, db); err != nil {
 		return err
 	}
+	if err := migrationAddKeyGrayscaleColumns(ctx, db); err != nil {
+		return err
+	}
 	return nil
 }
 
@@ -9773,6 +9776,51 @@ func migrationAddMarketplaceItemAssignmentsTable(ctx context.Context, db *gorm.D
 	}})
 	if err := m.Migrate(); err != nil {
 		return fmt.Errorf("error running add_marketplace_item_assignments_table migration: %s", err.Error())
+	}
+	return nil
+}
+
+// migrationAddKeyGrayscaleColumns adds grayscale_enabled and grayscale_users_json to config_keys
+// for per-key canary access control (default: grayscale off, empty user list).
+func migrationAddKeyGrayscaleColumns(ctx context.Context, db *gorm.DB) error {
+	m := migrator.New(db, migrator.DefaultOptions, []*migrator.Migration{{
+		ID: "add_key_grayscale_columns",
+		Migrate: func(tx *gorm.DB) error {
+			tx = tx.WithContext(ctx)
+			mg := tx.Migrator()
+			if !mg.HasColumn(&tables.TableKey{}, "grayscale_enabled") {
+				if err := mg.AddColumn(&tables.TableKey{}, "grayscale_enabled"); err != nil {
+					return fmt.Errorf("failed to add grayscale_enabled column: %w", err)
+				}
+			}
+			if !mg.HasColumn(&tables.TableKey{}, "grayscale_users_json") {
+				if err := mg.AddColumn(&tables.TableKey{}, "grayscale_users_json"); err != nil {
+					return fmt.Errorf("failed to add grayscale_users_json column: %w", err)
+				}
+			}
+			if err := tx.Exec("UPDATE config_keys SET grayscale_users_json = '[]' WHERE grayscale_users_json IS NULL OR grayscale_users_json = ''").Error; err != nil {
+				return fmt.Errorf("failed to backfill grayscale_users_json: %w", err)
+			}
+			return nil
+		},
+		Rollback: func(tx *gorm.DB) error {
+			tx = tx.WithContext(ctx)
+			mg := tx.Migrator()
+			if mg.HasColumn(&tables.TableKey{}, "grayscale_users_json") {
+				if err := mg.DropColumn(&tables.TableKey{}, "grayscale_users_json"); err != nil {
+					return fmt.Errorf("failed to drop grayscale_users_json column: %w", err)
+				}
+			}
+			if mg.HasColumn(&tables.TableKey{}, "grayscale_enabled") {
+				if err := mg.DropColumn(&tables.TableKey{}, "grayscale_enabled"); err != nil {
+					return fmt.Errorf("failed to drop grayscale_enabled column: %w", err)
+				}
+			}
+			return nil
+		},
+	}})
+	if err := m.Migrate(); err != nil {
+		return fmt.Errorf("error running add_key_grayscale_columns migration: %s", err.Error())
 	}
 	return nil
 }

@@ -15,9 +15,9 @@ export const auth = {
 	redirecting: "正在跳转...",
 	zdSwitch: {
 		loginSuccess: "登录成功",
-		openingApp: "正在打开 ZD Switch 应用。如果没有自动跳转，请点击下方按钮。",
+		openingApp: "正在打开 Zwitch 应用。如果没有自动跳转，请点击下方按钮。",
 		serviceUrl: "服务地址：{{url}}",
-		openApp: "打开 ZD Switch",
+		openApp: "打开 Zwitch",
 		loginIncomplete: "登录未完成",
 		missingToken: "缺少 access_token，请返回登录页重新授权。",
 		backToLogin: "返回登录",

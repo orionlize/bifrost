@@ -107,4 +107,11 @@ export const providersKeyForm = {
 		arn: "ARN（可选）",
 		arnPlaceholder: "arn:aws:bedrock:us-east-1:123:inference-profile 或 env.AWS_ARN",
 	},
+	grayscale: {
+		title: "灰度访问",
+		description: "开启后，仅下方列出的用户可使用此 API Key 提供的模型，其他用户默认无法访问。",
+		enableLabel: "灰度模式",
+		usersLabel: "允许访问的用户",
+		usersPlaceholder: "选择可访问此灰度 API Key 的 Aone 用户",
+	},
 } as const;

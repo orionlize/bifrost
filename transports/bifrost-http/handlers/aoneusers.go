@@ -6,7 +6,6 @@ import (
 	"fmt"
 	"strconv"
 	"strings"
-	"time"
 
 	"github.com/fasthttp/router"
 	"github.com/maximhq/bifrost/core/schemas"
@@ -285,7 +284,7 @@ func (h *AoneUsersHandler) getCurrentUser(ctx *fasthttp.RequestCtx) {
 		return
 	}
 
-	aoneUserID, authErr := h.resolveCurrentAoneUserID(ctx)
+	aoneUserID, authErr := resolveRequestAoneUserID(ctx, h.configStore)
 	if authErr != nil {
 		SendError(ctx, authErr.status, authErr.message)
 		return
@@ -323,49 +322,6 @@ func (h *AoneUsersHandler) getCurrentUser(ctx *fasthttp.RequestCtx) {
 	}
 
 	SendJSON(ctx, h.aoneUserDetailResponse(ctx, user, vk))
-}
-
-type aoneUserAuthError struct {
-	status  int
-	message string
-}
-
-// resolveCurrentAoneUserID accepts either a dashboard session token or a
-// device-issued temporary credential (bf-tmp-...) used by ZD Switch after
-// /api/aone/devices/token.
-func (h *AoneUsersHandler) resolveCurrentAoneUserID(ctx *fasthttp.RequestCtx) (string, *aoneUserAuthError) {
-	token := strings.TrimSpace(sessionTokenFromRequest(ctx))
-	if token == "" {
-		return "", &aoneUserAuthError{fasthttp.StatusUnauthorized, "Authentication required"}
-	}
-
-	if strings.HasPrefix(token, configstore.AoneDeviceCredentialPrefix) {
-		cred, err := h.configStore.ResolveActiveAoneDeviceTemporaryCredential(ctx, token)
-		if err != nil {
-			if errors.Is(err, configstore.ErrDeviceCredentialNotFound) || errors.Is(err, configstore.ErrDeviceCredentialExpired) {
-				return "", &aoneUserAuthError{fasthttp.StatusUnauthorized, "Invalid or expired access token"}
-			}
-			logger.Error("[aone-users] failed to resolve device credential for /me: %v", err)
-			return "", &aoneUserAuthError{fasthttp.StatusInternalServerError, "Internal Server Error"}
-		}
-		aoneUserID := strings.TrimSpace(cred.AoneUserID)
-		if aoneUserID == "" {
-			return "", &aoneUserAuthError{fasthttp.StatusUnauthorized, "Invalid or expired access token"}
-		}
-		return aoneUserID, nil
-	}
-
-	session, err := h.configStore.GetSession(ctx, token)
-	if err != nil || session == nil {
-		return "", &aoneUserAuthError{fasthttp.StatusUnauthorized, "Invalid session"}
-	}
-	if session.ExpiresAt.Before(time.Now()) {
-		return "", &aoneUserAuthError{fasthttp.StatusUnauthorized, "Session expired"}
-	}
-	if session.AoneUserID == nil || strings.TrimSpace(*session.AoneUserID) == "" {
-		return "", &aoneUserAuthError{fasthttp.StatusNotFound, "No Aone user linked to this session"}
-	}
-	return strings.TrimSpace(*session.AoneUserID), nil
 }
 
 func (h *AoneUsersHandler) aoneUserDetailResponse(ctx *fasthttp.RequestCtx, user *tables.AoneUserTable, vk *tables.TableVirtualKey) map[string]any {

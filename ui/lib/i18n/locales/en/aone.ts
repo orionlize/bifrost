@@ -51,7 +51,7 @@ export const aone = {
 	sectionApplication: "Application",
 	labelApplicationId: "Application ID",
 	devicesTitle: "Devices",
-	devicesDescription: "Manage desktop clients authorized through ZD Switch. Each row binds a device fingerprint to an Aone user.",
+	devicesDescription: "Manage desktop clients authorized through Zwitch. Each row binds a device fingerprint to an Aone user.",
 	searchDevices: "Search fingerprint, device name, user...",
 	deviceCount: "{{count}} device",
 	devicesCount: "{{count}} devices",

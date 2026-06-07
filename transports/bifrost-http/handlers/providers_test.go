@@ -248,6 +248,53 @@ func TestListModels_ReturnsExactAccessibleByKeysAndSkipsDisabledKeys(t *testing.
 	}
 }
 
+func TestListModels_IncludesKeyConfiguredCustomModelsNotInCatalog(t *testing.T) {
+	SetLogger(&mockLogger{})
+
+	h := providerHandlerForTest(
+		schemas.OpenAI,
+		[]schemas.Key{
+			{ID: "key-a", Models: []string{"my-custom-finetune", "gpt-4o"}},
+		},
+		[]string{"gpt-4o", "gpt-4o-mini"},
+		[]string{"gpt-4o", "gpt-4o-mini"},
+	)
+
+	ctx := &fasthttp.RequestCtx{}
+	ctx.Request.Header.SetMethod("GET")
+	ctx.Request.SetRequestURI("/api/models?provider=openai&keys=key-a")
+
+	h.listModels(ctx)
+
+	if ctx.Response.StatusCode() != fasthttp.StatusOK {
+		t.Fatalf("expected 200, got %d: %s", ctx.Response.StatusCode(), string(ctx.Response.Body()))
+	}
+
+	var resp ListModelsResponse
+	if err := json.Unmarshal(ctx.Response.Body(), &resp); err != nil {
+		t.Fatalf("failed to unmarshal response: %v", err)
+	}
+
+	if resp.Total != 2 {
+		t.Fatalf("expected total=2 (catalog + custom), got %d: %#v", resp.Total, resp.Models)
+	}
+
+	got := map[string][]string{}
+	for _, model := range resp.Models {
+		got[model.Name] = model.AccessibleByKeys
+	}
+
+	if len(got["my-custom-finetune"]) != 1 || got["my-custom-finetune"][0] != "key-a" {
+		t.Fatalf("expected custom model accessible by key-a, got %#v", got["my-custom-finetune"])
+	}
+	if len(got["gpt-4o"]) != 1 || got["gpt-4o"][0] != "key-a" {
+		t.Fatalf("expected gpt-4o accessible by key-a, got %#v", got["gpt-4o"])
+	}
+	if got["gpt-4o-mini"] != nil {
+		t.Fatalf("expected gpt-4o-mini to be excluded by key allowlist, got %#v", got["gpt-4o-mini"])
+	}
+}
+
 func TestListModels_ExcludesCrossVendorModelsFromDirectProvider(t *testing.T) {
 	SetLogger(&mockLogger{})
 
@@ -317,7 +364,7 @@ func TestListModels_AppliesQueryAndLimitAfterFiltering(t *testing.T) {
 	}
 }
 
-func TestListModels_UnfilteredIgnoresKeys(t *testing.T) {
+func TestListModels_UnfilteredWithKeysStillFiltersByKeyAllowlist(t *testing.T) {
 	SetLogger(&mockLogger{})
 
 	h := providerHandlerForTest(
@@ -344,14 +391,49 @@ func TestListModels_UnfilteredIgnoresKeys(t *testing.T) {
 		t.Fatalf("failed to unmarshal response: %v", err)
 	}
 
-	if resp.Total != 2 || len(resp.Models) != 2 {
-		t.Fatalf("expected both unfiltered models, got %#v", resp.Models)
+	if resp.Total != 1 || len(resp.Models) != 1 {
+		t.Fatalf("expected key-filtered model only, got %#v", resp.Models)
+	}
+	if resp.Models[0].Name != "gpt-4o-mini" {
+		t.Fatalf("expected gpt-4o-mini, got %#v", resp.Models[0])
+	}
+	if len(resp.Models[0].AccessibleByKeys) != 1 || resp.Models[0].AccessibleByKeys[0] != "key-b" {
+		t.Fatalf("expected accessible_by_keys=[key-b], got %#v", resp.Models[0].AccessibleByKeys)
+	}
+}
+
+func TestListModels_UnfilteredWithKeysIncludesCustomKeyModels(t *testing.T) {
+	SetLogger(&mockLogger{})
+
+	h := providerHandlerForTest(
+		schemas.OpenAI,
+		[]schemas.Key{
+			{ID: "key-b", Models: []string{"my-custom-finetune"}},
+		},
+		[]string{"gpt-4o"},
+		[]string{"gpt-4o", "gpt-4o-mini"},
+	)
+
+	ctx := &fasthttp.RequestCtx{}
+	ctx.Request.Header.SetMethod("GET")
+	ctx.Request.SetRequestURI("/api/models?provider=openai&keys=key-b&unfiltered=true")
+
+	h.listModels(ctx)
+
+	if ctx.Response.StatusCode() != fasthttp.StatusOK {
+		t.Fatalf("expected 200, got %d: %s", ctx.Response.StatusCode(), string(ctx.Response.Body()))
 	}
 
-	for _, model := range resp.Models {
-		if len(model.AccessibleByKeys) != 0 {
-			t.Fatalf("expected no accessible_by_keys when unfiltered bypasses key filtering, got %#v", resp.Models)
-		}
+	var resp ListModelsResponse
+	if err := json.Unmarshal(ctx.Response.Body(), &resp); err != nil {
+		t.Fatalf("failed to unmarshal response: %v", err)
+	}
+
+	if resp.Total != 1 || len(resp.Models) != 1 {
+		t.Fatalf("expected custom key model only, got %#v", resp.Models)
+	}
+	if resp.Models[0].Name != "my-custom-finetune" {
+		t.Fatalf("expected my-custom-finetune, got %#v", resp.Models[0])
 	}
 }
 
@@ -1011,5 +1093,51 @@ func TestListModels_KeyBlacklistIsCaseInsensitive(t *testing.T) {
 		if strings.EqualFold(m.Name, "gpt-3.5-turbo") {
 			t.Fatalf("gpt-3.5-turbo should be blocked by blacklist, got %v", resp.Models)
 		}
+	}
+}
+
+func TestFilterKeyIDsByGrayscaleAccess(t *testing.T) {
+	grayscaleOn := true
+	config := &configstore.ProviderConfig{
+		Keys: []schemas.Key{
+			{ID: "open-key"},
+			{ID: "gray-key", GrayscaleEnabled: &grayscaleOn, GrayscaleUsers: []string{"user-a"}},
+		},
+	}
+
+	got := filterKeyIDsByGrayscaleAccess(config, []string{"open-key", "gray-key"}, "user-a", false)
+	if len(got) != 2 {
+		t.Fatalf("expected both keys for allowed user, got %v", got)
+	}
+
+	got = filterKeyIDsByGrayscaleAccess(config, []string{"open-key", "gray-key"}, "user-b", false)
+	if len(got) != 1 || got[0] != "open-key" {
+		t.Fatalf("expected only open-key for denied user, got %v", got)
+	}
+
+	got = filterKeyIDsByGrayscaleAccess(config, []string{"open-key", "gray-key"}, "user-b", true)
+	if len(got) != 2 {
+		t.Fatalf("expected unfiltered admin listing to keep all keys, got %v", got)
+	}
+}
+
+func TestFilterModelsByGrayscaleAccess(t *testing.T) {
+	grayscaleOn := true
+	config := &configstore.ProviderConfig{
+		Keys: []schemas.Key{
+			{ID: "open-key", Models: []string{"gpt-4o"}},
+			{ID: "gray-key", GrayscaleEnabled: &grayscaleOn, GrayscaleUsers: []string{"user-a"}, Models: []string{"gpt-4o-mini"}},
+		},
+	}
+
+	models := []string{"gpt-4o", "gpt-4o-mini"}
+	got := filterModelsByGrayscaleAccess(config, nil, models, "user-b")
+	if len(got) != 1 || got[0] != "gpt-4o" {
+		t.Fatalf("expected only gpt-4o for user without grayscale access, got %v", got)
+	}
+
+	got = filterModelsByGrayscaleAccess(config, nil, models, "user-a")
+	if len(got) != 2 {
+		t.Fatalf("expected both models for grayscale user, got %v", got)
 	}
 }

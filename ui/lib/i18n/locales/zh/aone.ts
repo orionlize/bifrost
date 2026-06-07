@@ -51,7 +51,7 @@ export const aone = {
 	sectionApplication: "应用",
 	labelApplicationId: "应用 ID",
 	devicesTitle: "设备",
-	devicesDescription: "管理通过 ZD Switch 授权的桌面客户端。每行将设备指纹绑定到 Aone 用户。",
+	devicesDescription: "管理通过 Zwitch 授权的桌面客户端。每行将设备指纹绑定到 Aone 用户。",
 	searchDevices: "搜索指纹、设备名、用户...",
 	deviceCount: "{{count}} 台设备",
 	devicesCount: "{{count}} 台设备",

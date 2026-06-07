@@ -345,7 +345,7 @@ func (h *AoneOAuthHandler) callback(ctx *fasthttp.RequestCtx) {
 				return
 			}
 			logger.Error("[aone-oauth] failed to bootstrap zwitch login: %v", bootstrapErr)
-			h.redirectTo(ctx, aoneOAuthLoginRedirect(returnTo, externalRedirectURI, loginSource, "Failed to complete ZD Switch login", basePath))
+			h.redirectTo(ctx, aoneOAuthLoginRedirect(returnTo, externalRedirectURI, loginSource, "Failed to complete Zwitch login", basePath))
 			return
 		}
 		h.redirectTo(ctx, buildZwitchSuccessReturnTo(ctx, sessionToken, cfg.RedirectURI.GetValue(), basePath))
@@ -422,7 +422,7 @@ func (h *AoneOAuthHandler) zwitchHandoff(ctx *fasthttp.RequestCtx) {
 		return
 	}
 	if session.AoneUserID == nil || strings.TrimSpace(*session.AoneUserID) == "" {
-		h.redirectTo(ctx, aoneOAuthLoginRedirect("", "", loginSourceZwitch, "ZD Switch requires an Aone user session", h.basePath))
+		h.redirectTo(ctx, aoneOAuthLoginRedirect("", "", loginSourceZwitch, "Zwitch requires an Aone user session", h.basePath))
 		return
 	}
 

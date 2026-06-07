@@ -15,9 +15,9 @@ export const auth = {
 	redirecting: "Redirecting...",
 	zdSwitch: {
 		loginSuccess: "Sign-in successful",
-		openingApp: "Opening the ZD Switch app. If it does not open automatically, use the button below.",
+		openingApp: "Opening the Zwitch app. If it does not open automatically, use the button below.",
 		serviceUrl: "Service URL: {{url}}",
-		openApp: "Open ZD Switch",
+		openApp: "Open Zwitch",
 		loginIncomplete: "Sign-in incomplete",
 		missingToken: "Missing access_token. Return to the login page and authorize again.",
 		backToLogin: "Back to login",

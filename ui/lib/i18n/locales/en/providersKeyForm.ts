@@ -108,4 +108,11 @@ export const providersKeyForm = {
 		arn: "ARN (Optional)",
 		arnPlaceholder: "arn:aws:bedrock:us-east-1:123:inference-profile or env.AWS_ARN",
 	},
+	grayscale: {
+		title: "Grayscale access",
+		description: "When enabled, only the users listed below can use models served by this API key. All other users are denied by default.",
+		enableLabel: "Grayscale mode",
+		usersLabel: "Allowed users",
+		usersPlaceholder: "Select Aone users who can access this grayscale key",
+	},
 } as const;

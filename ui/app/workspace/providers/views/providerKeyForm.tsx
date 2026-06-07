@@ -50,13 +50,21 @@ export default function ProviderKeyForm({ provider, keyId, onCancel, onSave }: P
 				blacklisted_models: [],
 				weight: 1.0,
 				enabled: true,
+				grayscale_enabled: false,
+				grayscale_users: [],
 			},
 		},
 	});
 
 	useEffect(() => {
 		if (!isEditing || !currentKey || form.formState.isDirty) return;
-		form.reset({ key: currentKey as ProviderKeyFormValues });
+		form.reset({
+			key: {
+				grayscale_enabled: false,
+				grayscale_users: [],
+				...(currentKey as ProviderKeyFormValues),
+			},
+		});
 	}, [isEditing, currentKey, form]);
 
 	useEffect(() => {
@@ -81,6 +89,8 @@ export default function ProviderKeyForm({ provider, keyId, onCancel, onSave }: P
 	const onSubmit = (value: any) => {
 		if (isEditing && !currentKey) return;
 		const key = { ...value.key };
+		key.grayscale_enabled = key.grayscale_enabled ?? false;
+		key.grayscale_users = key.grayscale_users ?? [];
 		if (key.azure_key_config) {
 			const { _auth_type, ...rest } = key.azure_key_config;
 			key.azure_key_config = rest;

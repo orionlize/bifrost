@@ -263,6 +263,8 @@ export const modelProviderKeySchema = z
 		sgl_key_config: sglKeyConfigSchema.optional(),
 		use_for_batch_api: z.boolean().optional(),
 		enabled: z.boolean().optional(),
+		grayscale_enabled: z.boolean().optional(),
+		grayscale_users: z.array(z.string()).optional(),
 	})
 	.refine(
 		(data) => {

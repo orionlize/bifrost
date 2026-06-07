@@ -1,3 +1,4 @@
+import { ComboboxSelect } from "@/components/ui/combobox";
 import { EnvVarInput } from "@/components/ui/envVarInput";
 import { FormControl, FormDescription, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
 import { HeadersTable, type CellRenderParams } from "@/components/ui/headersTable";
@@ -9,9 +10,10 @@ import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { TagInput } from "@/components/ui/tagInput";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { useT } from "@/lib/i18n";
+import { useListAoneUsersQuery } from "@/lib/store/apis/aoneUsersApi";
 import { isRedacted } from "@/lib/utils/validation";
-import { Info } from "lucide-react";
-import { useEffect, useState } from "react";
+import { Info, Users } from "lucide-react";
+import { useEffect, useMemo, useState } from "react";
 import { Control, UseFormReturn } from "react-hook-form";
 
 // Providers that support batch APIs
@@ -47,6 +49,71 @@ interface Props {
 	control: Control<any>;
 	providerName: string;
 	form: UseFormReturn<any>;
+}
+
+function GrayscaleAccessFormFields({ control, form }: { control: Control<any>; form: UseFormReturn<any> }) {
+	const t = useT();
+	const grayscaleEnabled = form.watch("key.grayscale_enabled");
+	const { data: usersData } = useListAoneUsersQuery({ limit: 500 });
+	const userOptions = useMemo(
+		() =>
+			(usersData?.users ?? []).map((user) => ({
+				value: user.id,
+				label: user.display_name || user.name || user.email || user.id,
+			})),
+		[usersData?.users],
+	);
+
+	return (
+		<div className="space-y-4 rounded-sm border p-4" data-testid="apikey-grayscale-section">
+			<div>
+				<p className="text-sm font-medium">{t("providersKeyForm.grayscale.title")}</p>
+				<p className="text-muted-foreground text-xs">{t("providersKeyForm.grayscale.description")}</p>
+			</div>
+			<FormField
+				control={control}
+				name="key.grayscale_enabled"
+				render={({ field }) => (
+					<FormItem className="flex flex-row items-center justify-between rounded-sm border p-2">
+						<FormLabel>{t("providersKeyForm.grayscale.enableLabel")}</FormLabel>
+						<FormControl>
+							<Switch
+								checked={field.value ?? false}
+								onCheckedChange={(checked) => field.onChange(checked, { shouldDirty: true })}
+								data-testid="apikey-grayscale-enabled-switch"
+							/>
+						</FormControl>
+					</FormItem>
+				)}
+			/>
+			{grayscaleEnabled ? (
+				<FormField
+					control={control}
+					name="key.grayscale_users"
+					render={({ field }) => (
+						<FormItem>
+							<FormLabel className="flex items-center gap-2">
+								<Users className="size-4" />
+								{t("providersKeyForm.grayscale.usersLabel")}
+							</FormLabel>
+							<FormControl>
+								<div data-testid="apikey-grayscale-users">
+									<ComboboxSelect
+										multiple
+										value={field.value ?? []}
+										onValueChange={field.onChange}
+										options={userOptions}
+										placeholder={t("providersKeyForm.grayscale.usersPlaceholder")}
+									/>
+								</div>
+							</FormControl>
+							<FormMessage />
+						</FormItem>
+					)}
+				/>
+			) : null}
+		</div>
+	);
 }
 
 // Batch API form field for all providers
@@ -261,6 +328,7 @@ export function ApiKeyFormFragment({ control, providerName, form }: Props) {
 										data-testid="api-keys-models-multiselect"
 										provider={providerName}
 										allowAllOption={true}
+										allowCustomModels={true}
 										value={field.value || []}
 										onChange={(models: string[]) => {
 											const hadStar = (field.value || []).includes("*");
@@ -312,6 +380,7 @@ export function ApiKeyFormFragment({ control, providerName, form }: Props) {
 										data-testid="api-keys-blocked-models-multiselect"
 										provider={providerName}
 										allowAllOption={true}
+										allowCustomModels={true}
 										value={field.value || []}
 										onChange={(models: string[]) => {
 											const hadStar = (field.value || []).includes("*");
@@ -360,6 +429,7 @@ export function ApiKeyFormFragment({ control, providerName, form }: Props) {
 												<ModelMultiselect
 													isSingleSelect
 													provider={providerName}
+													allowCustomModels={true}
 													value={cellValue}
 													onChange={onChange}
 													placeholder={placeholder ?? t("providersKeyForm.deploymentPlaceholder")}
@@ -374,6 +444,7 @@ export function ApiKeyFormFragment({ control, providerName, form }: Props) {
 							</FormItem>
 						)}
 					/>
+					<GrayscaleAccessFormFields control={control} form={form} />
 				</>
 			)}
 			{supportsBatchAPI && !isBedrock && !isAzure && <BatchAPIFormField control={control} form={form} />}

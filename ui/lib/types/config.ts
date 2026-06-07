@@ -133,6 +133,8 @@ export interface ModelProviderKey {
 	blacklisted_models?: string[];
 	weight: number;
 	enabled?: boolean;
+	grayscale_enabled?: boolean;
+	grayscale_users?: string[];
 	use_for_batch_api?: boolean;
 	aliases?: Record<string, string>;
 	azure_key_config?: AzureKeyConfig;
