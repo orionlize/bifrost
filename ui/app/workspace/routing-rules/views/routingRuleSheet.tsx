@@ -28,7 +28,10 @@ import {
 	RoutingTargetFormData,
 } from "@/lib/types/routingRules";
 import { validateRateLimitAndBudgetRules, validateRoutingRules } from "@/lib/utils/celConverterRouting";
+import { useProviderModelPickerOptions } from "@/lib/hooks/useProviderModelPickerOptions";
 import { useT, type TranslateFn } from "@/lib/i18n";
+import { ModelProvider } from "@/lib/types/config";
+import { DBKey } from "@/lib/types/governance";
 import { getScopeLabel } from "@/lib/utils/routingRules";
 import { SCOPE_LABEL_KEYS, type ScopeKey } from "../tree/views/constants";
 import { normalizeRoutingRuleGroupQuery } from "@/lib/utils/routingRuleGroupQuery";
@@ -444,6 +447,7 @@ export function RoutingRuleSheet({ open, onOpenChange, editingRule, onSuccess }:
 										target={target}
 										index={index}
 										availableProviders={availableProviders}
+										providersData={providersData}
 										allKeys={allKeysData}
 										showRemove={targets.length > 1}
 										onUpdate={updateTarget}
@@ -530,14 +534,12 @@ export function RoutingRuleSheet({ open, onOpenChange, editingRule, onSuccess }:
 													</Select>
 												</div>
 												<div className="flex-1">
-													<ModelMultiselect
-														provider={fbProvider || undefined}
+													<FallbackModelSelect
+														provider={fbProvider}
+														allKeys={allKeysData}
+														providersData={providersData}
 														value={fbModel}
 														onChange={handleModelChange}
-														placeholder={t("routing.incomingOptional")}
-														isSingleSelect
-														disabled={!fbProvider}
-														className="!h-9 !min-h-9 w-full"
 													/>
 												</div>
 												<Button
@@ -573,18 +575,53 @@ export function RoutingRuleSheet({ open, onOpenChange, editingRule, onSuccess }:
 	);
 }
 
+function FallbackModelSelect({
+	provider,
+	allKeys,
+	providersData,
+	value,
+	onChange,
+}: {
+	provider: string;
+	allKeys: DBKey[];
+	providersData: ModelProvider[];
+	value: string;
+	onChange: (model: string) => void;
+}) {
+	const t = useT();
+	const modelPickerOptions = useProviderModelPickerOptions(provider, undefined, allKeys, providersData);
+
+	return (
+		<ModelMultiselect
+			provider={provider || undefined}
+			keys={modelPickerOptions.keyIds}
+			extraModels={modelPickerOptions.extraModels}
+			value={value}
+			onChange={onChange}
+			placeholder={t("routing.incomingOptional")}
+			isSingleSelect
+			disabled={!provider}
+			allowCustomModels={modelPickerOptions.allowCustomModels}
+			unfiltered={modelPickerOptions.unfiltered}
+			className="!h-9 !min-h-9 w-full"
+		/>
+	);
+}
+
 interface TargetRowProps {
 	target: RoutingTargetFormData;
 	index: number;
 	availableProviders: string[];
-	allKeys: Array<{ key_id: string; name: string; provider: string }>;
+	providersData: ModelProvider[];
+	allKeys: DBKey[];
 	showRemove: boolean;
 	onUpdate: (index: number, field: keyof RoutingTargetFormData, value: string | number) => void;
 	onRemove: (index: number) => void;
 }
 
-function TargetRow({ target, index, availableProviders, allKeys, showRemove, onUpdate, onRemove }: TargetRowProps) {
+function TargetRow({ target, index, availableProviders, providersData, allKeys, showRemove, onUpdate, onRemove }: TargetRowProps) {
 	const t = useT();
+	const modelPickerOptions = useProviderModelPickerOptions(target.provider, target.key_id, allKeys, providersData);
 	const availableKeys = target.provider
 		? allKeys.filter((k) => k.provider === target.provider).map((k) => ({ id: k.key_id, name: k.name }))
 		: [];
@@ -687,13 +724,15 @@ function TargetRow({ target, index, availableProviders, allKeys, showRemove, onU
 						<div className="flex-1" data-testid={`routing-target-${index}-model-select`}>
 							<ModelMultiselect
 								provider={target.provider || undefined}
-								keys={target.key_id ? [target.key_id] : undefined}
+								keys={modelPickerOptions.keyIds}
+								extraModels={modelPickerOptions.extraModels}
 								value={target.model}
 								onChange={(value) => onUpdate(index, "model", value)}
 								placeholder={t("routing.incomingOptional")}
 								isSingleSelect
 								loadModelsOnEmptyProvider
-								allowCustomModels={!!target.key_id}
+								allowCustomModels={modelPickerOptions.allowCustomModels}
+								unfiltered={modelPickerOptions.unfiltered}
 								className="!h-9 !min-h-9"
 								inputId={`routing-target-${index}-model-input`}
 								ariaLabelledBy={`routing-target-${index}-model-label`}
