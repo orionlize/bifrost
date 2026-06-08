@@ -1,10 +1,12 @@
 import { describe, expect, it } from "vitest";
 import { resolveProviderModelPickerOptions } from "./providerModelPickerOptions";
-import { ModelProvider } from "@/lib/types/config";
+import { ModelProvider, ModelProviderName } from "@/lib/types/config";
 import { DBKey } from "@/lib/types/governance";
 
+const customProviderName = "acme-llm" as ModelProviderName;
+
 const customProvider: ModelProvider = {
-	name: "acme-llm",
+	name: customProviderName,
 	provider_status: "active",
 	custom_provider_config: {
 		base_provider_type: "openai",
@@ -16,7 +18,7 @@ const keys: DBKey[] = [
 	{
 		key_id: "key-a",
 		name: "Primary",
-		provider: "acme-llm",
+		provider: customProviderName,
 		provider_id: "1",
 		models: ["custom-model-a", "custom-model-b"],
 	},
@@ -24,7 +26,7 @@ const keys: DBKey[] = [
 
 describe("resolveProviderModelPickerOptions", () => {
 	it("returns configured key models for a custom provider", () => {
-		const result = resolveProviderModelPickerOptions("acme-llm", undefined, keys, [customProvider]);
+		const result = resolveProviderModelPickerOptions(customProviderName, undefined, keys, [customProvider]);
 
 		expect(result.extraModels).toEqual(["custom-model-a", "custom-model-b"]);
 		expect(result.keyIds).toEqual(["key-a"]);
@@ -34,7 +36,7 @@ describe("resolveProviderModelPickerOptions", () => {
 
 	it("loads base provider catalog when allowlist is wildcard", () => {
 		const wildcardKeys: DBKey[] = [{ ...keys[0], models: ["*"] }];
-		const result = resolveProviderModelPickerOptions("acme-llm", "key-a", wildcardKeys, [customProvider]);
+		const result = resolveProviderModelPickerOptions(customProviderName, "key-a", wildcardKeys, [customProvider]);
 
 		expect(result.extraModels).toBeUndefined();
 		expect(result.keyIds).toEqual(["key-a"]);
@@ -49,12 +51,12 @@ describe("resolveProviderModelPickerOptions", () => {
 			{
 				key_id: "key-b",
 				name: "Secondary",
-				provider: "acme-llm",
+				provider: customProviderName,
 				provider_id: "1",
 				models: ["other-model"],
 			},
 		];
-		const result = resolveProviderModelPickerOptions("acme-llm", "key-a", multiKey, [customProvider]);
+		const result = resolveProviderModelPickerOptions(customProviderName, "key-a", multiKey, [customProvider]);
 
 		expect(result.extraModels).toEqual(["custom-model-a", "custom-model-b"]);
 		expect(result.keyIds).toEqual(["key-a"]);
