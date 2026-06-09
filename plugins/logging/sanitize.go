@@ -9,6 +9,26 @@ func isSystemChatRole(role schemas.ChatMessageRole) bool {
 	return role == schemas.ChatMessageRoleSystem || role == schemas.ChatMessageRoleDeveloper
 }
 
+func isToolChatRole(role schemas.ChatMessageRole) bool {
+	return role == schemas.ChatMessageRoleTool
+}
+
+func isResponsesToolResultMessage(msg schemas.ResponsesMessage) bool {
+	if msg.Type == nil {
+		return false
+	}
+	switch *msg.Type {
+	case schemas.ResponsesMessageTypeFunctionCallOutput,
+		schemas.ResponsesMessageTypeCustomToolCallOutput,
+		schemas.ResponsesMessageTypeLocalShellCallOutput,
+		schemas.ResponsesMessageTypeComputerCallOutput,
+		schemas.ResponsesMessageTypeMCPApprovalResponses:
+		return true
+	default:
+		return false
+	}
+}
+
 func isResponsesMessageExcludedFromLogs(msg schemas.ResponsesMessage) bool {
 	if msg.Type != nil && *msg.Type == schemas.ResponsesMessageTypeReasoning {
 		return true
@@ -28,7 +48,7 @@ func sanitizeChatInputHistory(msgs []schemas.ChatMessage) []schemas.ChatMessage 
 	}
 	out := make([]schemas.ChatMessage, 0, len(msgs))
 	for _, msg := range msgs {
-		if isSystemChatRole(msg.Role) {
+		if isSystemChatRole(msg.Role) || isToolChatRole(msg.Role) {
 			continue
 		}
 		out = append(out, msg)
@@ -42,7 +62,7 @@ func sanitizeResponsesMessages(msgs []schemas.ResponsesMessage) []schemas.Respon
 	}
 	out := make([]schemas.ResponsesMessage, 0, len(msgs))
 	for _, msg := range msgs {
-		if isResponsesMessageExcludedFromLogs(msg) {
+		if isResponsesMessageExcludedFromLogs(msg) || isResponsesToolResultMessage(msg) {
 			continue
 		}
 		msg.ResponsesReasoning = nil
@@ -65,8 +85,8 @@ func sanitizeChatOutputMessage(msg *schemas.ChatMessage) *schemas.ChatMessage {
 	return &sanitized
 }
 
-// sanitizeLogEntryContent removes system/developer input, reasoning output,
-// and inline binary payloads from log entries before persistence.
+// sanitizeLogEntryContent removes system/developer input, tool-call results,
+// reasoning output, and inline binary payloads from log entries before persistence.
 func sanitizeLogEntryContent(entry *logstore.Log) {
 	if entry == nil {
 		return

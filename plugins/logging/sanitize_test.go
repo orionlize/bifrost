@@ -8,6 +8,44 @@ import (
 	"github.com/maximhq/bifrost/framework/logstore"
 )
 
+func TestSanitizeChatInputHistory_DropsToolResults(t *testing.T) {
+	userText := "What is the weather?"
+	toolResult := `{"temp":72}`
+	assistantText := "It is sunny."
+
+	msgs := []schemas.ChatMessage{
+		{
+			Role: schemas.ChatMessageRoleUser,
+			Content: &schemas.ChatMessageContent{
+				ContentStr: &userText,
+			},
+		},
+		{
+			Role: schemas.ChatMessageRoleTool,
+			Content: &schemas.ChatMessageContent{
+				ContentStr: &toolResult,
+			},
+		},
+		{
+			Role: schemas.ChatMessageRoleAssistant,
+			Content: &schemas.ChatMessageContent{
+				ContentStr: &assistantText,
+			},
+		},
+	}
+
+	got := sanitizeChatInputHistory(msgs)
+	if len(got) != 2 {
+		t.Fatalf("len(got) = %d, want 2", len(got))
+	}
+	if got[0].Role != schemas.ChatMessageRoleUser {
+		t.Fatalf("got[0].Role = %q, want user", got[0].Role)
+	}
+	if got[1].Role != schemas.ChatMessageRoleAssistant {
+		t.Fatalf("got[1].Role = %q, want assistant", got[1].Role)
+	}
+}
+
 func TestSanitizeChatInputHistory_DropsSystemAndDeveloper(t *testing.T) {
 	systemText := "You are helpful."
 	userText := "Hello"
@@ -40,6 +78,39 @@ func TestSanitizeChatInputHistory_DropsSystemAndDeveloper(t *testing.T) {
 	}
 	if got[0].Role != schemas.ChatMessageRoleUser {
 		t.Fatalf("got[0].Role = %q, want user", got[0].Role)
+	}
+}
+
+func TestSanitizeResponsesMessages_DropsToolResults(t *testing.T) {
+	userText := "Run the search"
+	toolOutput := `{"hits":1}`
+	callID := "call_123"
+
+	msgs := []schemas.ResponsesMessage{
+		{
+			Type: schemas.Ptr(schemas.ResponsesMessageTypeMessage),
+			Role: schemas.Ptr(schemas.ResponsesInputMessageRoleUser),
+			Content: &schemas.ResponsesMessageContent{
+				ContentStr: &userText,
+			},
+		},
+		{
+			Type: schemas.Ptr(schemas.ResponsesMessageTypeFunctionCallOutput),
+			ResponsesToolMessage: &schemas.ResponsesToolMessage{
+				CallID: &callID,
+				Output: &schemas.ResponsesToolMessageOutputStruct{
+					ResponsesToolCallOutputStr: &toolOutput,
+				},
+			},
+		},
+	}
+
+	got := sanitizeResponsesMessages(msgs)
+	if len(got) != 1 {
+		t.Fatalf("len(got) = %d, want 1", len(got))
+	}
+	if got[0].Role == nil || *got[0].Role != schemas.ResponsesInputMessageRoleUser {
+		t.Fatalf("got[0].Role = %v, want user", got[0].Role)
 	}
 }
 

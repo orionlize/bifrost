@@ -101,4 +101,6 @@ func (p *LoggerPlugin) hydrateLogInputHistory(entry *logstore.Log) {
 		prior = append(prior, sessionLog)
 	}
 	logstore.HydrateLogInputHistory(entry, prior)
+	entry.InputHistoryParsed = sanitizeChatInputHistory(entry.InputHistoryParsed)
+	entry.ResponsesInputHistoryParsed = sanitizeResponsesMessages(entry.ResponsesInputHistoryParsed)
 }

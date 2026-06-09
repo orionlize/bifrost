@@ -653,27 +653,19 @@ func TestApplyRealtimeOutputToEntryBackfillsRetrievedUserAndToolHistory(t *testi
 	}
 
 	plugin.applyRealtimeOutputToEntry(entry, result, true, true)
+	sanitizeLogEntryContent(entry)
 	if err := entry.SerializeFields(); err != nil {
 		t.Fatalf("SerializeFields() error = %v", err)
 	}
 
-	if len(entry.InputHistoryParsed) != 2 {
-		t.Fatalf("len(InputHistoryParsed) = %d, want 2", len(entry.InputHistoryParsed))
+	if len(entry.InputHistoryParsed) != 1 {
+		t.Fatalf("len(InputHistoryParsed) = %d, want 1", len(entry.InputHistoryParsed))
 	}
 	if entry.InputHistoryParsed[0].Role != schemas.ChatMessageRoleUser {
 		t.Fatalf("InputHistoryParsed[0].Role = %q, want user", entry.InputHistoryParsed[0].Role)
 	}
 	if entry.InputHistoryParsed[0].Content == nil || entry.InputHistoryParsed[0].Content.ContentStr == nil || *entry.InputHistoryParsed[0].Content.ContentStr != "Where is my order?" {
 		t.Fatalf("InputHistoryParsed[0] = %+v, want user content", entry.InputHistoryParsed[0])
-	}
-	if entry.InputHistoryParsed[1].Role != schemas.ChatMessageRoleTool {
-		t.Fatalf("InputHistoryParsed[1].Role = %q, want tool", entry.InputHistoryParsed[1].Role)
-	}
-	if entry.InputHistoryParsed[1].Content == nil || entry.InputHistoryParsed[1].Content.ContentStr == nil || *entry.InputHistoryParsed[1].Content.ContentStr != `{"status":"delivered"}` {
-		t.Fatalf("InputHistoryParsed[1] = %+v, want tool content", entry.InputHistoryParsed[1])
-	}
-	if entry.InputHistoryParsed[1].ChatToolMessage == nil || entry.InputHistoryParsed[1].ChatToolMessage.ToolCallID == nil || *entry.InputHistoryParsed[1].ChatToolMessage.ToolCallID != "call_123" {
-		t.Fatalf("InputHistoryParsed[1].ChatToolMessage = %+v, want tool call id", entry.InputHistoryParsed[1].ChatToolMessage)
 	}
 }
 
@@ -694,24 +686,16 @@ func TestApplyRealtimeOutputToEntryBackfillsCreatedUserAndToolHistory(t *testing
 	}
 
 	plugin.applyRealtimeOutputToEntry(entry, result, true, true)
+	sanitizeLogEntryContent(entry)
 
-	if len(entry.InputHistoryParsed) != 2 {
-		t.Fatalf("len(InputHistoryParsed) = %d, want 2", len(entry.InputHistoryParsed))
+	if len(entry.InputHistoryParsed) != 1 {
+		t.Fatalf("len(InputHistoryParsed) = %d, want 1", len(entry.InputHistoryParsed))
 	}
 	if entry.InputHistoryParsed[0].Role != schemas.ChatMessageRoleUser {
 		t.Fatalf("InputHistoryParsed[0].Role = %q, want user", entry.InputHistoryParsed[0].Role)
 	}
 	if entry.InputHistoryParsed[0].Content == nil || entry.InputHistoryParsed[0].Content.ContentStr == nil || *entry.InputHistoryParsed[0].Content.ContentStr != "I need help" {
 		t.Fatalf("InputHistoryParsed[0] = %+v, want user content", entry.InputHistoryParsed[0])
-	}
-	if entry.InputHistoryParsed[1].Role != schemas.ChatMessageRoleTool {
-		t.Fatalf("InputHistoryParsed[1].Role = %q, want tool", entry.InputHistoryParsed[1].Role)
-	}
-	if entry.InputHistoryParsed[1].Content == nil || entry.InputHistoryParsed[1].Content.ContentStr == nil || *entry.InputHistoryParsed[1].Content.ContentStr != `{"status":"ok"}` {
-		t.Fatalf("InputHistoryParsed[1] = %+v, want tool content", entry.InputHistoryParsed[1])
-	}
-	if entry.InputHistoryParsed[1].ChatToolMessage == nil || entry.InputHistoryParsed[1].ChatToolMessage.ToolCallID == nil || *entry.InputHistoryParsed[1].ChatToolMessage.ToolCallID != "call_456" {
-		t.Fatalf("InputHistoryParsed[1].ChatToolMessage = %+v, want tool call id", entry.InputHistoryParsed[1].ChatToolMessage)
 	}
 }
 
@@ -745,18 +729,16 @@ func TestApplyRealtimeOutputToEntryBackfillsAddedUserAndToolHistory(t *testing.T
 	}
 
 	plugin.applyRealtimeOutputToEntry(entry, result, true, true)
+	sanitizeLogEntryContent(entry)
 	if err := entry.SerializeFields(); err != nil {
 		t.Fatalf("SerializeFields() error = %v", err)
 	}
 
-	if len(entry.InputHistoryParsed) != 2 {
-		t.Fatalf("len(InputHistoryParsed) = %d, want 2", len(entry.InputHistoryParsed))
+	if len(entry.InputHistoryParsed) != 1 {
+		t.Fatalf("len(InputHistoryParsed) = %d, want 1", len(entry.InputHistoryParsed))
 	}
 	if entry.InputHistoryParsed[0].Content == nil || entry.InputHistoryParsed[0].Content.ContentStr == nil || *entry.InputHistoryParsed[0].Content.ContentStr != "hello from added item" {
 		t.Fatalf("InputHistoryParsed[0] = %+v, want added user content", entry.InputHistoryParsed[0])
-	}
-	if entry.InputHistoryParsed[1].ChatToolMessage == nil || entry.InputHistoryParsed[1].ChatToolMessage.ToolCallID == nil || *entry.InputHistoryParsed[1].ChatToolMessage.ToolCallID != "call_added" {
-		t.Fatalf("InputHistoryParsed[1].ChatToolMessage = %+v, want added tool call id", entry.InputHistoryParsed[1].ChatToolMessage)
 	}
 }
 
@@ -808,12 +790,13 @@ func TestApplyRealtimeOutputToEntryMergesRawTranscriptIntoStructuredRealtimeHist
 	}
 
 	plugin.applyRealtimeOutputToEntry(entry, result, true, true)
+	sanitizeLogEntryContent(entry)
 	if err := entry.SerializeFields(); err != nil {
 		t.Fatalf("SerializeFields() error = %v", err)
 	}
 
-	if len(entry.InputHistoryParsed) != 3 {
-		t.Fatalf("len(InputHistoryParsed) = %d, want 3", len(entry.InputHistoryParsed))
+	if len(entry.InputHistoryParsed) != 2 {
+		t.Fatalf("len(InputHistoryParsed) = %d, want 2", len(entry.InputHistoryParsed))
 	}
 	if entry.InputHistoryParsed[0].Content == nil || entry.InputHistoryParsed[0].Content.ContentStr == nil || *entry.InputHistoryParsed[0].Content.ContentStr != "Can you help with my ticket?" {
 		t.Fatalf("InputHistoryParsed[0] = %+v, want structured user content", entry.InputHistoryParsed[0])
@@ -823,12 +806,6 @@ func TestApplyRealtimeOutputToEntryMergesRawTranscriptIntoStructuredRealtimeHist
 	}
 	if entry.InputHistoryParsed[1].Content == nil || entry.InputHistoryParsed[1].Content.ContentStr == nil || *entry.InputHistoryParsed[1].Content.ContentStr != "Hello." {
 		t.Fatalf("InputHistoryParsed[1] = %+v, want raw transcript merge", entry.InputHistoryParsed[1])
-	}
-	if entry.InputHistoryParsed[2].Role != schemas.ChatMessageRoleTool {
-		t.Fatalf("InputHistoryParsed[2].Role = %q, want tool", entry.InputHistoryParsed[2].Role)
-	}
-	if entry.InputHistoryParsed[2].ChatToolMessage == nil || entry.InputHistoryParsed[2].ChatToolMessage.ToolCallID == nil || *entry.InputHistoryParsed[2].ChatToolMessage.ToolCallID != "call_789" {
-		t.Fatalf("InputHistoryParsed[2].ChatToolMessage = %+v, want original tool call id", entry.InputHistoryParsed[2].ChatToolMessage)
 	}
 	if strings.Count(entry.ContentSummary, "Hello.") != 1 {
 		t.Fatalf("ContentSummary = %q, want one merged transcript", entry.ContentSummary)
