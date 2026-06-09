@@ -1105,19 +1105,24 @@ func TestFilterKeyIDsByGrayscaleAccess(t *testing.T) {
 		},
 	}
 
-	got := filterKeyIDsByGrayscaleAccess(config, []string{"open-key", "gray-key"}, "user-a", false)
+	got := filterKeyIDsByGrayscaleAccess(config, []string{"open-key", "gray-key"}, "user-a", false, false)
 	if len(got) != 2 {
 		t.Fatalf("expected both keys for allowed user, got %v", got)
 	}
 
-	got = filterKeyIDsByGrayscaleAccess(config, []string{"open-key", "gray-key"}, "user-b", false)
+	got = filterKeyIDsByGrayscaleAccess(config, []string{"open-key", "gray-key"}, "user-b", false, false)
 	if len(got) != 1 || got[0] != "open-key" {
 		t.Fatalf("expected only open-key for denied user, got %v", got)
 	}
 
-	got = filterKeyIDsByGrayscaleAccess(config, []string{"open-key", "gray-key"}, "user-b", true)
+	got = filterKeyIDsByGrayscaleAccess(config, []string{"open-key", "gray-key"}, "user-b", true, false)
 	if len(got) != 2 {
 		t.Fatalf("expected unfiltered admin listing to keep all keys, got %v", got)
+	}
+
+	got = filterKeyIDsByGrayscaleAccess(config, []string{"open-key", "gray-key"}, "user-b", false, true)
+	if len(got) != 2 {
+		t.Fatalf("expected local admin listing to keep all keys, got %v", got)
 	}
 }
 
@@ -1131,13 +1136,18 @@ func TestFilterModelsByGrayscaleAccess(t *testing.T) {
 	}
 
 	models := []string{"gpt-4o", "gpt-4o-mini"}
-	got := filterModelsByGrayscaleAccess(config, nil, models, "user-b")
+	got := filterModelsByGrayscaleAccess(config, nil, models, "user-b", false)
 	if len(got) != 1 || got[0] != "gpt-4o" {
 		t.Fatalf("expected only gpt-4o for user without grayscale access, got %v", got)
 	}
 
-	got = filterModelsByGrayscaleAccess(config, nil, models, "user-a")
+	got = filterModelsByGrayscaleAccess(config, nil, models, "user-a", false)
 	if len(got) != 2 {
 		t.Fatalf("expected both models for grayscale user, got %v", got)
+	}
+
+	got = filterModelsByGrayscaleAccess(config, nil, models, "user-b", true)
+	if len(got) != 2 {
+		t.Fatalf("expected local admin to see all grayscale models, got %v", got)
 	}
 }

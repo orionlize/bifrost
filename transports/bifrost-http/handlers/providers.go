@@ -635,6 +635,8 @@ type modelListQuery struct {
 	// AoneUserID is set when the request is scoped to a personal Aone virtual key.
 	// Used to filter grayscale-restricted models and keys for end users.
 	AoneUserID string
+	// IsLocalAdmin bypasses grayscale restrictions for dashboard/admin callers.
+	IsLocalAdmin bool
 }
 
 type listedModel struct {
@@ -742,10 +744,11 @@ func (h *ProviderHandler) listModelDetails(ctx *fasthttp.RequestCtx) {
 func (h *ProviderHandler) parseModelListQuery(ctx *fasthttp.RequestCtx, defaultLimit int) (modelListQuery, bool) {
 	queryArgs := ctx.QueryArgs()
 	query := modelListQuery{
-		Provider:   schemas.ModelProvider(string(queryArgs.Peek("provider"))),
-		Query:      string(queryArgs.Peek("query")),
-		Limit:      defaultLimit,
-		Unfiltered: string(queryArgs.Peek("unfiltered")) == "true",
+		Provider:     schemas.ModelProvider(string(queryArgs.Peek("provider"))),
+		Query:        string(queryArgs.Peek("query")),
+		Limit:        defaultLimit,
+		Unfiltered:   string(queryArgs.Peek("unfiltered")) == "true",
+		IsLocalAdmin: requireLocalAdmin(ctx, h.dbStore),
 	}
 
 	if keysRaw := queryArgs.Peek("keys"); len(keysRaw) > 0 {
@@ -860,10 +863,10 @@ func (h *ProviderHandler) listManagementModelsForProvider(
 	}
 
 	if len(query.KeyIDs) == 0 {
-		if query.AoneUserID != "" && !query.Unfiltered {
+		if query.AoneUserID != "" && !query.Unfiltered && !query.IsLocalAdmin {
 			config, err := h.inMemoryStore.GetProviderConfigRaw(provider)
 			if err == nil && config != nil {
-				models = filterModelsByGrayscaleAccess(config, h.inMemoryStore.ModelCatalog, models, query.AoneUserID)
+				models = filterModelsByGrayscaleAccess(config, h.inMemoryStore.ModelCatalog, models, query.AoneUserID, query.IsLocalAdmin)
 			}
 		}
 		return buildListedModels(provider, models, nil, query.Query)
@@ -884,7 +887,7 @@ func (h *ProviderHandler) listManagementModelsForProvider(
 		return buildListedModels(provider, models, nil, query.Query)
 	}
 
-	validKeyIDs = filterKeyIDsByGrayscaleAccess(config, validKeyIDs, query.AoneUserID, query.Unfiltered)
+	validKeyIDs = filterKeyIDsByGrayscaleAccess(config, validKeyIDs, query.AoneUserID, query.Unfiltered, query.IsLocalAdmin)
 	if len(validKeyIDs) == 0 {
 		return buildListedModels(provider, []string{}, nil, query.Query)
 	}
@@ -1029,8 +1032,8 @@ func getValidKeyIDsForProvider(config *configstore.ProviderConfig, keyIDs []stri
 }
 
 // filterKeyIDsByGrayscaleAccess removes grayscale-restricted keys the user cannot access.
-func filterKeyIDsByGrayscaleAccess(config *configstore.ProviderConfig, keyIDs []string, userID string, unfiltered bool) []string {
-	if config == nil || len(keyIDs) == 0 || unfiltered || strings.TrimSpace(userID) == "" {
+func filterKeyIDsByGrayscaleAccess(config *configstore.ProviderConfig, keyIDs []string, userID string, unfiltered bool, isLocalAdmin bool) []string {
+	if config == nil || len(keyIDs) == 0 || unfiltered || schemas.BypassesGrayscaleRestrictions(userID, isLocalAdmin) || strings.TrimSpace(userID) == "" {
 		return keyIDs
 	}
 
@@ -1045,7 +1048,7 @@ func filterKeyIDsByGrayscaleAccess(config *configstore.ProviderConfig, keyIDs []
 		if !ok {
 			continue
 		}
-		if key.IsAccessibleByUser(userID) {
+		if key.IsAccessibleByUserForRequest(userID, isLocalAdmin) {
 			filtered = append(filtered, keyID)
 		}
 	}
@@ -1059,14 +1062,15 @@ func filterModelsByGrayscaleAccess(
 	modelCatalog *modelcatalog.ModelCatalog,
 	models []string,
 	userID string,
+	isLocalAdmin bool,
 ) []string {
-	if config == nil || len(models) == 0 || strings.TrimSpace(userID) == "" {
+	if config == nil || len(models) == 0 || schemas.BypassesGrayscaleRestrictions(userID, isLocalAdmin) || strings.TrimSpace(userID) == "" {
 		return models
 	}
 
 	filtered := make([]string, 0, len(models))
 	for _, model := range models {
-		if modelAccessibleToUser(config, model, userID, modelCatalog) {
+		if modelAccessibleToUser(config, model, userID, modelCatalog, isLocalAdmin) {
 			filtered = append(filtered, model)
 		}
 	}
@@ -1074,7 +1078,7 @@ func filterModelsByGrayscaleAccess(
 }
 
 // modelAccessibleToUser reports whether any enabled provider key grants the user access to model.
-func modelAccessibleToUser(config *configstore.ProviderConfig, model, userID string, modelCatalog *modelcatalog.ModelCatalog) bool {
+func modelAccessibleToUser(config *configstore.ProviderConfig, model, userID string, modelCatalog *modelcatalog.ModelCatalog, isLocalAdmin bool) bool {
 	if config == nil {
 		return true
 	}
@@ -1082,7 +1086,7 @@ func modelAccessibleToUser(config *configstore.ProviderConfig, model, userID str
 		if key.Enabled != nil && !*key.Enabled {
 			continue
 		}
-		if !key.IsAccessibleByUser(userID) {
+		if !key.IsAccessibleByUserForRequest(userID, isLocalAdmin) {
 			continue
 		}
 		if keyAllowsModelForList(key, model, modelCatalog) {

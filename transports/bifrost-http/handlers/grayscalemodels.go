@@ -152,6 +152,7 @@ func collectGrayscaleModelsForUser(
 	catalog *modelcatalog.ModelCatalog,
 	aoneUserID string,
 	platformFilter string,
+	isLocalAdmin bool,
 ) ListGrayscaleModelsResponse {
 	platformFilter = strings.ToLower(strings.TrimSpace(platformFilter))
 	platformBuckets := make(map[string]*platformModelBuckets, len(zwitchClientPlatforms))
@@ -187,7 +188,7 @@ func collectGrayscaleModelsForUser(
 			}
 
 			isGrayscale := key.IsGrayscaleEnabled()
-			if isGrayscale && !key.IsAccessibleByUser(aoneUserID) {
+			if isGrayscale && !key.IsAccessibleByUserForRequest(aoneUserID, isLocalAdmin) {
 				continue
 			}
 			if isGrayscale {
@@ -227,7 +228,7 @@ func collectGrayscaleModelsForUser(
 			if key.Enabled != nil && !*key.Enabled {
 				continue
 			}
-			if !key.IsGrayscaleEnabled() || !key.IsAccessibleByUser(aoneUserID) {
+			if !key.IsGrayscaleEnabled() || !key.IsAccessibleByUserForRequest(aoneUserID, isLocalAdmin) {
 				continue
 			}
 

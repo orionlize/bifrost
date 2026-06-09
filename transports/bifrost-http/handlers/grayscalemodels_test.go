@@ -39,7 +39,7 @@ func TestCollectGrayscaleModelsForUser(t *testing.T) {
 		},
 	}
 
-	got := collectGrayscaleModelsForUser(providers, nil, "user-a", "")
+	got := collectGrayscaleModelsForUser(providers, nil, "user-a", "", false)
 	if got.InjectionMode != "append" {
 		t.Fatalf("expected append injection mode, got %q", got.InjectionMode)
 	}
@@ -74,12 +74,17 @@ func TestCollectGrayscaleModelsForUser(t *testing.T) {
 		t.Fatalf("unexpected codex additional models: %#v", codex.AdditionalModels)
 	}
 
-	filtered := collectGrayscaleModelsForUser(providers, nil, "user-b", "")
+	filtered := collectGrayscaleModelsForUser(providers, nil, "user-b", "", false)
 	if filtered.TotalAdditional != 0 {
 		t.Fatalf("expected no additional models for non-allowlisted user, got %#v", filtered)
 	}
 	if filtered.TotalBuiltin != 1 {
 		t.Fatalf("expected builtin models still visible, got %#v", filtered)
+	}
+
+	adminView := collectGrayscaleModelsForUser(providers, nil, "user-b", "", true)
+	if adminView.TotalAdditional != 3 {
+		t.Fatalf("expected local admin to see all grayscale models, got %#v", adminView)
 	}
 }
 
@@ -104,7 +109,7 @@ func TestCollectGrayscaleModelsForUser_DedupesOverlapIntoBuiltin(t *testing.T) {
 		},
 	}
 
-	got := collectGrayscaleModelsForUser(providers, nil, "user-a", "claude")
+	got := collectGrayscaleModelsForUser(providers, nil, "user-a", "claude", false)
 	if len(got.Platforms) != 1 {
 		t.Fatalf("expected one platform, got %#v", got.Platforms)
 	}

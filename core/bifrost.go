@@ -7439,7 +7439,9 @@ func (bifrost *Bifrost) selectKeyFromProviderForModelWithPool(ctx *schemas.Bifro
 	if skipModelCheck {
 		// When skipping model check: just verify keys are enabled and have values
 		userID := ""
+		isLocalAdmin := false
 		if ctx != nil {
+			isLocalAdmin = GetBoolFromContext(ctx, schemas.IsLocalAdminContextKey)
 			if uid, ok := ctx.Value(schemas.BifrostContextKeyUserID).(string); ok {
 				userID = uid
 			}
@@ -7449,7 +7451,7 @@ func (bifrost *Bifrost) selectKeyFromProviderForModelWithPool(ctx *schemas.Bifro
 			if key.Enabled != nil && !*key.Enabled {
 				continue
 			}
-			if !key.IsAccessibleByUser(userID) {
+			if !key.IsAccessibleByUserForRequest(userID, isLocalAdmin) {
 				continue
 			}
 			if err := validateKey(baseProviderType, &key); err != nil {
@@ -7463,7 +7465,9 @@ func (bifrost *Bifrost) selectKeyFromProviderForModelWithPool(ctx *schemas.Bifro
 	} else {
 		// When NOT skipping model check: do full model filtering
 		userID := ""
+		isLocalAdmin := false
 		if ctx != nil {
+			isLocalAdmin = GetBoolFromContext(ctx, schemas.IsLocalAdminContextKey)
 			if uid, ok := ctx.Value(schemas.BifrostContextKeyUserID).(string); ok {
 				userID = uid
 			}
@@ -7473,7 +7477,7 @@ func (bifrost *Bifrost) selectKeyFromProviderForModelWithPool(ctx *schemas.Bifro
 			if key.Enabled != nil && !*key.Enabled {
 				continue
 			}
-			if !key.IsAccessibleByUser(userID) {
+			if !key.IsAccessibleByUserForRequest(userID, isLocalAdmin) {
 				continue
 			}
 			if err := validateKey(baseProviderType, &key); err != nil {

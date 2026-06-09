@@ -190,11 +190,29 @@ func (k Key) IsGrayscaleEnabled() bool {
 	return k.GrayscaleEnabled != nil && *k.GrayscaleEnabled
 }
 
+// BypassesGrayscaleRestrictions reports whether the caller may use grayscale-
+// restricted keys regardless of the grayscale_users whitelist.
+func BypassesGrayscaleRestrictions(userID string, isLocalAdmin bool) bool {
+	if isLocalAdmin {
+		return true
+	}
+	return strings.TrimSpace(userID) == LocalAdminUserID
+}
+
 // IsAccessibleByUser reports whether the key may be used by the given user.
 // When grayscale is disabled, all users may access the key. When enabled, only
 // listed Aone user IDs may access it; requests without a user ID are denied.
 func (k Key) IsAccessibleByUser(userID string) bool {
+	return k.IsAccessibleByUserForRequest(userID, false)
+}
+
+// IsAccessibleByUserForRequest is like IsAccessibleByUser but honors local-admin
+// bypass for grayscale-restricted keys.
+func (k Key) IsAccessibleByUserForRequest(userID string, isLocalAdmin bool) bool {
 	if !k.IsGrayscaleEnabled() {
+		return true
+	}
+	if BypassesGrayscaleRestrictions(userID, isLocalAdmin) {
 		return true
 	}
 	userID = strings.TrimSpace(userID)

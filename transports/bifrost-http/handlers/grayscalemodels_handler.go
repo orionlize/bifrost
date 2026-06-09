@@ -70,7 +70,7 @@ func (h *ProviderHandler) listZwitchGrayscaleModels(ctx *fasthttp.RequestCtx) {
 		catalog = h.inMemoryStore.ModelCatalog
 	}
 
-	response := collectGrayscaleModelsForUser(providers, catalog, aoneUserID, platformFilter)
+	response := collectGrayscaleModelsForUser(providers, catalog, aoneUserID, platformFilter, requireLocalAdmin(ctx, h.dbStore))
 	SendJSON(ctx, response)
 }
 

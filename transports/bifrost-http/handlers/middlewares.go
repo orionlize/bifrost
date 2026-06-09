@@ -1528,7 +1528,9 @@ func (m *AuthMiddleware) middleware(shouldSkip func(*configstore.AuthConfig, str
 					SendError(ctx, fasthttp.StatusUnauthorized, "Unauthorized")
 					return
 				}
-				// Continue with the next handler
+				ctx.SetUserValue(schemas.IsLocalAdminContextKey, true)
+				ctx.SetUserValue(schemas.BifrostContextKeyUserID, schemas.LocalAdminUserID)
+				ctx.SetUserValue(schemas.BifrostContextKeyUserName, schemas.LocalAdminUserName)
 				next(ctx)
 				return
 			}
@@ -1593,9 +1595,9 @@ func (m *AuthMiddleware) middleware(shouldSkip func(*configstore.AuthConfig, str
 						SendError(ctx, fasthttp.StatusUnauthorized, "Unauthorized")
 						return
 					}
-					// Mark as local admin for RBAC bypass
 					ctx.SetUserValue(schemas.IsLocalAdminContextKey, true)
-					// Continue with the next handler
+					ctx.SetUserValue(schemas.BifrostContextKeyUserID, schemas.LocalAdminUserID)
+					ctx.SetUserValue(schemas.BifrostContextKeyUserName, schemas.LocalAdminUserName)
 					next(ctx)
 					return
 				}
