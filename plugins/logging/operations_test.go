@@ -467,11 +467,11 @@ func TestStoreOrEnqueueRetryPreservesAllEntries(t *testing.T) {
 		t.Fatalf("expected 3 entries in writeQueue, got %d", len(plugin.writeQueue))
 	}
 
-	// Verify plugin logs were attached to each entry
+	// Plugin logs are stripped before persistence; only user/assistant content is kept.
 	for i := 0; i < 3; i++ {
 		qe := <-plugin.writeQueue
-		if qe.log.PluginLogs == "" {
-			t.Fatalf("entry %d: expected PluginLogs to be set", i)
+		if qe.log.PluginLogs != "" {
+			t.Fatalf("entry %d: expected PluginLogs to be cleared", i)
 		}
 	}
 
@@ -806,9 +806,6 @@ func TestApplyRealtimeOutputToEntryMergesRawTranscriptIntoStructuredRealtimeHist
 	}
 	if entry.InputHistoryParsed[1].Content == nil || entry.InputHistoryParsed[1].Content.ContentStr == nil || *entry.InputHistoryParsed[1].Content.ContentStr != "Hello." {
 		t.Fatalf("InputHistoryParsed[1] = %+v, want raw transcript merge", entry.InputHistoryParsed[1])
-	}
-	if strings.Count(entry.ContentSummary, "Hello.") != 1 {
-		t.Fatalf("ContentSummary = %q, want one merged transcript", entry.ContentSummary)
 	}
 }
 

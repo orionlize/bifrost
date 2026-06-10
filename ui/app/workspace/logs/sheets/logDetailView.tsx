@@ -36,19 +36,13 @@ import { downloadAsJson } from "@/lib/utils/browser-download";
 import { isJson } from "@/lib/utils/validation";
 import { Link } from "@tanstack/react-router";
 import { addMilliseconds, format } from "date-fns";
-import { AlertCircle, ChevronDown, Clipboard, Copy, Download, Loader2, MoreVertical, Trash2, Wrench } from "lucide-react";
+import { AlertCircle, ChevronDown, Clipboard, Download, Loader2, MoreVertical, Trash2 } from "lucide-react";
 import { useState, type ReactNode } from "react";
 import { toast } from "sonner";
 import BlockHeader from "../views/blockHeader";
 import CollapsibleBox from "../views/collapsibleBox";
-import ImageView from "../views/imageView";
 import LogChatMessageView from "../views/logChatMessageView";
 import LogEntryDetailsView from "../views/logEntryDetailsView";
-import OCRView from "../views/ocrView";
-import PluginLogsView from "../views/pluginLogsView";
-import SpeechView from "../views/speechView";
-import TranscriptionView from "../views/transcriptionView";
-import VideoView from "../views/videoView";
 
 const formatRealtimeTransport = (value: unknown, t: TranslateFn): string => {
 	const transport = String(value ?? "").trim();
@@ -262,14 +256,6 @@ const extractMessageText = (message: any): string => {
 	return "";
 };
 
-const formatJsonSafe = (str: string | undefined): string => {
-	try {
-		return JSON.stringify(JSON.parse(str || ""), null, 2);
-	} catch {
-		return str || "";
-	}
-};
-
 const formatToolChoice = (value: unknown): string => {
 	if (typeof value === "string") return value;
 	try {
@@ -400,53 +386,6 @@ const getMessageRoleLabel = (t: TranslateFn, role: MessageRole): string => {
 	}
 };
 
-function RoutingDecisionLogs({ logs }: { logs: string }) {
-	const t = useT();
-	const { copy } = useCopyToClipboard({ successMessage: t("common.actions.copied") });
-	return (
-		<div className="w-full rounded-sm border">
-			<div className="flex items-center justify-between border-b py-2 pl-6">
-				<div className="text-sm font-medium">{t("logDetail.routingDecisionLogs")}</div>
-				<button
-					type="button"
-					onClick={() => copy(logs)}
-					className="text-muted-foreground mx-2 flex h-6 items-center rounded px-1 py-1 hover:text-black dark:hover:text-white"
-				>
-					<Copy className="h-3 w-3" />
-				</button>
-			</div>
-			<div>
-				{logs
-					.split("\n")
-					.filter((l) => l.trim())
-					.map((line, i) => {
-						const m = line.match(/^\[(\d+)\]\s+\[([^\]]+)\]\s+-\s+(.*)$/);
-						const ts = m ? Number(m[1]) : null;
-						const scope = m ? m[2] : null;
-						const message = m ? m[3] : line;
-						return (
-							<div key={i} className="flex items-start gap-3 border-b px-4 py-1.5 font-mono text-xs last:border-b-0">
-								{ts != null ? <span className="text-muted-foreground shrink-0">{format(new Date(ts), "HH:mm:ss.SSS")}</span> : null}
-								{scope ? (
-									<span
-										className={cn(
-											"inline-block w-24 shrink-0 rounded px-1.5 py-0.5 text-center text-[10px] font-semibold uppercase",
-											RoutingEngineUsedColors[scope as keyof typeof RoutingEngineUsedColors] ??
-												"bg-blue-100 text-blue-700 dark:bg-blue-900 dark:text-blue-300",
-										)}
-									>
-										{RoutingEngineUsedLabels[scope as keyof typeof RoutingEngineUsedLabels] ?? scope}
-									</span>
-								) : null}
-								<span className="break-words whitespace-pre-wrap">{message}</span>
-							</div>
-						);
-					})}
-			</div>
-		</div>
-	);
-}
-
 function EncryptedReveal({ text, label }: { text: string; label: string }) {
 	const t = useT();
 	const [open, setOpen] = useState(false);
@@ -544,7 +483,7 @@ export function LogDetailView({
 		successMessage: t("logDetail.copyRequestBodyCopied"),
 		errorMessage: t("logDetail.copyRequestBodyFailed"),
 	});
-	const allRoles: MessageRole[] = ["system", "user", "assistant", "tool", "reasoning"];
+	const allRoles: MessageRole[] = ["user", "assistant"];
 	const [visibleRoles, setVisibleRoles] = useState<Set<MessageRole>>(new Set(allRoles));
 
 	if (!log) return null;
@@ -552,7 +491,6 @@ export function LogDetailView({
 	const selectedPromptDisplayName = resolvedSelectedPromptName ?? log.selected_prompt_name ?? "";
 
 	const isContainer = isContainerOperation(log.object);
-	const showTabs = !isContainer;
 	const isPassthrough = isPassthroughOperation(log.object);
 	const isRealtimeTurn = log.object === "realtime.turn";
 	const passthroughParams = isPassthrough
@@ -564,30 +502,7 @@ export function LogDetailView({
 			})
 		: null;
 
-	let toolsParameter = null;
-	if (log.params?.tools) {
-		try {
-			toolsParameter = JSON.stringify(log.params.tools, null, 2);
-		} catch {}
-	}
-
 	const audioFormat = (log.params as any)?.audio?.format || (log.params as any)?.extra_params?.audio?.format || undefined;
-	const rawRequest = log.raw_request;
-	const rawResponse = log.raw_response;
-	const passthroughRequestBody = log.passthrough_request_body;
-	const passthroughResponseBody = log.passthrough_response_body;
-	const videoOutput = log.video_generation_output || log.video_retrieve_output || log.video_download_output;
-	const videoListOutput = log.video_list_output;
-	const pluginLogCount = (() => {
-		if (!log.plugin_logs) return 0;
-		try {
-			const parsed = JSON.parse(log.plugin_logs);
-			if (parsed && typeof parsed === "object" && !Array.isArray(parsed)) {
-				return Object.values(parsed).reduce<number>((sum, v) => sum + (Array.isArray(v) ? v.length : 0), 0);
-			}
-		} catch {}
-		return 0;
-	})();
 
 	return loading ? (
 		<div className="flex h-full items-center justify-center">
@@ -1425,52 +1340,16 @@ export function LogDetailView({
 					)}
 				</div>
 			</details>
-			<Tabs key={log.id} defaultValue={showTabs ? "messages" : "plugins"} className="gap-2">
+			<Tabs key={log.id} defaultValue="messages" className="gap-2">
 				<TabsList className="bg-muted/60 h-10 w-fit">
-					{showTabs && (
-						<TabsTrigger value="messages" className="px-3">
-							{t("logDetail.tabs.messages")}
-							{log.input_history?.length ? (
-								<span className="bg-background text-muted-foreground ml-1.5 rounded-sm border px-2 py-0.5 text-[10px] tabular-nums">
-									{log.input_history.length + (log.output_message ? 1 : 0)}
-								</span>
-							) : null}
-						</TabsTrigger>
-					)}
-
-					{showTabs && !isPassthrough && !log.list_models_output && (
-						<TabsTrigger value="tools" className="px-3">
-							{t("logDetail.tabs.tools")}
-							{log.params?.tools?.length ? (
-								<span className="bg-background text-muted-foreground ml-1.5 rounded-sm border px-2 py-0.5 text-[10px] tabular-nums">
-									{log.params.tools.length}
-								</span>
-							) : null}
-						</TabsTrigger>
-					)}
-					{showTabs && (
-						<TabsTrigger value="routing" className="px-3">
-							{t("logDetail.tabs.routing")}
-							{log.routing_engine_logs ? (
-								<span className="bg-background text-muted-foreground ml-1.5 rounded-sm border px-2 py-0.5 text-[10px] tabular-nums">
-									{log.routing_engine_logs.split("\n").filter(Boolean).length}
-								</span>
-							) : null}
-						</TabsTrigger>
-					)}
-					<TabsTrigger value="plugins" className="px-3">
-						{t("logDetail.tabs.pluginLogs")}
-						{pluginLogCount > 0 ? (
+					<TabsTrigger value="messages" className="px-3">
+						{t("logDetail.tabs.messages")}
+						{log.input_history?.length ? (
 							<span className="bg-background text-muted-foreground ml-1.5 rounded-sm border px-2 py-0.5 text-[10px] tabular-nums">
-								{pluginLogCount}
+								{log.input_history.length + (log.output_message ? 1 : 0)}
 							</span>
 						) : null}
 					</TabsTrigger>
-					{!isPassthrough && (
-						<TabsTrigger value="raw" className="px-3">
-							{t("logDetail.tabs.rawJson")}
-						</TabsTrigger>
-					)}
 				</TabsList>
 
 				<TabsContent value="messages" className="space-y-4">
@@ -1503,9 +1382,7 @@ export function LogDetailView({
 									{t("logDetail.showAllMessages")}
 								</DropdownMenuCheckboxItem>
 								<DropdownMenuSeparator />
-								{(
-									[["system"], ["user"], ["assistant"], ["tool"], ["reasoning"]] as MessageRole[][]
-								).map(([role]) => (
+								{(["user", "assistant"] as MessageRole[]).map((role) => (
 									<DropdownMenuCheckboxItem
 										key={role}
 										checked={visibleRoles.has(role)}
@@ -1518,7 +1395,7 @@ export function LogDetailView({
 										}
 									>
 										<span className={cn("mr-1.5 inline-block h-2 w-2 rounded-sm", messageDotClass[role])} />
-										{role === "tool" ? t("logDetail.roles.tool") : getMessageRoleLabel(t, role)}
+										{getMessageRoleLabel(t, role)}
 									</DropdownMenuCheckboxItem>
 								))}
 								<DropdownMenuSeparator />
@@ -1528,104 +1405,6 @@ export function LogDetailView({
 							</DropdownMenuContent>
 						</DropdownMenu>
 					</div>
-					{(log.ocr_input || log.ocr_output) && <OCRView ocrInput={log.ocr_input} ocrOutput={log.ocr_output} />}
-					{(log.speech_input || log.speech_output) && (
-						<SpeechView speechInput={log.speech_input} speechOutput={log.speech_output} isStreaming={log.stream} />
-					)}
-					{(log.transcription_input || log.transcription_output) && (
-						<TranscriptionView
-							transcriptionInput={log.transcription_input}
-							transcriptionOutput={log.transcription_output}
-							isStreaming={log.stream}
-						/>
-					)}
-					{(log.image_generation_input || log.image_edit_input || log.image_variation_input || log.image_generation_output) && (
-						<ImageView
-							imageInput={log.image_generation_input}
-							imageEditInput={log.image_edit_input}
-							imageVariationInput={log.image_variation_input}
-							imageOutput={log.image_generation_output}
-							requestType={log.object}
-						/>
-					)}
-					{(log.video_generation_input || videoOutput || videoListOutput) && (
-						<VideoView
-							videoInput={log.video_generation_input}
-							videoOutput={videoOutput}
-							videoListOutput={videoListOutput}
-							requestType={log.object}
-						/>
-					)}
-
-					{isPassthrough && passthroughRequestBody && (
-						<CollapsibleBox
-							title={t("logDetail.requestBody")}
-							onCopy={() => {
-								try {
-									return JSON.stringify(JSON.parse(passthroughRequestBody || ""), null, 2);
-								} catch {
-									return passthroughRequestBody || "";
-								}
-							}}
-						>
-							<CodeEditor
-								className="z-0 w-full"
-								shouldAdjustInitialHeight={true}
-								maxHeight={450}
-								wrap={true}
-								code={(() => {
-									try {
-										return JSON.stringify(JSON.parse(passthroughRequestBody || ""), null, 2);
-									} catch {
-										return passthroughRequestBody || "";
-									}
-								})()}
-								lang="json"
-								readonly={true}
-								options={{
-									showVerticalScrollbar: true,
-									scrollBeyondLastLine: false,
-									lineNumbers: "off",
-									alwaysConsumeMouseWheel: false,
-								}}
-							/>
-						</CollapsibleBox>
-					)}
-					{isPassthrough && passthroughResponseBody && log.status !== "processing" && (
-						<CollapsibleBox
-							title={t("logDetail.responseBody")}
-							onCopy={() => {
-								try {
-									return JSON.stringify(JSON.parse(passthroughResponseBody || ""), null, 2);
-								} catch {
-									return passthroughResponseBody || "";
-								}
-							}}
-						>
-							<CodeEditor
-								className="z-0 w-full"
-								shouldAdjustInitialHeight={true}
-								maxHeight={450}
-								wrap={true}
-								code={(() => {
-									try {
-										return JSON.stringify(JSON.parse(passthroughResponseBody || ""), null, 2);
-									} catch {
-										return passthroughResponseBody || "";
-									}
-								})()}
-								lang="json"
-								readonly={true}
-								options={{
-									showVerticalScrollbar: true,
-									scrollBeyondLastLine: false,
-									lineNumbers: "off",
-									alwaysConsumeMouseWheel: false,
-								}}
-							/>
-						</CollapsibleBox>
-					)}
-
 					{!isPassthrough &&
 						((log.input_history && log.input_history.length > 0) ||
 							(log.output_message && !log.error_details?.error.message) ||
@@ -1953,72 +1732,12 @@ export function LogDetailView({
 					{log.is_large_payload_request && !log.input_history?.length && !log.responses_input_history?.length && (
 						<div className="rounded-sm border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800 dark:border-amber-800 dark:bg-amber-950/50 dark:text-amber-300">
 							{t("logDetail.largePayloadRequestNotice")}
-							{log.raw_request && t("logDetail.largePayloadRequestPreview")}
 						</div>
 					)}
 					{log.is_large_payload_response && !log.output_message && !log.responses_output?.length && log.status !== "processing" && (
 						<div className="rounded-sm border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800 dark:border-amber-800 dark:bg-amber-950/50 dark:text-amber-300">
 							{t("logDetail.largePayloadResponseNotice")}
-							{log.raw_response && t("logDetail.largePayloadResponsePreview")}
 						</div>
-					)}
-
-					{log.status !== "processing" && log.embedding_output && log.embedding_output.length > 0 && !log.error_details?.error.message && (
-						<div className="bg-card space-y-3 rounded-sm border p-5">
-							<div className="text-sm font-medium">{t("logDetail.embedding")}</div>
-							<LogChatMessageView
-								message={{
-									role: "assistant",
-									content: JSON.stringify(
-										log.embedding_output.map((embedding) => embedding.embedding),
-										null,
-										2,
-									),
-								}}
-							/>
-						</div>
-					)}
-					{log.status !== "processing" && log.rerank_output && !log.error_details?.error.message && (
-						<CollapsibleBox title={t("logDetail.rerankOutput", { count: log.rerank_output.length })} onCopy={() => JSON.stringify(log.rerank_output, null, 2)}>
-							<CodeEditor
-								className="z-0 w-full"
-								shouldAdjustInitialHeight={true}
-								maxHeight={450}
-								wrap={true}
-								code={JSON.stringify(log.rerank_output, null, 2)}
-								lang="json"
-								readonly={true}
-								options={{
-									showVerticalScrollbar: true,
-									scrollBeyondLastLine: false,
-									lineNumbers: "off",
-									alwaysConsumeMouseWheel: false,
-								}}
-							/>
-						</CollapsibleBox>
-					)}
-
-					{log.list_models_output && (
-						<CollapsibleBox
-							title={t("logDetail.listModelsOutput", { count: log.list_models_output.length })}
-							onCopy={() => JSON.stringify(log.list_models_output, null, 2)}
-						>
-							<CodeEditor
-								className="z-0 w-full"
-								shouldAdjustInitialHeight={true}
-								maxHeight={450}
-								wrap={true}
-								code={JSON.stringify(log.list_models_output, null, 2)}
-								lang="json"
-								readonly={true}
-								options={{
-									showVerticalScrollbar: true,
-									scrollBeyondLastLine: false,
-									lineNumbers: "off",
-									alwaysConsumeMouseWheel: false,
-								}}
-							/>
-						</CollapsibleBox>
 					)}
 
 					{(log.error_details?.error.message || log.error_details?.error.error != null) && (
@@ -2047,199 +1766,6 @@ export function LogDetailView({
 								</details>
 							) : null}
 						</div>
-					)}
-				</TabsContent>
-
-				<TabsContent value="tools" className="space-y-3">
-					{toolsParameter ? (
-						<div className="bg-card rounded-sm border p-5">
-							<div className="text-muted-foreground mb-3 text-[12px]">
-								{t("logDetail.toolsExposed", { count: log.params?.tools?.length ?? 0 })}
-								{(log.params as any)?.tool_choice != null ? (
-									<>
-										{" "}
-										· {t("logDetail.toolChoice")}{" "}
-										<span className="text-foreground font-mono break-all">{formatToolChoice((log.params as any).tool_choice)}</span>
-									</>
-								) : null}
-							</div>
-							<div className="grid grid-cols-1 gap-2 md:grid-cols-2">
-								{(log.params?.tools as any[]).map((tool, i) => {
-									const name = tool?.function?.name ?? tool?.name ?? `tool_${i}`;
-									const description = tool?.function?.description ?? tool?.description ?? "";
-									const schema = tool?.function?.parameters ?? tool?.input_schema ?? tool?.parameters ?? null;
-									const schemaJson = schema != null ? JSON.stringify(schema, null, 2) : "";
-									return (
-										<details key={i} className="group bg-card rounded-sm border">
-											<summary className="hover:bg-muted/30 flex cursor-pointer list-none items-start gap-2 p-3 transition">
-												<div className="grid h-7 w-7 shrink-0 place-items-center rounded-sm border border-amber-300 bg-amber-50 text-amber-700 dark:border-amber-900 dark:bg-amber-950/50 dark:text-amber-400">
-													<Wrench className="h-3 w-3" strokeWidth={1.5} />
-												</div>
-												<div className="min-w-0 flex-1">
-													<div className="text-foreground truncate font-mono text-[12.5px] font-medium">{name}</div>
-													{description ? <div className="text-muted-foreground mt-0.5 line-clamp-2 text-[12px]">{description}</div> : null}
-												</div>
-												<ChevronDown
-													className={cn(
-														"text-muted-foreground mt-1 h-3.5 w-3.5 shrink-0 transition-transform",
-														"group-open:rotate-180",
-														!schemaJson && "opacity-30",
-													)}
-												/>
-											</summary>
-											{schemaJson ? (
-												<div className="border-t">
-													<div className="text-muted-foreground flex items-center justify-between px-3 py-1.5 text-[10.5px] tracking-wider uppercase">
-														<span className="font-semibold">{t("logDetail.parameters")}</span>
-														<CopyInlineButton text={schemaJson} />
-													</div>
-													<pre className="custom-scrollbar max-h-[300px] overflow-auto border-t px-3 py-2 font-mono text-[11.5px] leading-[1.6] whitespace-pre">
-														{schemaJson}
-													</pre>
-												</div>
-											) : (
-												<div className="text-muted-foreground border-t px-3 py-2 text-[11.5px]">{t("logDetail.noParameterSchema")}</div>
-											)}
-										</details>
-									);
-								})}
-							</div>
-						</div>
-					) : null}
-					{log.params?.instructions && (
-						<CollapsibleBox title={t("logDetail.instructions")} onCopy={() => log.params?.instructions || ""}>
-							<div className="custom-scrollbar max-h-[400px] overflow-y-auto px-6 py-2 font-mono text-xs break-words whitespace-pre-wrap">
-								{log.params.instructions}
-							</div>
-						</CollapsibleBox>
-					)}
-					{!toolsParameter && !log.params?.instructions && (
-						<div className="text-muted-foreground rounded-sm border border-dashed p-5 text-center text-sm">
-							{t("logDetail.noToolsOrInstructions")}
-						</div>
-					)}
-				</TabsContent>
-
-				<TabsContent value="routing" className="space-y-3">
-					{log.attempt_trail && log.attempt_trail.length > 1 && (
-						<CollapsibleBox
-							title={t("logDetail.attemptTrail", { count: log.attempt_trail.length })}
-							onCopy={() => JSON.stringify(log.attempt_trail, null, 2)}
-						>
-							<div className="overflow-x-auto px-6 py-3">
-								<table className="w-full border-collapse text-xs">
-									<thead>
-										<tr className="border-border text-muted-foreground border-b">
-											<th className="py-1 pr-6 text-left font-medium">#</th>
-											<th className="py-1 pr-6 text-left font-medium">{t("logDetail.key")}</th>
-											<th className="py-1 text-left font-medium">{t("logDetail.attemptResult")}</th>
-										</tr>
-									</thead>
-									<tbody>
-										{log.attempt_trail.map((record) => (
-											<tr key={record.attempt} className="border-border/50 border-b last:border-0">
-												<td className="text-muted-foreground py-1.5 pr-6 tabular-nums">{record.attempt + 1}</td>
-												<td className="py-1.5 pr-6 font-mono">{record.key_name || record.key_id}</td>
-												<td className="py-1.5">
-													{record.fail_reason ? (
-														<span className="text-destructive">{record.fail_reason}</span>
-													) : (
-														<span className="text-green-600 dark:text-green-400">{t("logDetail.success")}</span>
-													)}
-												</td>
-											</tr>
-										))}
-									</tbody>
-								</table>
-							</div>
-						</CollapsibleBox>
-					)}
-					{log.routing_engine_logs ? (
-						<RoutingDecisionLogs logs={log.routing_engine_logs} />
-					) : (
-						<div className="text-muted-foreground rounded-sm border border-dashed p-5 text-center text-sm">
-							{t("logDetail.noRoutingLogs")}
-						</div>
-					)}
-				</TabsContent>
-
-				<TabsContent value="plugins" className="space-y-3">
-					{log.plugin_logs ? (
-						<PluginLogsView pluginLogs={log.plugin_logs} />
-					) : (
-						<div className="text-muted-foreground rounded-sm border border-dashed p-5 text-center text-sm">
-							{t("logDetail.noPluginLogs")}
-						</div>
-					)}
-				</TabsContent>
-
-				<TabsContent value="raw" className="space-y-3">
-					{rawRequest && (
-						<>
-							<div className="text-muted-foreground text-[12px]">
-								{t("logDetail.rawRequestSent")}{" "}
-								<span className="text-foreground font-medium capitalize">{log.provider}</span>
-								{log.is_large_payload_request && (
-									<span className="ml-2 text-xs font-normal text-amber-600 dark:text-amber-400">{t("logDetail.truncatedPreview")}</span>
-								)}
-							</div>
-							<CollapsibleBox
-								title={log.is_large_payload_request ? t("logDetail.rawRequestTruncated") : t("logDetail.rawRequestSent") + " " + log.provider}
-								onCopy={() => formatJsonSafe(rawRequest)}
-							>
-								<CodeEditor
-									className="z-0 w-full"
-									shouldAdjustInitialHeight={true}
-									maxHeight={450}
-									wrap={true}
-									code={formatJsonSafe(rawRequest)}
-									lang="json"
-									readonly={true}
-									options={{
-										showVerticalScrollbar: true,
-										scrollBeyondLastLine: false,
-										lineNumbers: "off",
-										alwaysConsumeMouseWheel: false,
-									}}
-								/>
-							</CollapsibleBox>
-						</>
-					)}
-					{rawResponse && log.status !== "processing" && (
-						<>
-							<div className="text-muted-foreground pt-4 text-[12px]">
-								{t("logDetail.rawResponseFrom")}{" "}
-								<span className="text-foreground font-medium capitalize">{log.provider}</span>
-								{log.is_large_payload_response && (
-									<span className="ml-2 text-xs font-normal text-amber-600 dark:text-amber-400">{t("logDetail.truncatedPreview")}</span>
-								)}
-							</div>
-							<CollapsibleBox
-								title={
-									log.is_large_payload_response ? t("logDetail.rawResponseTruncated") : t("logDetail.responseBody")
-								}
-								onCopy={() => formatJsonSafe(rawResponse)}
-							>
-								<CodeEditor
-									className="z-0 w-full"
-									shouldAdjustInitialHeight={true}
-									maxHeight={450}
-									wrap={true}
-									code={formatJsonSafe(rawResponse)}
-									lang="json"
-									readonly={true}
-									options={{
-										showVerticalScrollbar: true,
-										scrollBeyondLastLine: false,
-										lineNumbers: "off",
-										alwaysConsumeMouseWheel: false,
-									}}
-								/>
-							</CollapsibleBox>
-						</>
-					)}
-					{!rawRequest && !rawResponse && !passthroughRequestBody && !passthroughResponseBody && (
-						<div className="text-muted-foreground rounded-sm border border-dashed p-5 text-center text-sm">{t("logDetail.noRawJson")}</div>
 					)}
 				</TabsContent>
 			</Tabs>

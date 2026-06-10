@@ -227,11 +227,11 @@ func TestSanitizeLogEntryBinaryContent_RedactsChatImageAndFile(t *testing.T) {
 	if file == nil || file.FileData == nil || *file.FileData != "[application/pdf]" {
 		t.Fatalf("file data = %#v, want [application/pdf]", file)
 	}
-	if len(entry.SpeechOutputParsed.Audio) != 0 {
-		t.Fatal("expected speech audio to be stripped")
+	if entry.SpeechOutputParsed != nil {
+		t.Fatal("expected speech output to be cleared")
 	}
-	if entry.ImageGenerationOutputParsed.Data[0].B64JSON != "[image]" {
-		t.Fatalf("b64_json = %q, want [image]", entry.ImageGenerationOutputParsed.Data[0].B64JSON)
+	if entry.ImageGenerationOutputParsed != nil {
+		t.Fatal("expected image generation output to be cleared")
 	}
 }
 
@@ -282,4 +282,121 @@ func TestSanitizeLogEntryBinaryContent_NilResponsesToolMessageDoesNotPanic(t *te
 		}
 	}()
 	sanitizeLogEntryContent(entry)
+}
+
+func TestSanitizeChatInputHistory_DropsAssistantToolOnlyMessages(t *testing.T) {
+	userText := "Search the web"
+	toolName := "web_search"
+	msgs := []schemas.ChatMessage{
+		{
+			Role: schemas.ChatMessageRoleUser,
+			Content: &schemas.ChatMessageContent{
+				ContentStr: &userText,
+			},
+		},
+		{
+			Role: schemas.ChatMessageRoleAssistant,
+			ChatAssistantMessage: &schemas.ChatAssistantMessage{
+				ToolCalls: []schemas.ChatAssistantMessageToolCall{
+					{
+						ID:       schemas.Ptr("call_1"),
+						Type:     schemas.Ptr(string(schemas.ChatToolTypeFunction)),
+						Function: schemas.ChatAssistantMessageToolCallFunction{Name: schemas.Ptr(toolName)},
+					},
+				},
+			},
+		},
+	}
+
+	got := sanitizeChatInputHistory(msgs)
+	if len(got) != 1 {
+		t.Fatalf("len(got) = %d, want 1", len(got))
+	}
+	if got[0].Role != schemas.ChatMessageRoleUser {
+		t.Fatalf("got[0].Role = %q, want user", got[0].Role)
+	}
+}
+
+func TestSanitizeChatInputHistory_StripsToolCallsFromAssistant(t *testing.T) {
+	answer := "Here you go."
+	msgs := []schemas.ChatMessage{
+		{
+			Role: schemas.ChatMessageRoleAssistant,
+			Content: &schemas.ChatMessageContent{
+				ContentStr: &answer,
+			},
+			ChatAssistantMessage: &schemas.ChatAssistantMessage{
+				ToolCalls: []schemas.ChatAssistantMessageToolCall{
+					{
+						ID:       schemas.Ptr("call_1"),
+						Type:     schemas.Ptr(string(schemas.ChatToolTypeFunction)),
+						Function: schemas.ChatAssistantMessageToolCallFunction{Name: schemas.Ptr("search")},
+					},
+				},
+			},
+		},
+	}
+
+	got := sanitizeChatInputHistory(msgs)
+	if len(got) != 1 {
+		t.Fatalf("len(got) = %d, want 1", len(got))
+	}
+	if got[0].ChatAssistantMessage == nil || len(got[0].ChatAssistantMessage.ToolCalls) != 0 {
+		t.Fatal("expected tool calls to be stripped from assistant message")
+	}
+}
+
+func TestSanitizeResponsesMessages_DropsFunctionCalls(t *testing.T) {
+	userText := "Call a tool"
+	msgs := []schemas.ResponsesMessage{
+		{
+			Type: schemas.Ptr(schemas.ResponsesMessageTypeMessage),
+			Role: schemas.Ptr(schemas.ResponsesInputMessageRoleUser),
+			Content: &schemas.ResponsesMessageContent{
+				ContentStr: &userText,
+			},
+		},
+		{
+			Type: schemas.Ptr(schemas.ResponsesMessageTypeFunctionCall),
+		},
+	}
+
+	got := sanitizeResponsesMessages(msgs)
+	if len(got) != 1 {
+		t.Fatalf("len(got) = %d, want 1", len(got))
+	}
+}
+
+func TestSanitizeLogEntryNonMessageContent_ClearsAuxiliaryFields(t *testing.T) {
+	entry := &logstore.Log{
+		RawRequest:              `{"model":"gpt-4o"}`,
+		RawResponse:             `{"id":"resp_1"}`,
+		PluginLogs:              `{"telemetry":[{"message":"metric"}]}`,
+		RoutingEngineLogs:       "[1] [governance] - selected key",
+		ToolsParsed:             []schemas.ChatTool{{Type: schemas.ChatToolTypeFunction}},
+		PassthroughRequestBody:  `{"foo":1}`,
+		PassthroughResponseBody: `{"bar":2}`,
+		ParamsParsed: &schemas.ChatParameters{
+			Temperature: schemas.Ptr(0.7),
+		},
+		EmbeddingOutput: `[{"embedding":[0.1]}]`,
+	}
+
+	sanitizeLogEntryContent(entry)
+
+	if entry.RawRequest != "" || entry.RawResponse != "" {
+		t.Fatal("expected raw request/response to be cleared")
+	}
+	if entry.PluginLogs != "" || entry.RoutingEngineLogs != "" {
+		t.Fatal("expected plugin and routing logs to be cleared")
+	}
+	if entry.ParamsParsed != nil || len(entry.ToolsParsed) != 0 {
+		t.Fatal("expected params and tools to be cleared")
+	}
+	if entry.PassthroughRequestBody != "" || entry.PassthroughResponseBody != "" {
+		t.Fatal("expected passthrough bodies to be cleared")
+	}
+	if entry.EmbeddingOutput != "" {
+		t.Fatal("expected embedding output to be cleared")
+	}
 }
