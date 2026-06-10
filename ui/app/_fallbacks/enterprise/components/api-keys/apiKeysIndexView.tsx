@@ -11,6 +11,7 @@ import {
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { ComboboxSelect } from "@/components/ui/combobox";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -24,13 +25,23 @@ import {
 	useCreateGlobalApiKeyMutation,
 	useDeleteGlobalApiKeyMutation,
 	useListGlobalApiKeysQuery,
+	useRotateGlobalApiKeyTokenMutation,
 	useUpdateGlobalApiKeyMutation,
 } from "@/lib/store/apis/globalApiKeysApi";
+import { useListAoneUsersQuery } from "@/lib/store/apis/aoneUsersApi";
 import { useIsAuthEnabledQuery } from "@/lib/store/apis/sessionApi";
+import { setStoredGlobalApiKey } from "@/lib/utils/globalApiKeyStorage";
 import { Link } from "@tanstack/react-router";
-import { Copy, InfoIcon, KeyRound, Loader2, Plus, Power, Trash2 } from "lucide-react";
+import { Copy, InfoIcon, KeyRound, Loader2, Pencil, Plus, Power, RefreshCw, Trash2, Users } from "lucide-react";
 import { useMemo, useState } from "react";
 import { toast } from "sonner";
+
+function formatAllowedUsersLabel(allowedUserIds: string[] | undefined, emptyLabel: string): string {
+	if (!allowedUserIds || allowedUserIds.length === 0) {
+		return emptyLabel;
+	}
+	return String(allowedUserIds.length);
+}
 
 export default function APIKeysView() {
 	const t = useT();
@@ -38,20 +49,35 @@ export default function APIKeysView() {
 	const { data: authStatus, isLoading: authLoading } = useIsAuthEnabledQuery();
 	const isLocalAdmin = useIsLocalAdminSession();
 	const { data, isLoading, isFetching } = useListGlobalApiKeysQuery(undefined, { skip: !isLocalAdmin });
+	const { data: usersData } = useListAoneUsersQuery({ limit: 500 }, { skip: !isLocalAdmin });
 	const [createGlobalApiKey, { isLoading: isCreating }] = useCreateGlobalApiKeyMutation();
 	const [updateGlobalApiKey, { isLoading: isUpdating }] = useUpdateGlobalApiKeyMutation();
 	const [deleteGlobalApiKey, { isLoading: isDeleting }] = useDeleteGlobalApiKeyMutation();
+	const [rotateGlobalApiKeyToken, { isLoading: isRotating }] = useRotateGlobalApiKeyTokenMutation();
 	const [createDialogOpen, setCreateDialogOpen] = useState(false);
+	const [editDialogOpen, setEditDialogOpen] = useState(false);
 	const [newKeyName, setNewKeyName] = useState("");
+	const [newAllowedUserIds, setNewAllowedUserIds] = useState<string[]>([]);
+	const [editTargetId, setEditTargetId] = useState<string | null>(null);
+	const [editAllowedUserIds, setEditAllowedUserIds] = useState<string[]>([]);
 	const [createdToken, setCreatedToken] = useState<string | null>(null);
 	const [deleteTargetId, setDeleteTargetId] = useState<string | null>(null);
 	const { copy: copyToClipboard } = useCopyToClipboard();
 
 	const isAuthConfigured = useMemo(() => bifrostConfig?.auth_config?.is_enabled, [bifrostConfig]);
 	const apiKeys = data?.api_keys ?? [];
+	const userOptions = useMemo(
+		() =>
+			(usersData?.users ?? []).map((user) => ({
+				value: user.id,
+				label: user.display_name || user.name || user.email || user.id,
+			})),
+		[usersData?.users],
+	);
 
 	const resetCreateForm = () => {
 		setNewKeyName("");
+		setNewAllowedUserIds([]);
 	};
 
 	if (configLoading || authLoading) {
@@ -86,8 +112,9 @@ export default function APIKeysView() {
 			return;
 		}
 		try {
-			const result = await createGlobalApiKey({ name }).unwrap();
+			const result = await createGlobalApiKey({ name, allowed_user_ids: newAllowedUserIds }).unwrap();
 			setCreatedToken(result.token);
+			setStoredGlobalApiKey(result.token, result.api_key.id);
 			resetCreateForm();
 			setCreateDialogOpen(false);
 			toast.success(t("apiKeys.createdSuccess"));
@@ -105,6 +132,26 @@ export default function APIKeysView() {
 		}
 	};
 
+	const handleOpenEditUsers = (id: string, allowedUserIds?: string[]) => {
+		setEditTargetId(id);
+		setEditAllowedUserIds(allowedUserIds ?? []);
+		setEditDialogOpen(true);
+	};
+
+	const handleSaveAllowedUsers = async () => {
+		if (!editTargetId) {
+			return;
+		}
+		try {
+			await updateGlobalApiKey({ id: editTargetId, allowed_user_ids: editAllowedUserIds }).unwrap();
+			setEditDialogOpen(false);
+			setEditTargetId(null);
+			toast.success(t("apiKeys.allowedUsersUpdated"));
+		} catch (error) {
+			toast.error(getErrorMessage(error));
+		}
+	};
+
 	const handleDelete = async () => {
 		if (!deleteTargetId) {
 			return;
@@ -113,6 +160,17 @@ export default function APIKeysView() {
 			await deleteGlobalApiKey(deleteTargetId).unwrap();
 			setDeleteTargetId(null);
 			toast.success(t("apiKeys.deleted"));
+		} catch (error) {
+			toast.error(getErrorMessage(error));
+		}
+	};
+
+	const handleRotateToken = async (id: string) => {
+		try {
+			const result = await rotateGlobalApiKeyToken(id).unwrap();
+			setCreatedToken(result.token);
+			setStoredGlobalApiKey(result.token, result.api_key.id);
+			toast.success(t("apiKeys.rotatedSuccess"));
 		} catch (error) {
 			toast.error(getErrorMessage(error));
 		}
@@ -147,21 +205,22 @@ export default function APIKeysView() {
 						<TableRow>
 							<TableHead>{t("tables.name")}</TableHead>
 							<TableHead>{t("apiKeys.prefix")}</TableHead>
+							<TableHead>{t("apiKeys.allowedUsers")}</TableHead>
 							<TableHead>{t("tables.status")}</TableHead>
 							<TableHead>{t("apiKeys.created")}</TableHead>
-							<TableHead className="w-[120px]">{t("tables.actions")}</TableHead>
+							<TableHead className="w-[140px]">{t("tables.actions")}</TableHead>
 						</TableRow>
 					</TableHeader>
 					<TableBody>
 						{isLoading || isFetching ? (
 							<TableRow>
-								<TableCell colSpan={5} className="text-muted-foreground py-8 text-center">
+								<TableCell colSpan={6} className="text-muted-foreground py-8 text-center">
 									{t("apiKeys.loading")}
 								</TableCell>
 							</TableRow>
 						) : apiKeys.length === 0 ? (
 							<TableRow>
-								<TableCell colSpan={5} className="text-muted-foreground py-8 text-center">
+								<TableCell colSpan={6} className="text-muted-foreground py-8 text-center">
 									{t("apiKeys.empty")}
 								</TableCell>
 							</TableRow>
@@ -173,6 +232,11 @@ export default function APIKeysView() {
 										<code className="text-xs">{apiKey.token_prefix}</code>
 									</TableCell>
 									<TableCell>
+										<Badge variant="secondary">
+											{formatAllowedUsersLabel(apiKey.allowed_user_ids, t("apiKeys.allUsers"))}
+										</Badge>
+									</TableCell>
+									<TableCell>
 										<Badge variant={apiKey.is_active ? "default" : "secondary"}>
 											{apiKey.is_active ? t("shared.status.active") : t("shared.status.disabled")}
 										</Badge>
@@ -180,6 +244,28 @@ export default function APIKeysView() {
 									<TableCell>{new Date(apiKey.created_at).toLocaleString()}</TableCell>
 									<TableCell>
 										<div className="flex items-center gap-1">
+											<Button
+												type="button"
+												variant="ghost"
+												size="icon"
+												disabled={isRotating}
+												onClick={() => void handleRotateToken(apiKey.id)}
+												title={t("apiKeys.rotateKey")}
+												data-testid={`global-api-key-rotate-${apiKey.id}`}
+											>
+												<RefreshCw className="h-4 w-4" />
+											</Button>
+											<Button
+												type="button"
+												variant="ghost"
+												size="icon"
+												disabled={isUpdating}
+												onClick={() => handleOpenEditUsers(apiKey.id, apiKey.allowed_user_ids)}
+												title={t("apiKeys.editAllowedUsers")}
+												data-testid={`global-api-key-edit-users-${apiKey.id}`}
+											>
+												<Pencil className="h-4 w-4" />
+											</Button>
 											<Button
 												type="button"
 												variant="ghost"
@@ -235,6 +321,22 @@ export default function APIKeysView() {
 								data-testid="global-api-key-name-input"
 							/>
 						</div>
+						<div className="space-y-2">
+							<Label className="flex items-center gap-2">
+								<Users className="size-4" />
+								{t("apiKeys.allowedUsers")}
+							</Label>
+							<p className="text-muted-foreground text-xs">{t("apiKeys.allowedUsersHint")}</p>
+							<div data-testid="global-api-key-create-users">
+								<ComboboxSelect
+									multiple
+									value={newAllowedUserIds}
+									onValueChange={setNewAllowedUserIds}
+									options={userOptions}
+									placeholder={t("apiKeys.allowedUsersPlaceholder")}
+								/>
+							</div>
+						</div>
 					</div>
 					<DialogFooter>
 						<Button
@@ -255,6 +357,40 @@ export default function APIKeysView() {
 							data-testid="global-api-key-create-confirm"
 						>
 							{isCreating ? <Loader2 className="h-4 w-4 animate-spin" /> : t("common.actions.create")}
+						</Button>
+					</DialogFooter>
+				</DialogContent>
+			</Dialog>
+
+			<Dialog
+				open={editDialogOpen}
+				onOpenChange={(open) => {
+					setEditDialogOpen(open);
+					if (!open) {
+						setEditTargetId(null);
+					}
+				}}
+			>
+				<DialogContent className="sm:max-w-[520px]">
+					<DialogHeader>
+						<DialogTitle>{t("apiKeys.editAllowedUsersTitle")}</DialogTitle>
+						<DialogDescription>{t("apiKeys.allowedUsersHint")}</DialogDescription>
+					</DialogHeader>
+					<div data-testid="global-api-key-edit-users">
+						<ComboboxSelect
+							multiple
+							value={editAllowedUserIds}
+							onValueChange={setEditAllowedUserIds}
+							options={userOptions}
+							placeholder={t("apiKeys.allowedUsersPlaceholder")}
+						/>
+					</div>
+					<DialogFooter>
+						<Button variant="outline" onClick={() => setEditDialogOpen(false)} disabled={isUpdating}>
+							{t("common.actions.cancel")}
+						</Button>
+						<Button type="button" onClick={() => void handleSaveAllowedUsers()} disabled={isUpdating} data-testid="global-api-key-edit-users-save">
+							{isUpdating ? <Loader2 className="h-4 w-4 animate-spin" /> : t("common.actions.save")}
 						</Button>
 					</DialogFooter>
 				</DialogContent>

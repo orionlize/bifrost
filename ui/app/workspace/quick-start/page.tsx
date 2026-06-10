@@ -1,13 +1,13 @@
-import { ProviderIntegrationCard } from "@/app/workspace/quick-start/views/providerIntegrationCard";
+import { ModelCurlExampleCard } from "@/app/workspace/quick-start/views/modelCurlExampleCard";
 import { CcSwitchImportCard } from "@/app/workspace/quick-start/views/ccSwitchImportCard";
+import { ProviderIntegrationCard } from "@/app/workspace/quick-start/views/providerIntegrationCard";
 import { Alert, AlertDescription } from "@/components/ui/alert";
+import { ApiKeySelect } from "@/app/workspace/quick-start/views/apiKeySelect";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import GradientHeader from "@/components/ui/gradientHeader";
-import { useAoneCurrentUser } from "@/hooks/useAoneCurrentUser";
-import { IS_ENTERPRISE } from "@/lib/constants/config";
+import { useIsLocalAdminSession } from "@/hooks/useIsLocalAdminSession";
 import { useT } from "@/lib/i18n";
-import { useGetProvidersQuery, useIsAuthEnabledQuery } from "@/lib/store";
-import { getAoneApiKey } from "@/lib/utils/aoneUserStorage";
+import { useGetGlobalApiKeyAccessQuery, useGetGlobalApiKeyTokenQuery, useGetProvidersQuery } from "@/lib/store";
 import {
 	buildCcSwitchImportUrl,
 	buildClaudeCodeSettingsJson,
@@ -16,12 +16,16 @@ import {
 	formatCodexModel,
 	getProviderIntegrationGuide,
 } from "@/lib/utils/providerIntegration";
+import {
+	isFullGlobalApiKeyToken,
+	setStoredGlobalApiKey,
+	setStoredGlobalApiKeySelectedId,
+} from "@/lib/utils/globalApiKeyStorage";
+import { pickQuickStartGlobalApiKey, resolveQuickStartApiKeyToken } from "@/lib/utils/resolveQuickStartApiKey";
 import { getExampleBaseUrl } from "@/lib/utils/port";
 import { Link } from "@tanstack/react-router";
 import { AlertCircle, Diamond, Rocket, SquareCode, Terminal } from "lucide-react";
-import { useMemo } from "react";
-
-const PLACEHOLDER_API_KEY = "your-api-key";
+import { useEffect, useMemo, useState } from "react";
 
 function resolveProviderGuide(
 	configuredProviders: { name: string }[],
@@ -41,27 +45,71 @@ function resolveProviderGuide(
 
 export default function QuickStartView() {
 	const t = useT();
-	const { data: providers = [], isLoading } = useGetProvidersQuery();
-	const { data: authStatus } = useIsAuthEnabledQuery();
-	const { data: aoneUser } = useAoneCurrentUser();
+	const isLocalAdmin = useIsLocalAdminSession();
+	const { data: providers = [], isLoading: isLoadingProviders } = useGetProvidersQuery();
+	const { data: accessData, isLoading: isLoadingAccess } = useGetGlobalApiKeyAccessQuery(undefined, {
+		refetchOnMountOrArgChange: true,
+	});
 
 	const baseUrl = getExampleBaseUrl();
 	const configuredProviders = useMemo(() => providers.slice().sort((a, b) => a.name.localeCompare(b.name)), [providers]);
+	const hasAccess = accessData?.has_access === true;
+	const assignedApiKeys = accessData?.api_keys ?? [];
 
-	const apiKey = useMemo(() => {
-		const cachedKey = getAoneApiKey();
-		if (cachedKey) {
-			return cachedKey;
-		}
-		if (aoneUser?.api_key) {
-			return aoneUser.api_key;
-		}
-		return PLACEHOLDER_API_KEY;
-	}, [aoneUser?.api_key]);
+	const [userSelectedKeyId, setUserSelectedKeyId] = useState<string | null>(null);
 
-	const isAoneAuth = !IS_ENTERPRISE && (authStatus?.aone_oauth_enabled ?? false);
-	const usingPlaceholderKey = apiKey === PLACEHOLDER_API_KEY;
-	const apiKeyWarning = isAoneAuth ? t("quickStart.apiKeyWarningAone") : t("quickStart.apiKeyWarningDefault");
+	useEffect(() => {
+		if (assignedApiKeys.length === 0 || userSelectedKeyId !== null) {
+			return;
+		}
+		setUserSelectedKeyId(assignedApiKeys[0].id);
+	}, [assignedApiKeys, userSelectedKeyId]);
+
+	useEffect(() => {
+		for (const key of assignedApiKeys) {
+			if (isFullGlobalApiKeyToken(key.token)) {
+				setStoredGlobalApiKey(key.token, key.id);
+			}
+		}
+	}, [assignedApiKeys]);
+
+	const selectedKey = useMemo(
+		() => pickQuickStartGlobalApiKey(assignedApiKeys, userSelectedKeyId),
+		[assignedApiKeys, userSelectedKeyId],
+	);
+	const selectedKeyId = selectedKey?.id ?? "";
+
+	const { data: fetchedTokenData, isFetching: isFetchingToken } = useGetGlobalApiKeyTokenQuery(selectedKeyId, {
+		skip: !selectedKeyId,
+		refetchOnMountOrArgChange: true,
+	});
+
+	const apiKey = useMemo(
+		() => resolveQuickStartApiKeyToken(selectedKey, fetchedTokenData?.token),
+		[fetchedTokenData?.token, selectedKey],
+	);
+
+	const isResolvingApiKey = !isFullGlobalApiKeyToken(apiKey) && isFetchingToken;
+	const usingPlaceholderKey = !isFullGlobalApiKeyToken(apiKey) && !isResolvingApiKey;
+
+	useEffect(() => {
+		if (!isFullGlobalApiKeyToken(apiKey) || !selectedKeyId) {
+			return;
+		}
+		setStoredGlobalApiKey(apiKey, selectedKeyId);
+	}, [apiKey, selectedKeyId]);
+
+	useEffect(() => {
+		if (!selectedKeyId) {
+			return;
+		}
+		setStoredGlobalApiKeySelectedId(selectedKeyId);
+	}, [selectedKeyId]);
+
+	const handleApiKeySelect = (keyId: string) => {
+		setUserSelectedKeyId(keyId);
+		setStoredGlobalApiKeySelectedId(keyId);
+	};
 
 	const anthropicGuide = useMemo(
 		() => resolveProviderGuide(configuredProviders, "anthropic", "anthropic", apiKey),
@@ -115,6 +163,27 @@ export default function QuickStartView() {
 	const geminiEnvScript = useMemo(() => buildGeminiCliEnvScript(baseUrl, apiKey), [apiKey, baseUrl]);
 	const codexConfigToml = useMemo(() => buildCodexConfigToml(baseUrl, apiKey, codexModel), [apiKey, baseUrl, codexModel]);
 
+	if (isLoadingAccess) {
+		return (
+			<div className="flex flex-col gap-6 p-6">
+				<GradientHeader title={t("quickStart.title")} />
+				<p className="text-muted-foreground text-sm">{t("quickStart.loadingAccess")}</p>
+			</div>
+		);
+	}
+
+	if (!hasAccess) {
+		return (
+			<div className="flex flex-col gap-6 p-6">
+				<GradientHeader title={t("quickStart.title")} />
+				<Alert data-testid="quick-start-no-access-alert">
+					<AlertCircle className="size-4" />
+					<AlertDescription>{t("quickStart.noGlobalApiKeyAccess")}</AlertDescription>
+				</Alert>
+			</div>
+		);
+	}
+
 	return (
 		<div className="flex flex-col gap-6 p-6">
 			<div>
@@ -122,78 +191,106 @@ export default function QuickStartView() {
 				<p className="text-muted-foreground mt-2 max-w-3xl text-sm">{t("quickStart.subtitle")}</p>
 			</div>
 
-			<div className="grid gap-4 xl:grid-cols-3">
-				<CcSwitchImportCard
-					title={t("quickStart.claudeCode.title")}
-					icon={Terminal}
-					description={t("quickStart.claudeCode.description")}
-					testId="quick-start-cc-switch-claude"
-					importUrl={claudeCcSwitchUrl}
-					manualConfigLabel={t("quickStart.claudeCode.manualLabel")}
-					manualConfig={claudeSettingsJson}
-					manualConfigLanguage="json"
-					showApiKeyWarning={usingPlaceholderKey}
-					apiKeyWarning={apiKeyWarning}
-				/>
-				<CcSwitchImportCard
-					title={t("quickStart.geminiCli.title")}
-					icon={Diamond}
-					description={t("quickStart.geminiCli.description")}
-					testId="quick-start-cc-switch-gemini"
-					importUrl={geminiCcSwitchUrl}
-					manualConfigLabel={t("quickStart.geminiCli.manualLabel")}
-					manualConfig={geminiEnvScript}
-					manualConfigLanguage="shell"
-					showApiKeyWarning={usingPlaceholderKey}
-					apiKeyWarning={apiKeyWarning}
-				/>
-				<CcSwitchImportCard
-					title={t("quickStart.codexCli.title")}
-					icon={SquareCode}
-					description={t("quickStart.codexCli.description")}
-					testId="quick-start-cc-switch-codex"
-					importUrl={codexCcSwitchUrl}
-					manualConfigLabel={t("quickStart.codexCli.manualLabel")}
-					manualConfig={codexConfigToml}
-					manualConfigLanguage="shell"
-					showApiKeyWarning={usingPlaceholderKey}
-					apiKeyWarning={apiKeyWarning}
-				/>
-			</div>
-
-			<Card data-testid="quick-start-providers-card">
+			<Card data-testid="quick-start-model-requests-card">
 				<CardHeader>
 					<CardTitle className="flex items-center gap-2">
 						<Rocket className="size-5" />
-						{t("quickStart.providerIntegration")}
+						{t("quickStart.modelRequests")}
 					</CardTitle>
-					<CardDescription>
-						{t("quickStart.providerIntegrationDesc")} <code>{baseUrl}</code>
-					</CardDescription>
+					<CardDescription>{t("quickStart.modelRequestsDesc")}</CardDescription>
 				</CardHeader>
-				<CardContent>
-					{isLoading ? (
-						<p className="text-muted-foreground text-sm">{t("quickStart.loadingProviders")}</p>
-					) : configuredProviders.length === 0 ? (
-						<Alert>
-							<AlertCircle className="size-4" />
-							<AlertDescription className="flex flex-wrap items-center gap-1">
-								{t("quickStart.noProviders")}{" "}
-								<Link to="/workspace/providers" className="text-primary underline-offset-4 hover:underline">
-									{t("quickStart.modelProviders")}
-								</Link>{" "}
-								{t("quickStart.toAddOne")}
-							</AlertDescription>
-						</Alert>
-					) : (
-						<div className="grid gap-4">
-							{configuredProviders.map((provider) => (
-								<ProviderIntegrationCard key={provider.name} provider={provider.name} baseUrl={baseUrl} apiKey={apiKey} />
-							))}
-						</div>
-					)}
+				<CardContent className="space-y-4">
+					<ApiKeySelect apiKeys={assignedApiKeys} selectedKeyId={selectedKeyId} onSelect={handleApiKeySelect} />
+					{isResolvingApiKey ? (
+						<p className="text-muted-foreground text-sm" data-testid="quick-start-api-key-loading">
+							{t("quickStart.loadingApiKey")}
+						</p>
+					) : null}
+					<ModelCurlExampleCard
+						baseUrl={baseUrl}
+						apiKey={apiKey}
+						selectedKeyId={selectedKeyId}
+						isApiKeyLoading={isResolvingApiKey}
+					/>
 				</CardContent>
 			</Card>
+
+			{isLocalAdmin ? (
+				<>
+					<div className="grid gap-4 xl:grid-cols-3">
+						<CcSwitchImportCard
+							title={t("quickStart.claudeCode.title")}
+							icon={Terminal}
+							description={t("quickStart.claudeCode.description")}
+							testId="quick-start-cc-switch-claude"
+							importUrl={claudeCcSwitchUrl}
+							manualConfigLabel={t("quickStart.claudeCode.manualLabel")}
+							manualConfig={claudeSettingsJson}
+							manualConfigLanguage="json"
+							showApiKeyWarning={usingPlaceholderKey}
+							apiKeyWarning={t("quickStart.apiKeyWarningDefault")}
+						/>
+						<CcSwitchImportCard
+							title={t("quickStart.geminiCli.title")}
+							icon={Diamond}
+							description={t("quickStart.geminiCli.description")}
+							testId="quick-start-cc-switch-gemini"
+							importUrl={geminiCcSwitchUrl}
+							manualConfigLabel={t("quickStart.geminiCli.manualLabel")}
+							manualConfig={geminiEnvScript}
+							manualConfigLanguage="shell"
+							showApiKeyWarning={usingPlaceholderKey}
+							apiKeyWarning={t("quickStart.apiKeyWarningDefault")}
+						/>
+						<CcSwitchImportCard
+							title={t("quickStart.codexCli.title")}
+							icon={SquareCode}
+							description={t("quickStart.codexCli.description")}
+							testId="quick-start-cc-switch-codex"
+							importUrl={codexCcSwitchUrl}
+							manualConfigLabel={t("quickStart.codexCli.manualLabel")}
+							manualConfig={codexConfigToml}
+							manualConfigLanguage="shell"
+							showApiKeyWarning={usingPlaceholderKey}
+							apiKeyWarning={t("quickStart.apiKeyWarningDefault")}
+						/>
+					</div>
+
+					<Card data-testid="quick-start-providers-card">
+						<CardHeader>
+							<CardTitle className="flex items-center gap-2">
+								<Rocket className="size-5" />
+								{t("quickStart.providerIntegration")}
+							</CardTitle>
+							<CardDescription>
+								{t("quickStart.providerIntegrationDesc")} <code>{baseUrl}</code>
+							</CardDescription>
+						</CardHeader>
+						<CardContent>
+							{isLoadingProviders ? (
+								<p className="text-muted-foreground text-sm">{t("quickStart.loadingProviders")}</p>
+							) : configuredProviders.length === 0 ? (
+								<Alert>
+									<AlertCircle className="size-4" />
+									<AlertDescription className="flex flex-wrap items-center gap-1">
+										{t("quickStart.noProviders")}{" "}
+										<Link to="/workspace/providers" className="text-primary underline-offset-4 hover:underline">
+											{t("quickStart.modelProviders")}
+										</Link>{" "}
+										{t("quickStart.toAddOne")}
+									</AlertDescription>
+								</Alert>
+							) : (
+								<div className="grid gap-4">
+									{configuredProviders.map((provider) => (
+										<ProviderIntegrationCard key={provider.name} provider={provider.name} baseUrl={baseUrl} apiKey={apiKey} />
+									))}
+								</div>
+							)}
+						</CardContent>
+					</Card>
+				</>
+			) : null}
 		</div>
 	);
 }

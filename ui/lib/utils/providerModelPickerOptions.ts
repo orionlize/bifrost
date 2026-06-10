@@ -59,3 +59,29 @@ export function resolveProviderModelPickerOptions(
 		baseProviderType: fetchBaseProviderCatalog ? baseProviderType : undefined,
 	};
 }
+
+export interface QuickStartModelPickerOptions {
+	keyIds?: string[];
+	extraModels?: string[];
+}
+
+/** Resolves model-picker props for quick start across all configured provider keys. */
+export function resolveQuickStartModelPickerOptions(allKeys: DBKey[]): QuickStartModelPickerOptions {
+	if (allKeys.length === 0) {
+		return {};
+	}
+
+	const configuredModels = new Set<string>();
+	for (const key of allKeys) {
+		for (const model of key.models ?? []) {
+			if (model && model !== "*") {
+				configuredModels.add(model);
+			}
+		}
+	}
+
+	return {
+		keyIds: allKeys.map((key) => key.key_id),
+		extraModels: configuredModels.size > 0 ? Array.from(configuredModels) : undefined,
+	};
+}

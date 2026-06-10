@@ -11,6 +11,7 @@ export const sidebar = {
 		documentation: "Full Documentation",
 	},
 	nav: {
+		quickStart: { title: "Quick Start", description: "Model cURL examples" },
 		observability: { title: "Observability", description: "Request logs & monitoring" },
 		dashboard: { title: "Dashboard", description: "Dashboard" },
 		llmLogs: { title: "LLM Logs", description: "LLM request logs & monitoring" },

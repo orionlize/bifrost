@@ -834,6 +834,9 @@ func triggerMigrations(ctx context.Context, db *gorm.DB) error {
 	if err := migrationAddGlobalAPIKeysAllowedUserIDsColumn(ctx, db); err != nil {
 		return err
 	}
+	if err := migrationAddGlobalAPIKeysTokenEncryptedColumn(ctx, db); err != nil {
+		return err
+	}
 	if err := migrationAddSessionLoginSourceColumn(ctx, db); err != nil {
 		return err
 	}
@@ -9245,6 +9248,38 @@ func migrationAddGlobalAPIKeysAllowedUserIDsColumn(ctx context.Context, db *gorm
 	}})
 	if err := m.Migrate(); err != nil {
 		return fmt.Errorf("error running add_global_api_keys_allowed_user_ids_column migration: %s", err.Error())
+	}
+	return nil
+}
+
+func migrationAddGlobalAPIKeysTokenEncryptedColumn(ctx context.Context, db *gorm.DB) error {
+	m := migrator.New(db, migrator.DefaultOptions, []*migrator.Migration{{
+		ID: "add_global_api_keys_token_encrypted_column",
+		Migrate: func(tx *gorm.DB) error {
+			tx = tx.WithContext(ctx)
+			if !tx.Migrator().HasTable(&tables.GlobalAPIKey{}) {
+				return nil
+			}
+			if !tx.Migrator().HasColumn(&tables.GlobalAPIKey{}, "token_encrypted") {
+				if err := tx.Migrator().AddColumn(&tables.GlobalAPIKey{}, "TokenEncrypted"); err != nil {
+					return fmt.Errorf("failed to add token_encrypted column to global_api_keys: %w", err)
+				}
+			}
+			return nil
+		},
+		Rollback: func(tx *gorm.DB) error {
+			tx = tx.WithContext(ctx)
+			if tx.Migrator().HasTable(&tables.GlobalAPIKey{}) &&
+				tx.Migrator().HasColumn(&tables.GlobalAPIKey{}, "token_encrypted") {
+				if err := tx.Migrator().DropColumn(&tables.GlobalAPIKey{}, "token_encrypted"); err != nil {
+					return fmt.Errorf("failed to drop token_encrypted column from global_api_keys: %w", err)
+				}
+			}
+			return nil
+		},
+	}})
+	if err := m.Migrate(); err != nil {
+		return fmt.Errorf("error running add_global_api_keys_token_encrypted_column migration: %s", err.Error())
 	}
 	return nil
 }

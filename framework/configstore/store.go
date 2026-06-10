@@ -268,7 +268,12 @@ type ConfigStore interface {
 
 	// Global dashboard API keys (admin-created bearer tokens)
 	ListGlobalAPIKeys(ctx context.Context) ([]tables.GlobalAPIKey, error)
-	CreateGlobalAPIKey(ctx context.Context, name string) (*tables.GlobalAPIKey, string, error)
+	ListActiveGlobalAPIKeys(ctx context.Context) ([]tables.GlobalAPIKey, error)
+	ListAssignedGlobalAPIKeysForUser(ctx context.Context, userID string) ([]tables.GlobalAPIKey, error)
+	GetAssignedGlobalAPIKeyToken(ctx context.Context, userID, id string) (string, error)
+	CreateGlobalAPIKey(ctx context.Context, name string, allowedUserIDs []string) (*tables.GlobalAPIKey, string, error)
+	UpdateGlobalAPIKey(ctx context.Context, id string, update GlobalAPIKeyUpdate) (*tables.GlobalAPIKey, error)
+	RotateGlobalAPIKeyToken(ctx context.Context, id string) (*tables.GlobalAPIKey, string, error)
 	SetGlobalAPIKeyActive(ctx context.Context, id string, isActive bool) (*tables.GlobalAPIKey, error)
 	DeleteGlobalAPIKey(ctx context.Context, id string) error
 	GetActiveGlobalAPIKeyByToken(ctx context.Context, token string) (*tables.GlobalAPIKey, error)

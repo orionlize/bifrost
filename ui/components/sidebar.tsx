@@ -24,6 +24,7 @@ import {
 	PanelLeftOpen,
 	Plug,
 	Puzzle,
+	Rocket,
 	Store,
 	ScrollText,
 	Search,
@@ -63,8 +64,9 @@ import {
 } from "@/components/ui/sidebar";
 import { useWebSocket } from "@/hooks/useWebSocket";
 import { IS_ENTERPRISE } from "@/lib/constants/config";
-import { AONE_USER_DEFAULT_WORKSPACE_PATH } from "@/lib/constants/aoneUserSession";
+import { AONE_USER_DEFAULT_WORKSPACE_PATH, AONE_USER_QUICK_START_WORKSPACE_PATH } from "@/lib/constants/aoneUserSession";
 import { useGetCoreConfigQuery, useGetLatestReleaseQuery, useGetVersionQuery, useIsAuthEnabledQuery, useLogoutMutation } from "@/lib/store";
+import { useGetGlobalApiKeyAccessQuery } from "@/lib/store/apis/globalApiKeysApi";
 import { RbacOperation, RbacResource, useRbac } from "@enterprise/lib";
 import type { UserInfo } from "@enterprise/lib/store/utils/tokenManager";
 import { getUserInfo } from "@enterprise/lib/store/utils/tokenManager";
@@ -539,6 +541,8 @@ export default function AppSidebar() {
 	const { data: coreConfig } = useGetCoreConfigQuery({});
 	const isDbConnected = coreConfig?.is_db_connected ?? false;
 	const showPromptRepository = hasPromptRepositoryAccess && isDbConnected && !isAoneUserSession;
+	const { data: globalApiKeyAccess } = useGetGlobalApiKeyAccessQuery();
+	const showQuickStart = globalApiKeyAccess?.has_access === true;
 
 	const nav = (key: string) => ({
 		navKey: key,
@@ -548,6 +552,12 @@ export default function AppSidebar() {
 
 	const items = useMemo(
 		(): SidebarItem[] => [
+			{
+				...nav("quickStart"),
+				url: "/workspace/quick-start",
+				icon: Rocket,
+				hasAccess: showQuickStart,
+			},
 			{
 				...nav("observability"),
 				url: "/workspace/logs",
@@ -733,6 +743,7 @@ export default function AppSidebar() {
 			showAdaptiveRouting,
 			showPromptRepository,
 			isDbConnected,
+			showQuickStart,
 		],
 	);
 
@@ -756,8 +767,11 @@ export default function AppSidebar() {
 			return accessibleItems;
 		}
 		const allowedUrls = new Set([AONE_USER_DEFAULT_WORKSPACE_PATH]);
+		if (showQuickStart) {
+			allowedUrls.add(AONE_USER_QUICK_START_WORKSPACE_PATH);
+		}
 		return accessibleItems.filter((item) => allowedUrls.has(item.url));
-	}, [accessibleItems, isAoneUserSession]);
+	}, [accessibleItems, isAoneUserSession, showQuickStart]);
 
 	const filteredItems: SidebarItem[] = useMemo(() => {
 		const query = searchQuery.trim().toLowerCase();

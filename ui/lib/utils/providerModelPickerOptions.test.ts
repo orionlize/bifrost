@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { resolveProviderModelPickerOptions } from "./providerModelPickerOptions";
+import { resolveProviderModelPickerOptions, resolveQuickStartModelPickerOptions } from "./providerModelPickerOptions";
 import { ModelProvider, ModelProviderName } from "@/lib/types/config";
 import { DBKey } from "@/lib/types/governance";
 
@@ -60,5 +60,29 @@ describe("resolveProviderModelPickerOptions", () => {
 
 		expect(result.extraModels).toEqual(["custom-model-a", "custom-model-b"]);
 		expect(result.keyIds).toEqual(["key-a"]);
+	});
+});
+
+describe("resolveQuickStartModelPickerOptions", () => {
+	it("aggregates key ids and configured models across providers", () => {
+		const allKeys: DBKey[] = [
+			keys[0],
+			{
+				key_id: "openai-key",
+				name: "OpenAI",
+				provider: "openai",
+				provider_id: "2",
+				models: ["gpt-4o-mini"],
+			},
+		];
+
+		const result = resolveQuickStartModelPickerOptions(allKeys);
+
+		expect(result.keyIds).toEqual(["key-a", "openai-key"]);
+		expect(result.extraModels).toEqual(["custom-model-a", "custom-model-b", "gpt-4o-mini"]);
+	});
+
+	it("returns empty options when no provider keys exist", () => {
+		expect(resolveQuickStartModelPickerOptions([])).toEqual({});
 	});
 });

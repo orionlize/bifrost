@@ -11,6 +11,7 @@ export const sidebar = {
 		documentation: "完整文档",
 	},
 	nav: {
+		quickStart: { title: "快速开始", description: "模型 cURL 示例" },
 		observability: { title: "可观测性", description: "请求日志与监控" },
 		dashboard: { title: "仪表盘", description: "仪表盘" },
 		llmLogs: { title: "LLM 日志", description: "LLM 请求日志与监控" },

@@ -1,15 +1,14 @@
 export const apiKeys = {
 	title: "API Keys",
 	description:
-		"Create global API keys for admin and dashboard API access. Use them as Authorization: Bearer <token>.",
+		"Create API keys for admin and dashboard API access. Use them as Authorization: Bearer <token>.",
 	infoAlert:
-		"Global API keys grant full admin access to dashboard and management APIs. Usage is always attributed to the admin user. Store them securely — the full token is only shown once at creation.",
-	authRequired:
-		"To create global API keys, enable dashboard authentication first.",
+		"API keys grant full admin access to dashboard and management APIs. Usage is always attributed to the admin user. Store them securely — the full token is only shown once at creation.",
+	authRequired: "To create API keys, enable dashboard authentication first.",
 	configureSecurity: "Configure Security Settings",
 	createApiKey: "Create API Key",
 	loading: "Loading API keys...",
-	empty: "No global API keys yet.",
+	empty: "No API keys yet.",
 	prefix: "Prefix",
 	created: "Created",
 	enableKey: "Enable API key",
@@ -20,7 +19,7 @@ export const apiKeys = {
 	keyName: "Key name",
 	keyNamePlaceholder: "e.g. CI automation",
 	nameRequired: "Please enter a name for the API key.",
-	createdSuccess: "Global API key created.",
+	createdSuccess: "API key created.",
 	enabled: "API key enabled.",
 	disabled: "API key disabled.",
 	deleted: "API key deleted.",
@@ -30,4 +29,13 @@ export const apiKeys = {
 	done: "Done",
 	deleteTitle: "Delete API Key",
 	deleteDesc: "This permanently removes the key. Applications using it will lose access immediately.",
+	allowedUsers: "Allowed users",
+	allowedUsersHint: "Select which users can use this API key. Only selected users will see it in Quick Start.",
+	allowedUsersPlaceholder: "Select users",
+	allUsers: "Unassigned",
+	editAllowedUsers: "Edit allowed users",
+	editAllowedUsersTitle: "Edit allowed users",
+	allowedUsersUpdated: "Allowed users updated.",
+	rotateKey: "Rotate API key token",
+	rotatedSuccess: "API key token rotated.",
 } as const;

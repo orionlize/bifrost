@@ -77,6 +77,18 @@ export function getProviderIntegrationGuide(provider: string, apiKey: string): P
 	};
 }
 
+export function getModelIntegrationGuide(model: string, provider: string, apiKey: string): ProviderIntegrationGuide {
+	const sdkKind = getSdkKind(provider);
+	const resolvedModel = getModelForProvider(provider, sdkKind, model);
+
+	return {
+		pathPrefix: getPathPrefix(sdkKind),
+		sdkKind,
+		exampleModel: resolvedModel,
+		authHeader: `Authorization: Bearer ${apiKey}`,
+	};
+}
+
 export function buildCurlExample(baseUrl: string, guide: ProviderIntegrationGuide): string {
 	const endpoint =
 		guide.sdkKind === "anthropic"
