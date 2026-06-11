@@ -1103,6 +1103,14 @@ func (m *AuthMiddleware) applyDeviceTemporaryCredential(ctx *fasthttp.RequestCtx
 	ctx.Request.Header.Set("Authorization", "Bearer "+vk.Value)
 	ctx.Request.Header.Del(string(schemas.BifrostContextKeyVirtualKey))
 
+	// Attach the credential's user identity so downstream grayscale/governance
+	// checks (key accessibility, user budgets, CEL rules) see the actual user.
+	// The HTTP transport pre-hook ran before this middleware and could not
+	// resolve the user from the bf-tmp- token.
+	if aoneUserID := strings.TrimSpace(cred.AoneUserID); aoneUserID != "" {
+		ctx.SetUserValue(schemas.BifrostContextKeyUserID, aoneUserID)
+	}
+
 	credID := cred.ID
 	deviceID := cred.DeviceAuthorizationID
 	go func() {
@@ -1549,22 +1557,22 @@ func (m *AuthMiddleware) middleware(shouldSkip func(*configstore.AuthConfig, str
 				return
 			}
 			// Checking bearer auth for dashboard calls
-		if scheme == "Bearer" {
-			// A device-issued temporary credential (bf-tmp-...) on a forwarding
-			// path is the device-bound AI credential: validate it, enforce the
-			// fingerprint, and rewrite Authorization to the user's virtual key.
-			if isDeviceForwardingAPIPath(url) && strings.HasPrefix(token, configstore.AoneDeviceCredentialPrefix) {
-				fingerprint := normalizeDeviceFingerprint(string(ctx.Request.Header.Peek(deviceFingerprintHeader)))
-				ctx.Request.Header.Del(deviceFingerprintHeader)
-				if matched, proceed := m.applyDeviceTemporaryCredential(ctx, token, fingerprint); matched {
-					if !proceed {
+			if scheme == "Bearer" {
+				// A device-issued temporary credential (bf-tmp-...) on a forwarding
+				// path is the device-bound AI credential: validate it, enforce the
+				// fingerprint, and rewrite Authorization to the user's virtual key.
+				if isDeviceForwardingAPIPath(url) && strings.HasPrefix(token, configstore.AoneDeviceCredentialPrefix) {
+					fingerprint := normalizeDeviceFingerprint(string(ctx.Request.Header.Peek(deviceFingerprintHeader)))
+					ctx.Request.Header.Del(deviceFingerprintHeader)
+					if matched, proceed := m.applyDeviceTemporaryCredential(ctx, token, fingerprint); matched {
+						if !proceed {
+							return
+						}
+						next(ctx)
 						return
 					}
-					next(ctx)
-					return
 				}
-			}
-			// We are checking for API keys first; it it seems like a valid Bifrost API key
+				// We are checking for API keys first; it it seems like a valid Bifrost API key
 
 				// Verify the session
 				if !m.validateDashboardSession(ctx, token) {

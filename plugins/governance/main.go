@@ -1778,8 +1778,21 @@ func (p *GovernancePlugin) PreLLMHook(ctx *schemas.BifrostContext, req *schemas.
 	}
 	// Extract governance headers and virtual key using utility functions
 	virtualKeyValue := bifrost.GetStringFromContext(ctx, schemas.BifrostContextKeyVirtualKey)
-	// Extract user ID for enterprise user-level governance
+	// Extract user ID for enterprise user-level governance. Some auth flows (e.g. device
+	// temporary credentials rewritten to a VK by the auth middleware) resolve the VK after
+	// the HTTP transport pre-hook ran, so the user identity may not be in context yet.
+	// Resolve it from the VK here — BEFORE degradation/reroute/key selection — so
+	// grayscale key accessibility checks see the actual user instead of an empty string.
 	userID := bifrost.GetStringFromContext(ctx, schemas.BifrostContextKeyUserID)
+	if userID == "" && virtualKeyValue != "" {
+		if resolvedID, resolvedName := p.resolveUserFromVirtualKeyValue(ctx, virtualKeyValue, nil); resolvedID != "" {
+			userID = resolvedID
+			ctx.SetValue(schemas.BifrostContextKeyUserID, resolvedID)
+			if resolvedName != "" {
+				ctx.SetValue(schemas.BifrostContextKeyUserName, resolvedName)
+			}
+		}
+	}
 
 	// Apply tiered group-based degradation here (not in the transport pre-hook):
 	// PreLLMHook runs AFTER auth has resolved the virtual key (including server-side
