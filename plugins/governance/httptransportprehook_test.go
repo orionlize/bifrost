@@ -371,31 +371,10 @@ func TestHTTPTransportPreHook_BedrockNoRoutingRuleStillLoadBalances(t *testing.T
 
 const testAdminAPIKeyToken = configstore.GlobalAPIKeyPrefix + "testtoken"
 
-type globalAPIKeyLookupConfigStore struct {
-	configstore.ConfigStore
-}
-
-func (s *globalAPIKeyLookupConfigStore) ListGlobalAPIKeys(_ context.Context) ([]configstoreTables.GlobalAPIKey, error) {
-	return []configstoreTables.GlobalAPIKey{{
-		ID:        "gak-test",
-		Name:      "ops-key",
-		TokenHash: encrypt.HashSHA256(testAdminAPIKeyToken),
-		IsActive:  true,
-	}}, nil
-}
-
-func (s *globalAPIKeyLookupConfigStore) GetActiveGlobalAPIKeyByToken(_ context.Context, token string) (*configstoreTables.GlobalAPIKey, error) {
-	if token == testAdminAPIKeyToken {
-		return &configstoreTables.GlobalAPIKey{ID: "gak-test", Name: "ops-key", IsActive: true}, nil
-	}
-	return nil, nil
-}
-
 // TestHTTPTransportPreHook_GlobalAPIKeyRoutingRuleMatchesBeforeAuth verifies admin API key
 // routing conditions work in the transport pre-hook, which runs before auth middleware.
 func TestHTTPTransportPreHook_GlobalAPIKeyRoutingRuleMatchesBeforeAuth(t *testing.T) {
 	logger := NewMockLogger()
-	mockCS := &globalAPIKeyLookupConfigStore{}
 
 	routingRule := configstoreTables.TableRoutingRule{
 		ID:            "rule-global-key",
@@ -414,12 +393,16 @@ func TestHTTPTransportPreHook_GlobalAPIKeyRoutingRuleMatchesBeforeAuth(t *testin
 		Priority: 0,
 	}
 
-	store, err := NewLocalGovernanceStore(context.Background(), logger, mockCS, &configstore.GovernanceConfig{
+	store, err := NewLocalGovernanceStore(context.Background(), logger, nil, &configstore.GovernanceConfig{
 		RoutingRules: []configstoreTables.TableRoutingRule{routingRule},
 	}, nil)
 	require.NoError(t, err)
+	store.globalAPIKeysByHash.Store(encrypt.HashSHA256(testAdminAPIKeyToken), globalAPIKeyRef{
+		ID:   "gak-test",
+		Name: "ops-key",
+	})
 
-	plugin, err := InitFromStore(context.Background(), &Config{IsVkMandatory: boolPtr(false)}, logger, store, mockCS, nil, nil, nil)
+	plugin, err := InitFromStore(context.Background(), &Config{IsVkMandatory: boolPtr(false)}, logger, store, nil, nil, nil, nil)
 	require.NoError(t, err)
 	defer func() {
 		require.NoError(t, plugin.Cleanup())
@@ -443,6 +426,133 @@ func TestHTTPTransportPreHook_GlobalAPIKeyRoutingRuleMatchesBeforeAuth(t *testin
 	}
 	require.NoError(t, json.Unmarshal(req.Body, &payload))
 	require.Equal(t, "openai/gpt-4o-mini", payload.Model)
+}
+
+const testUserRoutingVKValue = "sk-bf-user-routing-test"
+const testAssignedUserAoneID = "aone-user-42"
+
+// TestHTTPTransportPreHook_UserRoutingRuleMatchesBeforeAuth verifies user_id CEL
+// conditions work in the transport pre-hook before auth middleware sets context.
+func TestHTTPTransportPreHook_UserRoutingRuleMatchesBeforeAuth(t *testing.T) {
+	logger := NewMockLogger()
+	createdBy := testAssignedUserAoneID
+	virtualKey := configstoreTables.TableVirtualKey{
+		ID:              "vk-user-routing",
+		Name:            "Aone: Test User",
+		Value:           testUserRoutingVKValue,
+		IsActive:        bifrost.Ptr(true),
+		CreatedByUserID: &createdBy,
+	}
+
+	routingRule := configstoreTables.TableRoutingRule{
+		ID:            "rule-user",
+		Name:          "User Route",
+		Enabled:       bifrost.Ptr(true),
+		CelExpression: `user_id == "` + testAssignedUserAoneID + `"`,
+		Targets: []configstoreTables.TableRoutingTarget{
+			{
+				RuleID:   "rule-user",
+				Provider: bifrost.Ptr("openai"),
+				Model:    bifrost.Ptr("gpt-4o-mini"),
+				Weight:   1.0,
+			},
+		},
+		Scope:    "global",
+		Priority: 0,
+	}
+
+	store, err := NewLocalGovernanceStore(context.Background(), logger, nil, &configstore.GovernanceConfig{
+		VirtualKeys:  []configstoreTables.TableVirtualKey{virtualKey},
+		RoutingRules: []configstoreTables.TableRoutingRule{routingRule},
+	}, nil)
+	require.NoError(t, err)
+
+	plugin, err := InitFromStore(context.Background(), &Config{IsVkMandatory: boolPtr(false)}, logger, store, nil, nil, nil, nil)
+	require.NoError(t, err)
+	defer func() {
+		require.NoError(t, plugin.Cleanup())
+	}()
+
+	req := schemas.AcquireHTTPRequest()
+	defer schemas.ReleaseHTTPRequest(req)
+	req.Method = "POST"
+	req.Path = "/v1/chat/completions"
+	req.Headers["Authorization"] = "Bearer " + testUserRoutingVKValue
+	req.Headers["Content-Type"] = "application/json"
+	req.Body = []byte(`{"model":"openai/gpt-4o","messages":[{"role":"user","content":"hi"}]}`)
+
+	bfCtx := schemas.NewBifrostContext(context.Background(), schemas.NoDeadline)
+	resp, err := plugin.HTTPTransportPreHook(bfCtx, req)
+	require.NoError(t, err)
+	require.Nil(t, resp)
+
+	var payload struct {
+		Model string `json:"model"`
+	}
+	require.NoError(t, json.Unmarshal(req.Body, &payload))
+	require.Equal(t, "openai/gpt-4o-mini", payload.Model)
+	require.Equal(t, testAssignedUserAoneID, bifrost.GetStringFromContext(bfCtx, schemas.BifrostContextKeyUserID))
+}
+
+const testAssignedGlobalAPIKeyToken = configstore.GlobalAPIKeyPrefix + "assigned-user"
+
+// TestHTTPTransportPreHook_AssignedGlobalAPIKeyUserRoutingRuleMatchesBeforeAuth verifies
+// user_id routing for bf-ak- keys assigned to a single Aone user.
+func TestHTTPTransportPreHook_AssignedGlobalAPIKeyUserRoutingRuleMatchesBeforeAuth(t *testing.T) {
+	logger := NewMockLogger()
+
+	routingRule := configstoreTables.TableRoutingRule{
+		ID:            "rule-assigned-user",
+		Name:          "Assigned User Route",
+		Enabled:       bifrost.Ptr(true),
+		CelExpression: `user_id == "` + testAssignedUserAoneID + `"`,
+		Targets: []configstoreTables.TableRoutingTarget{
+			{
+				RuleID:   "rule-assigned-user",
+				Provider: bifrost.Ptr("openai"),
+				Model:    bifrost.Ptr("gpt-4o-mini"),
+				Weight:   1.0,
+			},
+		},
+		Scope:    "global",
+		Priority: 0,
+	}
+
+	store, err := NewLocalGovernanceStore(context.Background(), logger, nil, &configstore.GovernanceConfig{
+		RoutingRules: []configstoreTables.TableRoutingRule{routingRule},
+	}, nil)
+	require.NoError(t, err)
+	store.globalAPIKeysByHash.Store(encrypt.HashSHA256(testAssignedGlobalAPIKeyToken), globalAPIKeyRef{
+		ID:             "gak-assigned",
+		Name:           "assigned-key",
+		AssignedUserID: testAssignedUserAoneID,
+	})
+
+	plugin, err := InitFromStore(context.Background(), &Config{IsVkMandatory: boolPtr(false)}, logger, store, nil, nil, nil, nil)
+	require.NoError(t, err)
+	defer func() {
+		require.NoError(t, plugin.Cleanup())
+	}()
+
+	req := schemas.AcquireHTTPRequest()
+	defer schemas.ReleaseHTTPRequest(req)
+	req.Method = "POST"
+	req.Path = "/v1/chat/completions"
+	req.Headers["Authorization"] = "Bearer " + testAssignedGlobalAPIKeyToken
+	req.Headers["Content-Type"] = "application/json"
+	req.Body = []byte(`{"model":"openai/gpt-4o","messages":[{"role":"user","content":"hi"}]}`)
+
+	bfCtx := schemas.NewBifrostContext(context.Background(), schemas.NoDeadline)
+	resp, err := plugin.HTTPTransportPreHook(bfCtx, req)
+	require.NoError(t, err)
+	require.Nil(t, resp)
+
+	var payload struct {
+		Model string `json:"model"`
+	}
+	require.NoError(t, json.Unmarshal(req.Body, &payload))
+	require.Equal(t, "openai/gpt-4o-mini", payload.Model)
+	require.Equal(t, testAssignedUserAoneID, bifrost.GetStringFromContext(bfCtx, schemas.BifrostContextKeyUserID))
 }
 
 // TestHTTPTransportPreHook_RoutingRuleInfersProviderFromModel verifies routing rules

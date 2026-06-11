@@ -23,8 +23,9 @@ type EntityWiseBudgets map[string][]*configstoreTables.TableBudget
 type EntityWiseRateLimits map[string][]*configstoreTables.TableRateLimit
 
 type globalAPIKeyRef struct {
-	ID   string
-	Name string
+	ID             string
+	Name           string
+	AssignedUserID string // sole AllowedUserIDs entry when the key is assigned to an Aone user
 }
 
 // LocalGovernanceStore provides in-memory cache for governance data with fast, non-blocking access
@@ -187,7 +188,7 @@ type GovernanceStore interface {
 	UpdateRoutingRuleInMemory(ctx context.Context, rule *configstoreTables.TableRoutingRule) error
 	DeleteRoutingRuleInMemory(ctx context.Context, id string) error
 	// Global/admin API keys (bf-ak-) for routing CEL evaluation
-	LookupGlobalAPIKeyByToken(ctx context.Context, token string) (id string, name string, ok bool)
+	LookupGlobalAPIKeyByToken(ctx context.Context, token string) (id string, name string, assignedUserID string, ok bool)
 	ReloadGlobalAPIKeys(ctx context.Context) error
 	// CollectApplicableGovernanceIDs returns the budget and rate-limit IDs that
 	// govern a request for the given virtual key, provider, and model. The
@@ -3294,7 +3295,11 @@ func (gs *LocalGovernanceStore) reloadGlobalAPIKeysLocked(ctx context.Context) e
 		if !key.IsActive || key.TokenHash == "" {
 			continue
 		}
-		gs.globalAPIKeysByHash.Store(key.TokenHash, globalAPIKeyRef{ID: key.ID, Name: key.Name})
+		gs.globalAPIKeysByHash.Store(key.TokenHash, globalAPIKeyRef{
+			ID:             key.ID,
+			Name:           key.Name,
+			AssignedUserID: configstore.GlobalAPIKeyAssignedUserID(key),
+		})
 	}
 	return nil
 }
@@ -3304,27 +3309,33 @@ func (gs *LocalGovernanceStore) ReloadGlobalAPIKeys(ctx context.Context) error {
 	return gs.reloadGlobalAPIKeysLocked(ctx)
 }
 
-// LookupGlobalAPIKeyByToken resolves an active bf-ak- token to its persisted id and name.
-func (gs *LocalGovernanceStore) LookupGlobalAPIKeyByToken(ctx context.Context, token string) (string, string, bool) {
+// LookupGlobalAPIKeyByToken resolves an active bf-ak- token to its persisted id, name,
+// and optional assigned Aone user id (empty when the key is unassigned / admin).
+func (gs *LocalGovernanceStore) LookupGlobalAPIKeyByToken(ctx context.Context, token string) (string, string, string, bool) {
 	token = strings.TrimSpace(token)
 	if token == "" {
-		return "", "", false
+		return "", "", "", false
 	}
 	hash := encrypt.HashSHA256(token)
 	if raw, ok := gs.globalAPIKeysByHash.Load(hash); ok {
 		if ref, ok := raw.(globalAPIKeyRef); ok {
-			return ref.ID, ref.Name, true
+			return ref.ID, ref.Name, ref.AssignedUserID, true
 		}
 	}
 	if gs.configStore == nil {
-		return "", "", false
+		return "", "", "", false
 	}
 	key, err := gs.configStore.GetActiveGlobalAPIKeyByToken(ctx, token)
 	if err != nil || key == nil {
-		return "", "", false
+		return "", "", "", false
 	}
-	gs.globalAPIKeysByHash.Store(key.TokenHash, globalAPIKeyRef{ID: key.ID, Name: key.Name})
-	return key.ID, key.Name, true
+	assignedUserID := configstore.GlobalAPIKeyAssignedUserID(*key)
+	gs.globalAPIKeysByHash.Store(key.TokenHash, globalAPIKeyRef{
+		ID:             key.ID,
+		Name:           key.Name,
+		AssignedUserID: assignedUserID,
+	})
+	return key.ID, key.Name, assignedUserID, true
 }
 
 // GetBudgetAndRateLimitStatus returns the current budget and rate limit status for provider and model combination

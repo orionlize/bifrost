@@ -436,7 +436,7 @@ func (p *GovernancePlugin) HTTPTransportPreHook(ctx *schemas.BifrostContext, req
 		}
 	}
 
-	// Attaching team and customer based on the virtual key
+	// Attaching team, customer, and user based on the virtual key or global API key
 	if virtualKey != nil {
 		if virtualKey.TeamID != nil {
 			ctx.SetValue(schemas.BifrostContextKeyGovernanceTeamID, *virtualKey.TeamID)
@@ -451,6 +451,7 @@ func (p *GovernancePlugin) HTTPTransportPreHook(ctx *schemas.BifrostContext, req
 			ctx.SetValue(schemas.BifrostContextKeyGovernanceCustomerName, virtualKey.Customer.Name)
 		}
 	}
+	p.attachRoutingUserIdentity(ctx, req, virtualKey)
 
 	//1. Apply routing rules only if we have rules or matched decision
 	var routingDecision *RoutingDecision
@@ -535,7 +536,7 @@ func (p *GovernancePlugin) governLargePayload(ctx *schemas.BifrostContext, req *
 		virtualKey = vk
 	}
 
-	// Attaching team and customer based on the virtual key
+	// Attaching team, customer, and user based on the virtual key or global API key
 	if virtualKey != nil {
 		if virtualKey.TeamID != nil {
 			ctx.SetValue(schemas.BifrostContextKeyGovernanceTeamID, *virtualKey.TeamID)
@@ -550,6 +551,7 @@ func (p *GovernancePlugin) governLargePayload(ctx *schemas.BifrostContext, req *
 			ctx.SetValue(schemas.BifrostContextKeyGovernanceCustomerName, virtualKey.Customer.Name)
 		}
 	}
+	p.attachRoutingUserIdentity(ctx, req, virtualKey)
 
 	// Apply routing rules (read-only: decisions still affect downstream evaluation)
 	if hasRoutingRules {
@@ -644,7 +646,7 @@ func (p *GovernancePlugin) governRealtimeQueryParam(ctx *schemas.BifrostContext,
 		virtualKey = vk
 	}
 
-	// Attaching team and customer based on the virtual key
+	// Attaching team, customer, and user based on the virtual key or global API key
 	if virtualKey != nil {
 		if virtualKey.TeamID != nil {
 			ctx.SetValue(schemas.BifrostContextKeyGovernanceTeamID, *virtualKey.TeamID)
@@ -659,6 +661,7 @@ func (p *GovernancePlugin) governRealtimeQueryParam(ctx *schemas.BifrostContext,
 			ctx.SetValue(schemas.BifrostContextKeyGovernanceCustomerName, virtualKey.Customer.Name)
 		}
 	}
+	p.attachRoutingUserIdentity(ctx, req, virtualKey)
 
 	// Apply routing rules
 	if hasRoutingRules {
@@ -964,15 +967,112 @@ func (p *GovernancePlugin) resolveGlobalAPIKeyForRouting(ctx *schemas.BifrostCon
 			return id, name
 		}
 	}
-	if p.configStore == nil {
-		return "", ""
-	}
 	token := parseGlobalAPIKeyBearerToken(req)
 	if token == "" {
 		return "", ""
 	}
-	if id, name, ok := p.store.LookupGlobalAPIKeyByToken(ctx, token); ok {
+	if id, name, _, ok := p.store.LookupGlobalAPIKeyByToken(ctx, token); ok {
 		return id, name
+	}
+	if p.configStore != nil {
+		key, err := p.configStore.GetActiveGlobalAPIKeyByToken(ctx, token)
+		if err == nil && key != nil {
+			return key.ID, key.Name
+		}
+	}
+	return "", ""
+}
+
+func (p *GovernancePlugin) attachRoutingUserIdentity(ctx *schemas.BifrostContext, req *schemas.HTTPRequest, virtualKey *configstoreTables.TableVirtualKey) {
+	if userID := strings.TrimSpace(bifrost.GetStringFromContext(ctx, schemas.BifrostContextKeyUserID)); userID != "" {
+		return
+	}
+	if userID, userName := userIdentityFromVirtualKey(virtualKey); userID != "" {
+		ctx.SetValue(schemas.BifrostContextKeyUserID, userID)
+		if userName != "" {
+			ctx.SetValue(schemas.BifrostContextKeyUserName, userName)
+		}
+		return
+	}
+	if token := parseGlobalAPIKeyBearerToken(req); token != "" {
+		if userID, userName := p.resolveUserFromGlobalAPIKeyToken(ctx, token); userID != "" {
+			ctx.SetValue(schemas.BifrostContextKeyUserID, userID)
+			if userName != "" {
+				ctx.SetValue(schemas.BifrostContextKeyUserName, userName)
+			}
+		}
+	}
+}
+
+func userIdentityFromVirtualKey(vk *configstoreTables.TableVirtualKey) (string, string) {
+	if vk == nil || vk.CreatedByUserID == nil {
+		return "", ""
+	}
+	userID := strings.TrimSpace(*vk.CreatedByUserID)
+	if userID == "" {
+		return "", ""
+	}
+	return userID, personalAoneVirtualKeyDisplayName(vk.Name)
+}
+
+func (p *GovernancePlugin) aoneUserDisplayName(ctx context.Context, userID string) string {
+	userID = strings.TrimSpace(userID)
+	if userID == "" || p.configStore == nil {
+		return userID
+	}
+	user, err := p.configStore.GetAoneUserByAoneID(ctx, userID)
+	if err != nil || user == nil {
+		return userID
+	}
+	if display := configstore.AoneUserDisplayName(user); display != "" {
+		return display
+	}
+	return userID
+}
+
+func (p *GovernancePlugin) resolveUserFromGlobalAPIKeyToken(ctx context.Context, token string) (string, string) {
+	token = strings.TrimSpace(token)
+	if token == "" {
+		return "", ""
+	}
+
+	if _, _, assignedUserID, ok := p.store.LookupGlobalAPIKeyByToken(ctx, token); ok {
+		if assignedUserID != "" {
+			return assignedUserID, p.aoneUserDisplayName(ctx, assignedUserID)
+		}
+		return schemas.LocalAdminUserID, schemas.LocalAdminUserName
+	}
+
+	if p.configStore != nil {
+		key, err := p.configStore.GetActiveGlobalAPIKeyByToken(ctx, token)
+		if err == nil && key != nil {
+			if assigned := configstore.GlobalAPIKeyAssignedUserID(*key); assigned != "" {
+				return assigned, p.aoneUserDisplayName(ctx, assigned)
+			}
+			return schemas.LocalAdminUserID, schemas.LocalAdminUserName
+		}
+	}
+	return "", ""
+}
+
+func (p *GovernancePlugin) resolveUserFromVirtualKeyValue(ctx context.Context, vkValue string, vk *configstoreTables.TableVirtualKey) (string, string) {
+	if userID, userName := userIdentityFromVirtualKey(vk); userID != "" {
+		return userID, userName
+	}
+
+	vkValue = strings.TrimSpace(vkValue)
+	if vkValue == "" {
+		return "", ""
+	}
+
+	if p.configStore != nil {
+		if userID, err := p.configStore.GetAoneUserIDByVirtualKeyValue(ctx, vkValue); err == nil && userID != "" {
+			return userID, p.aoneUserDisplayName(ctx, userID)
+		}
+	}
+
+	if resolved, ok := p.store.GetVirtualKey(ctx, vkValue); ok && resolved != nil {
+		return userIdentityFromVirtualKey(resolved)
 	}
 	return "", ""
 }
@@ -980,34 +1080,36 @@ func (p *GovernancePlugin) resolveGlobalAPIKeyForRouting(ctx *schemas.BifrostCon
 // resolveUserForRouting returns the Aone user ID and display name for routing CEL.
 // Auth middleware runs after HTTP transport pre-hooks, so user identity is resolved
 // from context when present, otherwise from bearer global API key or virtual key.
-func (p *GovernancePlugin) resolveUserForRouting(ctx *schemas.BifrostContext, req *schemas.HTTPRequest) (string, string) {
+func (p *GovernancePlugin) resolveUserForRouting(ctx *schemas.BifrostContext, req *schemas.HTTPRequest, virtualKey *configstoreTables.TableVirtualKey) (string, string) {
 	if userID := strings.TrimSpace(bifrost.GetStringFromContext(ctx, schemas.BifrostContextKeyUserID)); userID != "" {
-		return userID, strings.TrimSpace(bifrost.GetStringFromContext(ctx, schemas.BifrostContextKeyUserName))
+		userName := strings.TrimSpace(bifrost.GetStringFromContext(ctx, schemas.BifrostContextKeyUserName))
+		if userName == "" {
+			userName = p.aoneUserDisplayName(ctx, userID)
+		}
+		return userID, userName
 	}
 
-	token := parseGlobalAPIKeyBearerToken(req)
-	if token != "" && p.configStore != nil {
-		key, err := p.configStore.GetActiveGlobalAPIKeyByToken(ctx, token)
-		if err == nil && key != nil {
-			if assigned := configstore.GlobalAPIKeyAssignedUserID(*key); assigned != "" {
-				userName := assigned
-				if user, lookupErr := p.configStore.GetAoneUserByAoneID(ctx, assigned); lookupErr == nil && user != nil {
-					if display := configstore.AoneUserDisplayName(user); display != "" {
-						userName = display
-					}
-				}
-				return assigned, userName
-			}
-			return schemas.LocalAdminUserID, schemas.LocalAdminUserName
+	if userID, userName := userIdentityFromVirtualKey(virtualKey); userID != "" {
+		return userID, userName
+	}
+
+	if token := parseGlobalAPIKeyBearerToken(req); token != "" {
+		if userID, userName := p.resolveUserFromGlobalAPIKeyToken(ctx, token); userID != "" {
+			return userID, userName
 		}
 	}
 
-	if vkValue := parseVirtualKeyFromHTTPRequest(req); vkValue != nil {
-		if vk, ok := p.store.GetVirtualKey(ctx, *vkValue); ok && vk != nil && vk.CreatedByUserID != nil {
-			if userID := strings.TrimSpace(*vk.CreatedByUserID); userID != "" {
-				return userID, personalAoneVirtualKeyDisplayName(vk.Name)
-			}
+	var vkValue string
+	if virtualKey != nil {
+		vkValue = strings.TrimSpace(virtualKey.Value)
+	}
+	if vkValue == "" {
+		if parsed := parseVirtualKeyFromHTTPRequest(req); parsed != nil {
+			vkValue = strings.TrimSpace(*parsed)
 		}
+	}
+	if vkValue != "" {
+		return p.resolveUserFromVirtualKeyValue(ctx, vkValue, virtualKey)
 	}
 	return "", ""
 }
@@ -1073,7 +1175,7 @@ func (p *GovernancePlugin) applyRoutingRules(ctx *schemas.BifrostContext, req *s
 	}
 
 	globalAPIKeyID, globalAPIKeyName := p.resolveGlobalAPIKeyForRouting(ctx, req)
-	userID, userName := p.resolveUserForRouting(ctx, req)
+	userID, userName := p.resolveUserForRouting(ctx, req, virtualKey)
 	p.logger.Debug("[Governance] routing global api key context: id=%q name=%q user_id=%q", globalAPIKeyID, globalAPIKeyName, userID)
 
 	// Build routing context
