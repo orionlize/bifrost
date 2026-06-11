@@ -224,6 +224,7 @@ export function ValueEditor({
 		const isProviderField = fieldData?.name === "provider";
 		const isGlobalApiKeyIdField = fieldData?.name === "global_api_key_id";
 		const isGlobalApiKeyNameField = fieldData?.name === "global_api_key_name";
+		const isUserIdField = fieldData?.name === "user_id";
 
 		return (
 			<Select value={value || ""} onValueChange={handleOnChange}>
@@ -233,7 +234,7 @@ export function ValueEditor({
 							<RenderProviderIcon provider={value as ProviderIconType} size="sm" className="h-4 w-4" />
 							<span>{getProviderLabel(value)}</span>
 						</div>
-					) : (isGlobalApiKeyIdField || isGlobalApiKeyNameField) && value ? (
+					) : (isGlobalApiKeyIdField || isGlobalApiKeyNameField || isUserIdField) && value ? (
 						<span>
 							{(fieldData.values as any[]).find((opt) => (opt as any).name === value)?.label || value}
 						</span>

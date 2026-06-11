@@ -4,12 +4,14 @@
  */
 
 import { CELRuleBuilder as BaseCELRuleBuilder } from "@/components/ui/custom/celBuilder";
-import { getRoutingFields } from "@/lib/config/celFieldsRouting";
+import { getRoutingFields, ROUTING_ADMIN_USER_ID } from "@/lib/config/celFieldsRouting";
 import { celOperatorsRouting } from "@/lib/config/celOperatorsRouting";
 import type { TranslateFn } from "@/lib/i18n";
+import { useListAoneUsersQuery } from "@/lib/store/apis/aoneUsersApi";
 import { useListGlobalApiKeysQuery } from "@/lib/store/apis/globalApiKeysApi";
 import { convertRuleGroupToCEL, validateRegexPattern } from "@/lib/utils/celConverterRouting";
 import { mergeGlobalApiKeyOptions, normalizeGlobalApiKeyFieldsInQuery } from "@/lib/utils/globalApiKeyRoutingOptions";
+import { mergeRoutingUserOptions, normalizeUserFieldsInQuery } from "@/lib/utils/userRoutingOptions";
 import { useMemo } from "react";
 import { RuleGroupType, RuleType } from "react-querybuilder";
 
@@ -90,6 +92,7 @@ export function CELRuleBuilder({
 	translate,
 }: CELRuleBuilderProps) {
 	const { data: globalApiKeysData, isLoading: isLoadingGlobalApiKeys } = useListGlobalApiKeysQuery();
+	const { data: usersData, isLoading: isLoadingUsers } = useListAoneUsersQuery({ limit: 500 });
 
 	const globalApiKeyOptions = useMemo(() => {
 		const fromApi = (globalApiKeysData?.api_keys ?? []).map((key) => ({
@@ -103,13 +106,25 @@ export function CELRuleBuilder({
 		return mergeGlobalApiKeyOptions(fromApi, referencedValues);
 	}, [globalApiKeysData, initialQuery]);
 
-	const normalizedInitialQuery = useMemo(
-		() => normalizeGlobalApiKeyFieldsInQuery(initialQuery, globalApiKeyOptions) ?? initialQuery,
-		[initialQuery, globalApiKeyOptions],
-	);
+	const userOptions = useMemo(() => {
+		const fromApi = (usersData?.users ?? []).map((user) => ({
+			id: user.id,
+			label: user.display_name || user.name || user.email || user.id,
+		}));
+		const referencedValues = collectRuleFieldValues(initialQuery, "user_id");
+		return mergeRoutingUserOptions(
+			[{ id: ROUTING_ADMIN_USER_ID, label: translate("routing.celBuilder.adminUser") }, ...fromApi],
+			referencedValues,
+		);
+	}, [initialQuery, translate, usersData?.users]);
+
+	const normalizedInitialQuery = useMemo(() => {
+		const withUsers = normalizeUserFieldsInQuery(initialQuery, userOptions) ?? initialQuery;
+		return normalizeGlobalApiKeyFieldsInQuery(withUsers, globalApiKeyOptions) ?? withUsers;
+	}, [initialQuery, globalApiKeyOptions, userOptions]);
 
 	const fields = useMemo(() => {
-		const baseFields = getRoutingFields(providers, models, globalApiKeyOptions);
+		const baseFields = getRoutingFields(providers, models, globalApiKeyOptions, userOptions);
 		return baseFields.map((field) => {
 			if (field.name === "global_api_key_id") {
 				return {
@@ -127,15 +142,23 @@ export function CELRuleBuilder({
 					placeholder: translate("routing.celBuilder.selectAdminApiKey"),
 				};
 			}
+			if (field.name === "user_id") {
+				return {
+					...field,
+					label: translate("routing.celBuilder.user"),
+					description: translate("routing.celBuilder.userHint"),
+					placeholder: translate("routing.celBuilder.selectUser"),
+				};
+			}
 			return field;
 		});
-	}, [providers, models, globalApiKeyOptions, translate]);
+	}, [providers, models, globalApiKeyOptions, userOptions, translate]);
 
 	return (
 		<BaseCELRuleBuilder
 			onChange={onChange}
 			initialQuery={normalizedInitialQuery}
-			isLoading={isLoadingGlobalApiKeys}
+			isLoading={isLoadingGlobalApiKeys || isLoadingUsers}
 			fields={fields}
 			operators={celOperatorsRouting}
 			convertToCEL={convertRuleGroupToCEL}

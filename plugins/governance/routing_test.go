@@ -1452,6 +1452,62 @@ func TestExtractRoutingVariables_WithGlobalAPIKey(t *testing.T) {
 	assert.Equal(t, "ops-key", variables["global_api_key_name"])
 }
 
+// TestExtractRoutingVariables_WithUser tests extracting Aone user context
+func TestExtractRoutingVariables_WithUser(t *testing.T) {
+	ctx := &RoutingContext{
+		Provider: schemas.OpenAI,
+		Model:    "gpt-4o",
+		UserID:   "user-42",
+		UserName: "Alice",
+	}
+
+	variables, err := extractRoutingVariables(ctx)
+	require.NoError(t, err)
+
+	assert.Equal(t, "user-42", variables["user_id"])
+	assert.Equal(t, "Alice", variables["user_name"])
+}
+
+// TestEvaluateRoutingRules_UserCondition tests routing rule matching on user_id
+func TestEvaluateRoutingRules_UserCondition(t *testing.T) {
+	store, err := NewLocalGovernanceStore(context.Background(), NewMockLogger(), nil, &configstore.GovernanceConfig{}, nil)
+	require.NoError(t, err)
+
+	engine, err := NewRoutingEngine(store, NewMockLogger(), schemas.Ptr(10))
+	require.NoError(t, err)
+
+	rule := &configstoreTables.TableRoutingRule{
+		ID:            "rule-user",
+		Name:          "User Route",
+		CelExpression: `user_id == "user-42"`,
+		Enabled:       bifrost.Ptr(true),
+		Scope:         "global",
+		Priority:      0,
+		Targets: []configstoreTables.TableRoutingTarget{
+			{Provider: bifrost.Ptr("openai"), Model: bifrost.Ptr("gpt-4o-mini"), Weight: 1.0},
+		},
+	}
+	require.NoError(t, store.UpdateRoutingRuleInMemory(context.Background(), rule))
+
+	bgCtx := schemas.NewBifrostContext(context.Background(), time.Now().Add(time.Minute))
+	routingCtx := &RoutingContext{
+		Provider: schemas.OpenAI,
+		Model:    "gpt-4o",
+		UserID:   "user-42",
+	}
+
+	decision, err := engine.EvaluateRoutingRules(bgCtx, routingCtx)
+	require.NoError(t, err)
+	require.NotNil(t, decision)
+	assert.Equal(t, "rule-user", decision.MatchedRuleID)
+	assert.Equal(t, "gpt-4o-mini", decision.Model)
+
+	routingCtx.UserID = "other-user"
+	decision, err = engine.EvaluateRoutingRules(bgCtx, routingCtx)
+	require.NoError(t, err)
+	assert.Nil(t, decision)
+}
+
 // TestEvaluateRoutingRules_GlobalAPIKeyCondition tests routing rule matching on global API key ID
 func TestEvaluateRoutingRules_GlobalAPIKeyCondition(t *testing.T) {
 	store, err := NewLocalGovernanceStore(context.Background(), NewMockLogger(), nil, &configstore.GovernanceConfig{}, nil)

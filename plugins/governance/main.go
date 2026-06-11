@@ -977,6 +977,41 @@ func (p *GovernancePlugin) resolveGlobalAPIKeyForRouting(ctx *schemas.BifrostCon
 	return "", ""
 }
 
+// resolveUserForRouting returns the Aone user ID and display name for routing CEL.
+// Auth middleware runs after HTTP transport pre-hooks, so user identity is resolved
+// from context when present, otherwise from bearer global API key or virtual key.
+func (p *GovernancePlugin) resolveUserForRouting(ctx *schemas.BifrostContext, req *schemas.HTTPRequest) (string, string) {
+	if userID := strings.TrimSpace(bifrost.GetStringFromContext(ctx, schemas.BifrostContextKeyUserID)); userID != "" {
+		return userID, strings.TrimSpace(bifrost.GetStringFromContext(ctx, schemas.BifrostContextKeyUserName))
+	}
+
+	token := parseGlobalAPIKeyBearerToken(req)
+	if token != "" && p.configStore != nil {
+		key, err := p.configStore.GetActiveGlobalAPIKeyByToken(ctx, token)
+		if err == nil && key != nil {
+			if assigned := configstore.GlobalAPIKeyAssignedUserID(*key); assigned != "" {
+				userName := assigned
+				if user, lookupErr := p.configStore.GetAoneUserByAoneID(ctx, assigned); lookupErr == nil && user != nil {
+					if display := configstore.AoneUserDisplayName(user); display != "" {
+						userName = display
+					}
+				}
+				return assigned, userName
+			}
+			return schemas.LocalAdminUserID, schemas.LocalAdminUserName
+		}
+	}
+
+	if vkValue := parseVirtualKeyFromHTTPRequest(req); vkValue != nil {
+		if vk, ok := p.store.GetVirtualKey(ctx, *vkValue); ok && vk != nil && vk.CreatedByUserID != nil {
+			if userID := strings.TrimSpace(*vk.CreatedByUserID); userID != "" {
+				return userID, personalAoneVirtualKeyDisplayName(vk.Name)
+			}
+		}
+	}
+	return "", ""
+}
+
 // applyRoutingRules evaluates routing rules and returns both the modified payload AND the routing decision.
 // This allows the caller to determine if marshaling is necessary (only if decision != nil or payload changed).
 func (p *GovernancePlugin) applyRoutingRules(ctx *schemas.BifrostContext, req *schemas.HTTPRequest, body map[string]any, virtualKey *configstoreTables.TableVirtualKey) (map[string]any, *RoutingDecision, error) {
@@ -1038,7 +1073,8 @@ func (p *GovernancePlugin) applyRoutingRules(ctx *schemas.BifrostContext, req *s
 	}
 
 	globalAPIKeyID, globalAPIKeyName := p.resolveGlobalAPIKeyForRouting(ctx, req)
-	p.logger.Debug("[Governance] routing global api key context: id=%q name=%q", globalAPIKeyID, globalAPIKeyName)
+	userID, userName := p.resolveUserForRouting(ctx, req)
+	p.logger.Debug("[Governance] routing global api key context: id=%q name=%q user_id=%q", globalAPIKeyID, globalAPIKeyName, userID)
 
 	// Build routing context
 	routingCtx := &RoutingContext{
@@ -1048,6 +1084,8 @@ func (p *GovernancePlugin) applyRoutingRules(ctx *schemas.BifrostContext, req *s
 		RequestType:              requestType,
 		GlobalAPIKeyID:           globalAPIKeyID,
 		GlobalAPIKeyName:         globalAPIKeyName,
+		UserID:                   userID,
+		UserName:                 userName,
 		Headers:                  req.Headers,
 		QueryParams:              req.Query,
 		BudgetAndRateLimitStatus: p.store.GetBudgetAndRateLimitStatus(ctx, model, provider, virtualKey, nil, nil, nil),

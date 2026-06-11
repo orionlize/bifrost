@@ -134,6 +134,17 @@ export const baseRoutingFields: CELFieldDefinition[] = [
 		description: "Match requests authenticated with a global admin API key (bf-ak-) by key name.",
 	},
 	{
+		name: "user_id",
+		label: "User",
+		placeholder: "Select user",
+		inputType: "select",
+		valueEditorType: (operator: string) =>
+			operator === "matches" ? "text" : operator === "in" || operator === "notIn" ? "select" : "select",
+		operators: ["=", "!=", "in", "notIn", "matches", "null", "notNull"],
+		defaultOperator: "=",
+		description: "Match requests by the resolved Aone user ID (personal virtual key, assigned global API key, or admin).",
+	},
+	{
 		name: "params",
 		label: "Query Parameter",
 		placeholder: "e.g., api_key, user_id",
@@ -150,11 +161,15 @@ export const baseRoutingFields: CELFieldDefinition[] = [
  * Metric options for rate limits and budget are populated from available providers and models
  */
 export type GlobalApiKeyOption = { id: string; name: string };
+export type RoutingUserOption = { id: string; label: string };
+
+export const ROUTING_ADMIN_USER_ID = "admin";
 
 export function getRoutingFields(
 	providers: string[] = [],
 	models: string[] = [],
 	globalApiKeys: GlobalApiKeyOption[] = [],
+	users: RoutingUserOption[] = [],
 ): CELFieldDefinition[] {
 	// Create provider field values
 	const providerValues =
@@ -189,6 +204,14 @@ export function getRoutingFields(
 					label: key.name,
 				}))
 			: [{ name: "_no_global_api_keys", label: "No admin API keys configured", disabled: true }];
+
+	const userValues =
+		users.length > 0
+			? users.map((user) => ({
+					name: user.id,
+					label: user.label,
+				}))
+			: [{ name: "_no_users", label: "No users available", disabled: true }];
 
 	// Create metric options for scope input: providers + models
 	const scopeOptions = [
@@ -227,6 +250,12 @@ export function getRoutingFields(
 			return {
 				...field,
 				values: globalApiKeyNameValues,
+			};
+		}
+		if (field.name === "user_id") {
+			return {
+				...field,
+				values: userValues,
 			};
 		}
 		if (field.name === "tokens_used" || field.name === "request" || field.name === "budget_used") {
