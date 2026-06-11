@@ -3,6 +3,7 @@ package governance
 
 import (
 	"context"
+	"fmt"
 	"slices"
 	"strings"
 
@@ -309,4 +310,128 @@ func providerHasKeysSupportingModel(
 		}
 	}
 	return false
+}
+
+func (p *GovernancePlugin) isVKProviderCandidate(pc configstoreTables.TableVirtualKeyProviderConfig, model string) bool {
+	if isModelBlockedByList(pc.BlacklistedModels, model) {
+		return false
+	}
+	provider := schemas.ModelProvider(pc.Provider)
+	if p.modelCatalog != nil && p.inMemoryStore != nil {
+		providerConfig, ok := p.inMemoryStore.GetConfiguredProviders()[provider]
+		var providerConfigPtr *configstore.ProviderConfig
+		if ok {
+			providerConfigPtr = &providerConfig
+		}
+		return p.modelCatalog.IsModelAllowedForProvider(provider, model, providerConfigPtr, pc.AllowedModels)
+	}
+	return pc.AllowedModels.IsUnrestricted() || pc.AllowedModels.IsAllowed(model)
+}
+
+type providerKeyCandidate struct {
+	provider schemas.ModelProvider
+	vkPC     configstoreTables.TableVirtualKeyProviderConfig
+}
+
+func unrestrictedVKProviderConfig() configstoreTables.TableVirtualKeyProviderConfig {
+	return configstoreTables.TableVirtualKeyProviderConfig{AllowAllKeys: true}
+}
+
+func (p *GovernancePlugin) providerKeyCandidates(model string, vk *configstoreTables.TableVirtualKey) []providerKeyCandidate {
+	if p.inMemoryStore == nil {
+		return nil
+	}
+
+	if vk != nil && len(vk.ProviderConfigs) > 0 {
+		out := make([]providerKeyCandidate, 0, len(vk.ProviderConfigs))
+		for _, pc := range vk.ProviderConfigs {
+			if !p.isVKProviderCandidate(pc, model) {
+				continue
+			}
+			if _, ok := p.inMemoryStore.GetConfiguredProviders()[schemas.ModelProvider(pc.Provider)]; !ok {
+				continue
+			}
+			out = append(out, providerKeyCandidate{
+				provider: schemas.ModelProvider(pc.Provider),
+				vkPC:     pc,
+			})
+		}
+		return out
+	}
+
+	if p.modelCatalog == nil {
+		return nil
+	}
+	providers := p.modelCatalog.GetProvidersForModel(model)
+	out := make([]providerKeyCandidate, 0, len(providers))
+	for _, provider := range providers {
+		if _, ok := p.inMemoryStore.GetConfiguredProviders()[provider]; !ok {
+			continue
+		}
+		out = append(out, providerKeyCandidate{
+			provider: provider,
+			vkPC:     unrestrictedVKProviderConfig(),
+		})
+	}
+	return out
+}
+
+// ensureProviderWithAccessibleKeys reroutes the request to another configured provider
+// when the selected provider has no API keys the current user may use for the model.
+// This runs in PreLLMHook after auth resolves user_id — HTTP transport load balancing
+// may have picked a provider earlier without user context or via model-catalog defaults.
+func (p *GovernancePlugin) ensureProviderWithAccessibleKeys(ctx *schemas.BifrostContext, req *schemas.BifrostRequest, virtualKeyValue string) {
+	if p.inMemoryStore == nil || req == nil {
+		return
+	}
+	provider, model, _ := req.GetRequestFields()
+	if provider == "" || model == "" {
+		return
+	}
+
+	userID := bifrost.GetStringFromContext(ctx, schemas.BifrostContextKeyUserID)
+	isLocalAdmin := bifrost.GetBoolFromContext(ctx, schemas.IsLocalAdminContextKey)
+
+	var vk *configstoreTables.TableVirtualKey
+	if virtualKeyValue != "" {
+		vk, _ = p.store.GetVirtualKey(ctx, virtualKeyValue)
+	}
+
+	candidates := p.providerKeyCandidates(model, vk)
+	if len(candidates) <= 1 {
+		return
+	}
+
+	vkPCFor := func(prov schemas.ModelProvider) configstoreTables.TableVirtualKeyProviderConfig {
+		for _, c := range candidates {
+			if c.provider == prov {
+				return c.vkPC
+			}
+		}
+		return unrestrictedVKProviderConfig()
+	}
+
+	if providerHasKeysSupportingModel(p.inMemoryStore, provider, model, vkPCFor(provider), userID, isLocalAdmin) {
+		return
+	}
+
+	slices.SortFunc(candidates, func(a, b providerKeyCandidate) int {
+		return strings.Compare(string(a.provider), string(b.provider))
+	})
+
+	for _, c := range candidates {
+		if c.provider == provider {
+			continue
+		}
+		if !providerHasKeysSupportingModel(p.inMemoryStore, c.provider, model, c.vkPC, userID, isLocalAdmin) {
+			continue
+		}
+		req.SetProvider(c.provider)
+		ctx.ClearValue(schemas.BifrostContextKeyAPIKeyID)
+		ctx.ClearValue(schemas.BifrostContextKeyAPIKeyName)
+		ctx.SetValue(schemas.BifrostContextKeyAvailableProviders, []schemas.ModelProvider{c.provider})
+		ctx.AppendRoutingEngineLog(schemas.RoutingEngineGovernance, schemas.LogLevelInfo,
+			fmt.Sprintf("Rerouted provider %s -> %s for model %s (no accessible keys for user on original provider)", provider, c.provider, model))
+		return
+	}
 }

@@ -1,6 +1,7 @@
 package governance
 
 import (
+	"context"
 	"testing"
 
 	"github.com/maximhq/bifrost/core/schemas"
@@ -128,4 +129,91 @@ func TestProviderHasKeysSupportingModel_Grayscale(t *testing.T) {
 	}
 	require.True(t, providerHasKeysSupportingModel(onlyGrayStore, schemas.Anthropic, "claude-mythos-preview-fast", vkPC, "user-a", false))
 	require.False(t, providerHasKeysSupportingModel(onlyGrayStore, schemas.Anthropic, "claude-mythos-preview-fast", vkPC, "user-b", false))
+}
+
+func TestEnsureProviderWithAccessibleKeys_GrayscaleReroute(t *testing.T) {
+	logger := NewMockLogger()
+	grayscaleOn := true
+	mc := modelcatalog.NewTestCatalog(map[string]string{
+		"claude-mythos-preview-fast": "claude-mythos-preview-fast",
+	})
+	mc.UpsertModelDataForProvider(schemas.Anthropic, &schemas.BifrostListModelsResponse{
+		Data: []schemas.Model{{ID: "anthropic/claude-mythos-preview-fast"}},
+	}, nil)
+	mc.UpsertModelDataForProvider(schemas.Bedrock, &schemas.BifrostListModelsResponse{
+		Data: []schemas.Model{{ID: "bedrock/claude-mythos-preview-fast"}},
+	}, nil)
+
+	vk := buildVirtualKeyWithProviders(
+		"vk-gray-reroute",
+		"sk-bf-gray-reroute",
+		"gray-reroute-vk",
+		[]configstoreTables.TableVirtualKeyProviderConfig{
+			func() configstoreTables.TableVirtualKeyProviderConfig {
+				pc := buildProviderConfig("anthropic", []string{"*"})
+				pc.AllowAllKeys = true
+				return pc
+			}(),
+			func() configstoreTables.TableVirtualKeyProviderConfig {
+				pc := buildProviderConfig("bedrock", []string{"*"})
+				pc.AllowAllKeys = true
+				return pc
+			}(),
+		},
+	)
+
+	store, err := NewLocalGovernanceStore(context.Background(), logger, nil, &configstore.GovernanceConfig{
+		VirtualKeys: []configstoreTables.TableVirtualKey{*vk},
+	}, mc)
+	require.NoError(t, err)
+
+	inMemoryStore := &mockInMemoryStore{
+		configuredProviders: map[schemas.ModelProvider]configstore.ProviderConfig{
+			schemas.Anthropic: {
+				Keys: []schemas.Key{{
+					ID:               "anthropic-gray",
+					Name:             "anthropic-gray",
+					Value:            *schemas.NewEnvVar("sk-anthropic"),
+					Models:           []string{"claude-mythos-preview-fast"},
+					GrayscaleEnabled: &grayscaleOn,
+					GrayscaleUsers:   []string{"user-a"},
+				}},
+			},
+			schemas.Bedrock: {
+				Keys: []schemas.Key{{
+					ID:               "bedrock-gray",
+					Name:             "bedrock-gray",
+					Value:            *schemas.NewEnvVar("sk-bedrock"),
+					Models:           []string{"claude-mythos-preview-fast"},
+					GrayscaleEnabled: &grayscaleOn,
+					GrayscaleUsers:   []string{"user-b"},
+				}},
+			},
+		},
+	}
+
+	plugin, err := InitFromStore(context.Background(), &Config{IsVkMandatory: boolPtr(false)}, logger, store, nil, mc, nil, inMemoryStore)
+	require.NoError(t, err)
+	defer func() {
+		require.NoError(t, plugin.Cleanup())
+	}()
+
+	ctx := schemas.NewBifrostContext(context.Background(), schemas.NoDeadline)
+	ctx.SetValue(schemas.BifrostContextKeyUserID, "user-b")
+	ctx.SetValue(schemas.BifrostContextKeyVirtualKey, vk.Value)
+
+	req := &schemas.BifrostRequest{
+		RequestType: schemas.ChatCompletionRequest,
+		ChatRequest: &schemas.BifrostChatRequest{
+			Provider: schemas.Anthropic,
+			Model:    "claude-mythos-preview-fast",
+		},
+	}
+
+	plugin.ensureProviderWithAccessibleKeys(ctx, req, vk.Value)
+	require.Equal(t, schemas.Bedrock, req.ChatRequest.Provider)
+
+	logs := ctx.GetRoutingEngineLogs()
+	require.NotEmpty(t, logs)
+	require.Contains(t, logs[len(logs)-1].Message, "Rerouted provider anthropic -> bedrock")
 }

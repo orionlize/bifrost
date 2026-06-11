@@ -1788,6 +1788,10 @@ func (p *GovernancePlugin) PreLLMHook(ctx *schemas.BifrostContext, req *schemas.
 	// request before governance evaluation so the downgraded model is what gets used.
 	p.applyTieredDegradationToRequest(ctx, req, virtualKeyValue)
 
+	// After auth resolves user_id, reroute to a provider whose keys the user can actually
+	// use for this model (e.g. grayscale-restricted keys on the catalog-default provider).
+	p.ensureProviderWithAccessibleKeys(ctx, req, virtualKeyValue)
+
 	// Getting provider and mode from the request (post-degradation)
 	provider, model, _ := req.GetRequestFields()
 	// Create request context for evaluation
