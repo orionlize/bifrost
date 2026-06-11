@@ -192,6 +192,10 @@ func (h *GlobalAPIKeysHandler) create(ctx *fasthttp.RequestCtx) {
 
 	key, token, err := h.configStore.CreateGlobalAPIKey(ctx, req.Name, req.AllowedUserIDs)
 	if err != nil {
+		if errors.Is(err, configstore.ErrGlobalAPIKeyTooManyAssignedUsers) {
+			SendError(ctx, fasthttp.StatusBadRequest, "A global API key can only be assigned to one user")
+			return
+		}
 		SendError(ctx, fasthttp.StatusBadRequest, err.Error())
 		return
 	}
@@ -242,6 +246,10 @@ func (h *GlobalAPIKeysHandler) update(ctx *fasthttp.RequestCtx) {
 	if err != nil {
 		if errors.Is(err, configstore.ErrGlobalAPIKeyNotFound) {
 			SendError(ctx, fasthttp.StatusNotFound, "API key not found")
+			return
+		}
+		if errors.Is(err, configstore.ErrGlobalAPIKeyTooManyAssignedUsers) {
+			SendError(ctx, fasthttp.StatusBadRequest, "A global API key can only be assigned to one user")
 			return
 		}
 		SendError(ctx, fasthttp.StatusBadRequest, err.Error())

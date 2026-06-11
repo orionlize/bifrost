@@ -3,7 +3,7 @@ export const apiKeys = {
 	description:
 		"Create API keys for admin and dashboard API access. Use them as Authorization: Bearer <token>.",
 	infoAlert:
-		"API keys grant full admin access to dashboard and management APIs. Usage is always attributed to the admin user. Store them securely — the full token is only shown once at creation.",
+		"Unassigned API keys grant full admin access and attribute usage to the admin user. When assigned to one user, that user can use the key in Quick Start; inference keeps global API key privileges and LLM logs attribute usage to that user. Store tokens securely — the full token is only shown once at creation.",
 	authRequired: "To create API keys, enable dashboard authentication first.",
 	configureSecurity: "Configure Security Settings",
 	createApiKey: "Create API Key",
@@ -29,8 +29,8 @@ export const apiKeys = {
 	done: "Done",
 	deleteTitle: "Delete API Key",
 	deleteDesc: "This permanently removes the key. Applications using it will lose access immediately.",
-	allowedUsers: "Allowed users",
-	allowedUsersHint: "Select which users can use this API key. Only selected users will see it in Quick Start.",
+	allowedUsers: "Assigned to",
+	allowedUsersHint: "Optionally assign this API key to one user. They will see it in Quick Start and LLM log usage will be attributed to them.",
 	allowedUsersPlaceholder: "Select users",
 	allUsers: "Unassigned",
 	editAllowedUsers: "Edit allowed users",

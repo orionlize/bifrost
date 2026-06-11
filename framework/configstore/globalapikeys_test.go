@@ -2,6 +2,7 @@ package configstore
 
 import (
 	"context"
+	"errors"
 	"testing"
 
 	bifrost "github.com/maximhq/bifrost/core"
@@ -60,11 +61,27 @@ func TestCreateGlobalAPIKeyPersistsRetrievableToken(t *testing.T) {
 	require.Equal(t, token, retrieved)
 }
 
+func TestNormalizeGlobalAPIKeyAllowedUserIDsRejectsMultipleUsers(t *testing.T) {
+	_, err := normalizeGlobalAPIKeyAllowedUserIDs([]string{"user-1", "user-2"})
+	if !errors.Is(err, ErrGlobalAPIKeyTooManyAssignedUsers) {
+		t.Fatalf("err = %v, want %v", err, ErrGlobalAPIKeyTooManyAssignedUsers)
+	}
+}
+
+func TestGlobalAPIKeyAssignedUserID(t *testing.T) {
+	if got := GlobalAPIKeyAssignedUserID(tables.GlobalAPIKey{AllowedUserIDs: []string{" user-1 "}}); got != "user-1" {
+		t.Fatalf("assigned user id = %q, want user-1", got)
+	}
+	if got := GlobalAPIKeyAssignedUserID(tables.GlobalAPIKey{}); got != "" {
+		t.Fatalf("expected empty assigned user id, got %q", got)
+	}
+}
+
 func TestIsGlobalAPIKeyAssignedToUser(t *testing.T) {
 	key := tables.GlobalAPIKey{
 		ID:             "key-1",
 		IsActive:       true,
-		AllowedUserIDs: []string{"user-1", "user-2"},
+		AllowedUserIDs: []string{"user-1"},
 	}
 
 	if !IsGlobalAPIKeyAssignedToUser(key, "user-1") {

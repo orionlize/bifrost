@@ -36,11 +36,17 @@ import { Copy, InfoIcon, KeyRound, Loader2, Pencil, Plus, Power, RefreshCw, Tras
 import { useMemo, useState } from "react";
 import { toast } from "sonner";
 
-function formatAllowedUsersLabel(allowedUserIds: string[] | undefined, emptyLabel: string): string {
+function formatAllowedUsersLabel(
+	allowedUserIds: string[] | undefined,
+	emptyLabel: string,
+	userOptions: Array<{ value: string; label: string }>,
+): string {
 	if (!allowedUserIds || allowedUserIds.length === 0) {
 		return emptyLabel;
 	}
-	return String(allowedUserIds.length);
+	const assignedUserId = allowedUserIds[0];
+	const matched = userOptions.find((option) => option.value === assignedUserId);
+	return matched?.label ?? assignedUserId;
 }
 
 export default function APIKeysView() {
@@ -57,9 +63,9 @@ export default function APIKeysView() {
 	const [createDialogOpen, setCreateDialogOpen] = useState(false);
 	const [editDialogOpen, setEditDialogOpen] = useState(false);
 	const [newKeyName, setNewKeyName] = useState("");
-	const [newAllowedUserIds, setNewAllowedUserIds] = useState<string[]>([]);
+	const [newAllowedUserId, setNewAllowedUserId] = useState<string | null>(null);
 	const [editTargetId, setEditTargetId] = useState<string | null>(null);
-	const [editAllowedUserIds, setEditAllowedUserIds] = useState<string[]>([]);
+	const [editAllowedUserId, setEditAllowedUserId] = useState<string | null>(null);
 	const [createdToken, setCreatedToken] = useState<string | null>(null);
 	const [deleteTargetId, setDeleteTargetId] = useState<string | null>(null);
 	const { copy: copyToClipboard } = useCopyToClipboard();
@@ -77,7 +83,7 @@ export default function APIKeysView() {
 
 	const resetCreateForm = () => {
 		setNewKeyName("");
-		setNewAllowedUserIds([]);
+		setNewAllowedUserId(null);
 	};
 
 	if (configLoading || authLoading) {
@@ -112,7 +118,10 @@ export default function APIKeysView() {
 			return;
 		}
 		try {
-			const result = await createGlobalApiKey({ name, allowed_user_ids: newAllowedUserIds }).unwrap();
+			const result = await createGlobalApiKey({
+				name,
+				allowed_user_ids: newAllowedUserId ? [newAllowedUserId] : [],
+			}).unwrap();
 			setCreatedToken(result.token);
 			setStoredGlobalApiKey(result.token, result.api_key.id);
 			resetCreateForm();
@@ -134,7 +143,7 @@ export default function APIKeysView() {
 
 	const handleOpenEditUsers = (id: string, allowedUserIds?: string[]) => {
 		setEditTargetId(id);
-		setEditAllowedUserIds(allowedUserIds ?? []);
+		setEditAllowedUserId(allowedUserIds?.[0] ?? null);
 		setEditDialogOpen(true);
 	};
 
@@ -143,7 +152,10 @@ export default function APIKeysView() {
 			return;
 		}
 		try {
-			await updateGlobalApiKey({ id: editTargetId, allowed_user_ids: editAllowedUserIds }).unwrap();
+			await updateGlobalApiKey({
+				id: editTargetId,
+				allowed_user_ids: editAllowedUserId ? [editAllowedUserId] : [],
+			}).unwrap();
 			setEditDialogOpen(false);
 			setEditTargetId(null);
 			toast.success(t("apiKeys.allowedUsersUpdated"));
@@ -233,7 +245,7 @@ export default function APIKeysView() {
 									</TableCell>
 									<TableCell>
 										<Badge variant="secondary">
-											{formatAllowedUsersLabel(apiKey.allowed_user_ids, t("apiKeys.allUsers"))}
+											{formatAllowedUsersLabel(apiKey.allowed_user_ids, t("apiKeys.allUsers"), userOptions)}
 										</Badge>
 									</TableCell>
 									<TableCell>
@@ -329,9 +341,8 @@ export default function APIKeysView() {
 							<p className="text-muted-foreground text-xs">{t("apiKeys.allowedUsersHint")}</p>
 							<div data-testid="global-api-key-create-users">
 								<ComboboxSelect
-									multiple
-									value={newAllowedUserIds}
-									onValueChange={setNewAllowedUserIds}
+									value={newAllowedUserId}
+									onValueChange={setNewAllowedUserId}
 									options={userOptions}
 									placeholder={t("apiKeys.allowedUsersPlaceholder")}
 								/>
@@ -378,9 +389,8 @@ export default function APIKeysView() {
 					</DialogHeader>
 					<div data-testid="global-api-key-edit-users">
 						<ComboboxSelect
-							multiple
-							value={editAllowedUserIds}
-							onValueChange={setEditAllowedUserIds}
+							value={editAllowedUserId}
+							onValueChange={setEditAllowedUserId}
 							options={userOptions}
 							placeholder={t("apiKeys.allowedUsersPlaceholder")}
 						/>

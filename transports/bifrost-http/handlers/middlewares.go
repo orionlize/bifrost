@@ -1117,16 +1117,30 @@ func (m *AuthMiddleware) applyDeviceTemporaryCredential(ctx *fasthttp.RequestCtx
 	return true, true
 }
 
-func applyGlobalAPIKeyAuth(ctx *fasthttp.RequestCtx, globalKey *tables.GlobalAPIKey) {
+func (m *AuthMiddleware) applyGlobalAPIKeyAuth(ctx *fasthttp.RequestCtx, globalKey *tables.GlobalAPIKey) {
 	ctx.SetUserValue(schemas.IsAPIKeyAuthContextKey, true)
+	// Global API keys always bypass virtual-key governance and grayscale restrictions.
 	ctx.SetUserValue(schemas.IsLocalAdminContextKey, true)
-	// Attribute global API key inference usage to the admin user in LLM/MCP logs.
-	ctx.SetUserValue(schemas.BifrostContextKeyUserID, schemas.LocalAdminUserID)
-	ctx.SetUserValue(schemas.BifrostContextKeyUserName, schemas.LocalAdminUserName)
+
+	userID := schemas.LocalAdminUserID
+	userName := schemas.LocalAdminUserName
 	if globalKey != nil {
 		ctx.SetUserValue(schemas.BifrostContextKeyGlobalAPIKeyID, globalKey.ID)
 		ctx.SetUserValue(schemas.BifrostContextKeyGlobalAPIKeyName, globalKey.Name)
+		if assignedUserID := configstore.GlobalAPIKeyAssignedUserID(*globalKey); assignedUserID != "" {
+			userID = assignedUserID
+			userName = assignedUserID
+			if m.store != nil {
+				if user, err := m.store.GetAoneUserByAoneID(ctx, assignedUserID); err == nil && user != nil {
+					if displayName := configstore.AoneUserDisplayName(user); displayName != "" {
+						userName = displayName
+					}
+				}
+			}
+		}
 	}
+	ctx.SetUserValue(schemas.BifrostContextKeyUserID, userID)
+	ctx.SetUserValue(schemas.BifrostContextKeyUserName, userName)
 }
 
 // authenticateGlobalAPIKeyIfPresent validates Bearer bf-ak- credentials when they
@@ -1153,7 +1167,7 @@ func (m *AuthMiddleware) authenticateGlobalAPIKeyIfPresent(ctx *fasthttp.Request
 		SendError(ctx, fasthttp.StatusUnauthorized, "Unauthorized")
 		return false
 	}
-	applyGlobalAPIKeyAuth(ctx, globalKey)
+	m.applyGlobalAPIKeyAuth(ctx, globalKey)
 	return true
 }
 
@@ -1561,7 +1575,7 @@ func (m *AuthMiddleware) middleware(shouldSkip func(*configstore.AuthConfig, str
 						if !m.enforceDeviceFingerprint(ctx, globalKey, url) {
 							return
 						}
-						applyGlobalAPIKeyAuth(ctx, globalKey)
+						m.applyGlobalAPIKeyAuth(ctx, globalKey)
 						next(ctx)
 						return
 					}

@@ -7,6 +7,7 @@ import (
 	"context"
 	cryptoRand "crypto/rand"
 	"encoding/json"
+	"fmt"
 	"io"
 	"net"
 	"strings"
@@ -2172,15 +2173,31 @@ func TestTracingMiddleware_StreamingRootSpanEndsAfterLLMSpan(t *testing.T) {
 	}
 }
 
+type globalAPIKeyAuthStore struct {
+	configstore.ConfigStore
+	users map[string]*tables.AoneUserTable
+}
+
+func (s *globalAPIKeyAuthStore) GetAoneUserByAoneID(_ context.Context, aoneUserID string) (*tables.AoneUserTable, error) {
+	if user, ok := s.users[aoneUserID]; ok {
+		return user, nil
+	}
+	return nil, fmt.Errorf("aone user not found")
+}
+
 func TestApplyGlobalAPIKeyAuth_SetsAdminUserForLogging(t *testing.T) {
+	middleware := &AuthMiddleware{}
 	ctx := &fasthttp.RequestCtx{}
-	applyGlobalAPIKeyAuth(ctx, &tables.GlobalAPIKey{ID: "key-1", Name: "ci"})
+	middleware.applyGlobalAPIKeyAuth(ctx, &tables.GlobalAPIKey{ID: "key-1", Name: "ci"})
 
 	if userID, ok := ctx.UserValue(schemas.BifrostContextKeyUserID).(string); !ok || userID != schemas.LocalAdminUserID {
 		t.Fatalf("expected user_id %q, got %#v", schemas.LocalAdminUserID, ctx.UserValue(schemas.BifrostContextKeyUserID))
 	}
 	if userName, ok := ctx.UserValue(schemas.BifrostContextKeyUserName).(string); !ok || userName != schemas.LocalAdminUserName {
 		t.Fatalf("expected user_name %q, got %#v", schemas.LocalAdminUserName, ctx.UserValue(schemas.BifrostContextKeyUserName))
+	}
+	if isLocalAdmin, ok := ctx.UserValue(schemas.IsLocalAdminContextKey).(bool); !ok || !isLocalAdmin {
+		t.Fatalf("expected is_local_admin true, got %#v", ctx.UserValue(schemas.IsLocalAdminContextKey))
 	}
 	if keyID, ok := ctx.UserValue(schemas.BifrostContextKeyGlobalAPIKeyID).(string); !ok || keyID != "key-1" {
 		t.Fatalf("expected global_api_key_id %q, got %#v", "key-1", ctx.UserValue(schemas.BifrostContextKeyGlobalAPIKeyID))
@@ -2202,6 +2219,35 @@ func TestApplyGlobalAPIKeyAuth_SetsAdminUserForLogging(t *testing.T) {
 	}
 	if got := bifrostCtx.Value(schemas.BifrostContextKeyGlobalAPIKeyName); got != "ci" {
 		t.Fatalf("expected bifrost context global_api_key_name %q, got %#v", "ci", got)
+	}
+}
+
+func TestApplyGlobalAPIKeyAuth_AttributesAssignedUserWhileKeepingAdminPrivileges(t *testing.T) {
+	middleware := &AuthMiddleware{
+		store: &globalAPIKeyAuthStore{
+			users: map[string]*tables.AoneUserTable{
+				"user-1": {
+					AoneUserID:  "user-1",
+					DisplayName: "Alice",
+				},
+			},
+		},
+	}
+	ctx := &fasthttp.RequestCtx{}
+	middleware.applyGlobalAPIKeyAuth(ctx, &tables.GlobalAPIKey{
+		ID:             "key-1",
+		Name:           "assigned",
+		AllowedUserIDs: []string{"user-1"},
+	})
+
+	if isLocalAdmin, ok := ctx.UserValue(schemas.IsLocalAdminContextKey).(bool); !ok || !isLocalAdmin {
+		t.Fatalf("expected assigned global api key to keep local admin privileges, got %#v", ctx.UserValue(schemas.IsLocalAdminContextKey))
+	}
+	if userID, ok := ctx.UserValue(schemas.BifrostContextKeyUserID).(string); !ok || userID != "user-1" {
+		t.Fatalf("expected user_id %q, got %#v", "user-1", ctx.UserValue(schemas.BifrostContextKeyUserID))
+	}
+	if userName, ok := ctx.UserValue(schemas.BifrostContextKeyUserName).(string); !ok || userName != "Alice" {
+		t.Fatalf("expected user_name %q, got %#v", "Alice", ctx.UserValue(schemas.BifrostContextKeyUserName))
 	}
 }
 

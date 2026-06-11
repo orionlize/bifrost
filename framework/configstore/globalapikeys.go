@@ -18,9 +18,12 @@ import (
 const GlobalAPIKeyPrefix = "bf-ak-"
 
 var (
-	ErrGlobalAPIKeyNotFound          = errors.New("global api key not found")
-	ErrGlobalAPIKeyTokenUnavailable  = errors.New("global api key token unavailable")
+	ErrGlobalAPIKeyNotFound              = errors.New("global api key not found")
+	ErrGlobalAPIKeyTokenUnavailable      = errors.New("global api key token unavailable")
+	ErrGlobalAPIKeyTooManyAssignedUsers  = errors.New("global api key can only be assigned to one user")
 )
+
+const globalAPIKeyMaxAssignedUsers = 1
 
 func generateGlobalAPIKeyToken() (string, error) {
 	buf := make([]byte, 24)
@@ -136,9 +139,9 @@ func IsGlobalAPIKeyAssignedToUser(key tables.GlobalAPIKey, userID string) bool {
 	return false
 }
 
-func normalizeGlobalAPIKeyAllowedUserIDs(allowedUserIDs []string) []string {
+func normalizeGlobalAPIKeyAllowedUserIDs(allowedUserIDs []string) ([]string, error) {
 	if len(allowedUserIDs) == 0 {
-		return nil
+		return nil, nil
 	}
 	seen := make(map[string]struct{}, len(allowedUserIDs))
 	normalized := make([]string, 0, len(allowedUserIDs))
@@ -154,9 +157,37 @@ func normalizeGlobalAPIKeyAllowedUserIDs(allowedUserIDs []string) []string {
 		normalized = append(normalized, userID)
 	}
 	if len(normalized) == 0 {
-		return nil
+		return nil, nil
 	}
-	return normalized
+	if len(normalized) > globalAPIKeyMaxAssignedUsers {
+		return nil, ErrGlobalAPIKeyTooManyAssignedUsers
+	}
+	return normalized, nil
+}
+
+// GlobalAPIKeyAssignedUserID returns the sole assigned Aone user ID when present.
+func GlobalAPIKeyAssignedUserID(key tables.GlobalAPIKey) string {
+	if len(key.AllowedUserIDs) == 0 {
+		return ""
+	}
+	return strings.TrimSpace(key.AllowedUserIDs[0])
+}
+
+// AoneUserDisplayName picks the best human-readable label for an Aone user row.
+func AoneUserDisplayName(user *tables.AoneUserTable) string {
+	if user == nil {
+		return ""
+	}
+	if name := strings.TrimSpace(user.DisplayName); name != "" {
+		return name
+	}
+	if name := strings.TrimSpace(user.Name); name != "" {
+		return name
+	}
+	if email := strings.TrimSpace(user.Email); email != "" {
+		return email
+	}
+	return strings.TrimSpace(user.AoneUserID)
 }
 
 func (s *RDBConfigStore) ListAssignedGlobalAPIKeysForUser(ctx context.Context, userID string) ([]tables.GlobalAPIKey, error) {
@@ -179,6 +210,11 @@ func (s *RDBConfigStore) CreateGlobalAPIKey(ctx context.Context, name string, al
 		return nil, "", fmt.Errorf("name is required")
 	}
 
+	normalizedAllowedUserIDs, err := normalizeGlobalAPIKeyAllowedUserIDs(allowedUserIDs)
+	if err != nil {
+		return nil, "", err
+	}
+
 	token, err := generateGlobalAPIKeyToken()
 	if err != nil {
 		return nil, "", err
@@ -197,7 +233,7 @@ func (s *RDBConfigStore) CreateGlobalAPIKey(ctx context.Context, name string, al
 		TokenEncrypted: tokenEncrypted,
 		TokenPrefix:    globalAPIKeyPrefix(token),
 		IsActive:       true,
-		AllowedUserIDs: normalizeGlobalAPIKeyAllowedUserIDs(allowedUserIDs),
+		AllowedUserIDs: normalizedAllowedUserIDs,
 		CreatedAt:      now,
 		UpdatedAt:      now,
 	}
@@ -233,7 +269,11 @@ func (s *RDBConfigStore) UpdateGlobalAPIKey(ctx context.Context, id string, upda
 		key.IsActive = *update.IsActive
 	}
 	if update.AllowedUserIDs != nil {
-		key.AllowedUserIDs = normalizeGlobalAPIKeyAllowedUserIDs(*update.AllowedUserIDs)
+		normalizedAllowedUserIDs, err := normalizeGlobalAPIKeyAllowedUserIDs(*update.AllowedUserIDs)
+		if err != nil {
+			return nil, err
+		}
+		key.AllowedUserIDs = normalizedAllowedUserIDs
 	}
 	key.UpdatedAt = time.Now()
 	if err := s.DB().WithContext(ctx).Save(&key).Error; err != nil {
