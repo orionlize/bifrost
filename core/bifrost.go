@@ -7357,7 +7357,7 @@ func (bifrost *Bifrost) getKeysForBatchAndFileOps(ctx *schemas.BifrostContext, p
 		//   - If key.Models is non-empty → only include if model is in list
 		// Blacklist wins over allowlist
 		if model != nil && *model != "" {
-			if k.BlacklistedModels.IsBlocked(*model) || !k.Models.IsAllowed(*model) {
+			if !k.AllowsModel(*model) {
 				continue
 			}
 		}
@@ -7432,20 +7432,20 @@ func (bifrost *Bifrost) selectKeyFromProviderForModelWithPool(ctx *schemas.Bifro
 	// Filter out keys that don't support the model: blacklisted_models wins over models allow list;
 	// if the key has no models list, it supports all models except those blacklisted.
 	var supportedKeys []schemas.Key
+	userID := ""
+	isLocalAdmin := false
+	if ctx != nil {
+		isLocalAdmin = GetBoolFromContext(ctx, schemas.IsLocalAdminContextKey)
+		if uid, ok := ctx.Value(schemas.BifrostContextKeyUserID).(string); ok {
+			userID = uid
+		}
+	}
 
 	// Skip model check conditions
 	// We can improve these conditions in the future
 	skipModelCheck := (model == "" && (isFileRequestType(requestType) || isBatchRequestType(requestType) || isContainerRequestType(requestType) || isCachedContentRequestType(requestType) || isModellessVideoRequestType(requestType) || isPassthroughRequestType(requestType))) || requestType == schemas.ListModelsRequest
 	if skipModelCheck {
 		// When skipping model check: just verify keys are enabled and have values
-		userID := ""
-		isLocalAdmin := false
-		if ctx != nil {
-			isLocalAdmin = GetBoolFromContext(ctx, schemas.IsLocalAdminContextKey)
-			if uid, ok := ctx.Value(schemas.BifrostContextKeyUserID).(string); ok {
-				userID = uid
-			}
-		}
 		for _, key := range keys {
 			// Skip disabled keys
 			if key.Enabled != nil && !*key.Enabled {
@@ -7464,14 +7464,6 @@ func (bifrost *Bifrost) selectKeyFromProviderForModelWithPool(ctx *schemas.Bifro
 		}
 	} else {
 		// When NOT skipping model check: do full model filtering
-		userID := ""
-		isLocalAdmin := false
-		if ctx != nil {
-			isLocalAdmin = GetBoolFromContext(ctx, schemas.IsLocalAdminContextKey)
-			if uid, ok := ctx.Value(schemas.BifrostContextKeyUserID).(string); ok {
-				userID = uid
-			}
-		}
 		for _, key := range keys {
 			// Skip disabled keys
 			if key.Enabled != nil && !*key.Enabled {
@@ -7485,11 +7477,10 @@ func (bifrost *Bifrost) selectKeyFromProviderForModelWithPool(ctx *schemas.Bifro
 				continue
 			}
 			hasValue := strings.TrimSpace(key.Value.GetValue()) != "" || CanProviderKeyValueBeEmpty(baseProviderType)
-			// ["*"] = allow all models; [] = deny all; specific list = allow only listed
-			// NOTE: Model filtering uses the original requested model (which may be an alias).
+			// Model filtering uses the original requested model (which may be an alias).
 			// key.Models and key.BlacklistedModels must therefore be expressed in alias keys.
 			// The provider-specific identifier is resolved later in the handler closure via key.Aliases.Resolve(model).
-			modelSupported := hasValue && key.Models.IsAllowed(model) && !key.BlacklistedModels.IsBlocked(model)
+			modelSupported := hasValue && key.AllowsModel(model)
 			if baseProviderType == schemas.VLLM && key.VLLMKeyConfig != nil {
 				if key.VLLMKeyConfig.ModelName != "" {
 					modelSupported = modelSupported && (key.VLLMKeyConfig.ModelName == model)
@@ -7501,6 +7492,28 @@ func (bifrost *Bifrost) selectKeyFromProviderForModelWithPool(ctx *schemas.Bifro
 		}
 	}
 	if len(supportedKeys) == 0 {
+		if !skipModelCheck {
+			var modelEligible, grayscaleBlocked int
+			for _, key := range keys {
+				if key.Enabled != nil && !*key.Enabled {
+					continue
+				}
+				if err := validateKey(baseProviderType, &key); err != nil {
+					continue
+				}
+				hasValue := strings.TrimSpace(key.Value.GetValue()) != "" || CanProviderKeyValueBeEmpty(baseProviderType)
+				if !hasValue || !key.AllowsModel(model) {
+					continue
+				}
+				modelEligible++
+				if !key.IsAccessibleByUserForRequest(userID, isLocalAdmin) {
+					grayscaleBlocked++
+				}
+			}
+			if modelEligible > 0 && grayscaleBlocked == modelEligible {
+				return nil, false, fmt.Errorf("no keys available for model %s: all eligible keys are restricted by grayscale for this user", model)
+			}
+		}
 		return nil, false, fmt.Errorf("no keys found that support model: %s", model)
 	}
 

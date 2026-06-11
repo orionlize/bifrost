@@ -185,6 +185,62 @@ func (ka KeyAliases) Resolve(model string) string {
 	return model
 }
 
+// ModelsMatchForKeyAllowlist reports whether model satisfies an allowlist entry.
+// Matching covers exact (case-insensitive) names, same base model, and known
+// hyphenated variant suffixes such as "-fast" on "claude-mythos-preview".
+func ModelsMatchForKeyAllowlist(allowed, model string) bool {
+	if allowed == "*" {
+		return true
+	}
+	if strings.EqualFold(allowed, model) {
+		return true
+	}
+	if SameBaseModel(allowed, model) {
+		return true
+	}
+	allowedLower := strings.ToLower(allowed)
+	modelLower := strings.ToLower(model)
+	for _, suffix := range modelVariantSuffixes {
+		if modelLower == allowedLower+"-"+suffix {
+			return true
+		}
+	}
+	return false
+}
+
+var modelVariantSuffixes = []string{"fast", "turbo", "lite"}
+
+// AllowsModel reports whether this key may be used for an inference request
+// targeting model. Blacklisted models always win. An empty models list is
+// deny-by-default; use ["*"] to permit all non-blacklisted models.
+func (k Key) AllowsModel(model string) bool {
+	if k.BlacklistedModels.IsBlocked(model) {
+		return false
+	}
+	if k.Models.IsUnrestricted() {
+		return true
+	}
+	if k.Models.IsEmpty() {
+		return false
+	}
+	if k.Models.IsAllowed(model) {
+		return true
+	}
+	resolved := k.Aliases.Resolve(model)
+	if resolved != model && k.Models.IsAllowed(resolved) {
+		return true
+	}
+	for _, allowed := range k.Models {
+		if ModelsMatchForKeyAllowlist(allowed, model) {
+			return true
+		}
+		if resolved != model && ModelsMatchForKeyAllowlist(allowed, resolved) {
+			return true
+		}
+	}
+	return false
+}
+
 // IsGrayscaleEnabled reports whether the key is in grayscale (restricted) mode.
 func (k Key) IsGrayscaleEnabled() bool {
 	return k.GrayscaleEnabled != nil && *k.GrayscaleEnabled

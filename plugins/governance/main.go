@@ -800,6 +800,8 @@ func (p *GovernancePlugin) loadBalanceProvider(ctx *schemas.BifrostContext, req 
 	}
 
 	allowedProviderConfigs := make([]configstoreTables.TableVirtualKeyProviderConfig, 0)
+	userID, _ := p.resolveUserForRouting(ctx, req, virtualKey)
+	isLocalAdmin := bifrost.GetBoolFromContext(ctx, schemas.IsLocalAdminContextKey)
 	for _, config := range providerConfigs {
 		// Blacklist check wins over allowlist (same as provider-key enforcement)
 		if blacklistedProviders[config.Provider] {
@@ -833,6 +835,10 @@ func (p *GovernancePlugin) loadBalanceProvider(ctx *schemas.BifrostContext, req 
 			}
 			if p.resolver.isProviderRateLimitViolated(ctx, virtualKey, config) {
 				ctx.AppendRoutingEngineLog(schemas.RoutingEngineGovernance, schemas.LogLevelInfo, fmt.Sprintf("Provider %s excluded: rate limit violated", config.Provider))
+				continue
+			}
+			if p.inMemoryStore != nil && !providerHasKeysSupportingModel(p.inMemoryStore, schemas.ModelProvider(config.Provider), modelStr, config, userID, isLocalAdmin) {
+				ctx.AppendRoutingEngineLog(schemas.RoutingEngineGovernance, schemas.LogLevelInfo, fmt.Sprintf("Provider %s excluded: no accessible keys support model %s for this user", config.Provider, modelStr))
 				continue
 			}
 			allowedProviderConfigs = append(allowedProviderConfigs, config)

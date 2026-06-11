@@ -51,3 +51,81 @@ func TestResolveProviderForRouting(t *testing.T) {
 	got = plugin.resolveProviderForRouting("claude-mythos-preview", vk)
 	require.Equal(t, schemas.Anthropic, got)
 }
+
+func TestProviderHasKeysSupportingModel(t *testing.T) {
+	store := &mockInMemoryStore{
+		configuredProviders: map[schemas.ModelProvider]configstore.ProviderConfig{
+			schemas.Anthropic: {
+				Keys: []schemas.Key{{
+					ID:     "anthropic-key",
+					Name:   "anthropic-key",
+					Value:  *schemas.NewEnvVar("sk-anthropic"),
+					Models: []string{"claude-mythos-preview"},
+				}},
+			},
+			schemas.OpenAI: {
+				Keys: []schemas.Key{{
+					ID:     "openai-key",
+					Name:   "openai-key",
+					Value:  *schemas.NewEnvVar("sk-openai"),
+					Models: []string{"gpt-4o"},
+				}},
+			},
+		},
+	}
+
+	vkPC := buildProviderConfig("anthropic", []string{"*"})
+	vkPC.AllowAllKeys = true
+	require.True(t, providerHasKeysSupportingModel(store, schemas.Anthropic, "claude-mythos-preview-fast", vkPC, "user-a", false))
+	openaiPC := buildProviderConfig("openai", []string{"*"})
+	openaiPC.AllowAllKeys = true
+	require.False(t, providerHasKeysSupportingModel(store, schemas.OpenAI, "claude-mythos-preview-fast", openaiPC, "user-a", false))
+}
+
+func TestProviderHasKeysSupportingModel_Grayscale(t *testing.T) {
+	grayscaleOn := true
+	store := &mockInMemoryStore{
+		configuredProviders: map[schemas.ModelProvider]configstore.ProviderConfig{
+			schemas.Anthropic: {
+				Keys: []schemas.Key{
+					{
+						ID:               "gray-key",
+						Name:             "gray-key",
+						Value:            *schemas.NewEnvVar("sk-gray"),
+						Models:           []string{"claude-mythos-preview-fast"},
+						GrayscaleEnabled: &grayscaleOn,
+						GrayscaleUsers:   []string{"user-a"},
+					},
+					{
+						ID:     "open-key",
+						Name:   "open-key",
+						Value:  *schemas.NewEnvVar("sk-open"),
+						Models: []string{"claude-mythos-preview-fast"},
+					},
+				},
+			},
+		},
+	}
+	vkPC := buildProviderConfig("anthropic", []string{"*"})
+	vkPC.AllowAllKeys = true
+
+	require.True(t, providerHasKeysSupportingModel(store, schemas.Anthropic, "claude-mythos-preview-fast", vkPC, "user-a", false))
+	require.True(t, providerHasKeysSupportingModel(store, schemas.Anthropic, "claude-mythos-preview-fast", vkPC, "user-b", false))
+
+	onlyGrayStore := &mockInMemoryStore{
+		configuredProviders: map[schemas.ModelProvider]configstore.ProviderConfig{
+			schemas.Anthropic: {
+				Keys: []schemas.Key{{
+					ID:               "gray-key",
+					Name:             "gray-key",
+					Value:            *schemas.NewEnvVar("sk-gray"),
+					Models:           []string{"claude-mythos-preview-fast"},
+					GrayscaleEnabled: &grayscaleOn,
+					GrayscaleUsers:   []string{"user-a"},
+				}},
+			},
+		},
+	}
+	require.True(t, providerHasKeysSupportingModel(onlyGrayStore, schemas.Anthropic, "claude-mythos-preview-fast", vkPC, "user-a", false))
+	require.False(t, providerHasKeysSupportingModel(onlyGrayStore, schemas.Anthropic, "claude-mythos-preview-fast", vkPC, "user-b", false))
+}

@@ -253,3 +253,60 @@ func (p *GovernancePlugin) resolveProviderForRouting(model string, virtualKey *c
 	})
 	return providers[0]
 }
+
+// providerHasKeysSupportingModel reports whether the provider has at least one enabled,
+// usable key that permits the requested model for the given user (respecting VK key
+// restrictions and grayscale access).
+func providerHasKeysSupportingModel(
+	inMemoryStore InMemoryStore,
+	provider schemas.ModelProvider,
+	model string,
+	vkPC configstoreTables.TableVirtualKeyProviderConfig,
+	userID string,
+	isLocalAdmin bool,
+) bool {
+	if inMemoryStore == nil {
+		return true
+	}
+	providerConfig, ok := inMemoryStore.GetConfiguredProviders()[provider]
+	if !ok {
+		return false
+	}
+
+	var allowedKeyIDs map[string]struct{}
+	if !vkPC.AllowAllKeys {
+		if len(vkPC.Keys) == 0 {
+			return false
+		}
+		allowedKeyIDs = make(map[string]struct{}, len(vkPC.Keys))
+		for _, dbKey := range vkPC.Keys {
+			allowedKeyIDs[dbKey.KeyID] = struct{}{}
+		}
+	}
+
+	_, modelName := schemas.ParseModelString(model, "")
+	if modelName == "" {
+		modelName = model
+	}
+
+	for _, key := range providerConfig.Keys {
+		if key.Enabled != nil && !*key.Enabled {
+			continue
+		}
+		if !key.IsAccessibleByUserForRequest(userID, isLocalAdmin) {
+			continue
+		}
+		if allowedKeyIDs != nil {
+			if _, ok := allowedKeyIDs[key.ID]; !ok {
+				continue
+			}
+		}
+		if strings.TrimSpace(key.Value.GetValue()) == "" && !bifrost.CanProviderKeyValueBeEmpty(provider) {
+			continue
+		}
+		if key.AllowsModel(modelName) {
+			return true
+		}
+	}
+	return false
+}

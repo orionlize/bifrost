@@ -1144,6 +1144,56 @@ func TestSelectKeyFromProviderForModel_BlacklistedModels(t *testing.T) {
 			t.Fatalf("expected pool=[k2], got %v", pool)
 		}
 	})
+
+	t.Run("model variant suffix matches allowlist entry", func(t *testing.T) {
+		account.SetKeysForProvider(schemas.OpenAI, []schemas.Key{
+			{ID: "k1", Name: "K1", Value: *schemas.NewEnvVar("sk-1"), Weight: 1, Models: []string{"claude-mythos-preview"}},
+		})
+		pool, _, err := bifrost.selectKeyFromProviderForModelWithPool(bfCtx, schemas.ChatCompletionRequest, schemas.OpenAI, "claude-mythos-preview-fast", schemas.OpenAI)
+		if err != nil {
+			t.Fatalf("unexpected error: %v", err)
+		}
+		if len(pool) != 1 || pool[0].ID != "k1" {
+			t.Fatalf("expected pool=[k1], got %v", pool)
+		}
+	})
+
+	t.Run("grayscale key skipped in favor of accessible key for same model", func(t *testing.T) {
+		grayscaleOn := true
+		bfCtx.SetValue(schemas.BifrostContextKeyUserID, "user-b")
+		account.SetKeysForProvider(schemas.OpenAI, []schemas.Key{
+			{
+				ID: "k-gray", Name: "K-Gray", Value: *schemas.NewEnvVar("sk-gray"), Weight: 1,
+				Models: []string{"claude-mythos-preview-fast"}, GrayscaleEnabled: &grayscaleOn, GrayscaleUsers: []string{"user-a"},
+			},
+			{ID: "k-open", Name: "K-Open", Value: *schemas.NewEnvVar("sk-open"), Weight: 1, Models: []string{"claude-mythos-preview-fast"}},
+		})
+		pool, _, err := bifrost.selectKeyFromProviderForModelWithPool(bfCtx, schemas.ChatCompletionRequest, schemas.OpenAI, "claude-mythos-preview-fast", schemas.OpenAI)
+		if err != nil {
+			t.Fatalf("unexpected error: %v", err)
+		}
+		if len(pool) != 1 || pool[0].ID != "k-open" {
+			t.Fatalf("expected pool=[k-open], got %v", pool)
+		}
+	})
+
+	t.Run("all model-eligible keys grayscale blocked returns specific error", func(t *testing.T) {
+		grayscaleOn := true
+		bfCtx.SetValue(schemas.BifrostContextKeyUserID, "user-b")
+		account.SetKeysForProvider(schemas.OpenAI, []schemas.Key{
+			{
+				ID: "k-gray", Name: "K-Gray", Value: *schemas.NewEnvVar("sk-gray"), Weight: 1,
+				Models: []string{"claude-mythos-preview-fast"}, GrayscaleEnabled: &grayscaleOn, GrayscaleUsers: []string{"user-a"},
+			},
+		})
+		_, _, err := bifrost.selectKeyFromProviderForModelWithPool(bfCtx, schemas.ChatCompletionRequest, schemas.OpenAI, "claude-mythos-preview-fast", schemas.OpenAI)
+		if err == nil {
+			t.Fatal("expected error when all eligible keys are grayscale blocked")
+		}
+		if !strings.Contains(err.Error(), "restricted by grayscale") {
+			t.Fatalf("expected grayscale error, got: %v", err)
+		}
+	})
 }
 
 // Test key rotation in executeRequestWithRetries on rate-limit errors

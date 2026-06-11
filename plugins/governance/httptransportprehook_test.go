@@ -623,3 +623,177 @@ func TestHTTPTransportPreHook_RoutingRuleInfersProviderFromModel(t *testing.T) {
 	require.Contains(t, logs[0].Message, "provider=anthropic")
 	require.Contains(t, logs[0].Message, "requestType=responses")
 }
+
+// TestHTTPTransportPreHook_LoadBalanceSkipsProviderWithoutSupportingKeys verifies
+// governance load balancing excludes providers whose keys cannot serve the model.
+func TestHTTPTransportPreHook_LoadBalanceSkipsProviderWithoutSupportingKeys(t *testing.T) {
+	logger := NewMockLogger()
+	mc := modelcatalog.NewTestCatalog(map[string]string{
+		"claude-mythos-preview-fast": "claude-mythos-preview-fast",
+		"gpt-4o":                     "gpt-4o",
+	})
+	mc.UpsertModelDataForProvider(schemas.Anthropic, &schemas.BifrostListModelsResponse{
+		Data: []schemas.Model{{ID: "anthropic/claude-mythos-preview-fast"}},
+	}, nil)
+	mc.UpsertModelDataForProvider(schemas.OpenAI, &schemas.BifrostListModelsResponse{
+		Data: []schemas.Model{{ID: "gpt-4o"}},
+	}, nil)
+
+	virtualKey := buildVirtualKeyWithProviders(
+		"vk-multi-provider",
+		"sk-bf-multi-provider",
+		"multi-provider-vk",
+		[]configstoreTables.TableVirtualKeyProviderConfig{
+			func() configstoreTables.TableVirtualKeyProviderConfig {
+				pc := buildProviderConfig("openai", []string{"*"})
+				pc.AllowAllKeys = true
+				return pc
+			}(),
+			func() configstoreTables.TableVirtualKeyProviderConfig {
+				pc := buildProviderConfig("anthropic", []string{"*"})
+				pc.AllowAllKeys = true
+				return pc
+			}(),
+		},
+	)
+
+	store, err := NewLocalGovernanceStore(context.Background(), logger, nil, &configstore.GovernanceConfig{
+		VirtualKeys: []configstoreTables.TableVirtualKey{*virtualKey},
+	}, mc)
+	require.NoError(t, err)
+
+	inMemoryStore := &mockInMemoryStore{
+		configuredProviders: map[schemas.ModelProvider]configstore.ProviderConfig{
+			schemas.Anthropic: {
+				Keys: []schemas.Key{{
+					ID:     "anthropic-key",
+					Name:   "anthropic-key",
+					Value:  *schemas.NewEnvVar("sk-anthropic"),
+					Models: []string{"claude-mythos-preview"},
+				}},
+			},
+			schemas.OpenAI: {
+				Keys: []schemas.Key{{
+					ID:     "openai-key",
+					Name:   "openai-key",
+					Value:  *schemas.NewEnvVar("sk-openai"),
+					Models: []string{"gpt-4o"},
+				}},
+			},
+		},
+	}
+
+	plugin, err := InitFromStore(context.Background(), &Config{IsVkMandatory: boolPtr(false)}, logger, store, nil, mc, nil, inMemoryStore)
+	require.NoError(t, err)
+	defer func() {
+		require.NoError(t, plugin.Cleanup())
+	}()
+
+	req := schemas.AcquireHTTPRequest()
+	defer schemas.ReleaseHTTPRequest(req)
+	req.Method = "POST"
+	req.Path = "/v1/chat/completions"
+	req.Headers["Authorization"] = "Bearer sk-bf-multi-provider"
+	req.Headers["Content-Type"] = "application/json"
+	req.Body = []byte(`{"model":"claude-mythos-preview-fast","messages":[{"role":"user","content":"hi"}]}`)
+
+	bfCtx := schemas.NewBifrostContext(context.Background(), schemas.NoDeadline)
+	resp, err := plugin.HTTPTransportPreHook(bfCtx, req)
+	require.NoError(t, err)
+	require.Nil(t, resp)
+
+	var payload struct {
+		Model string `json:"model"`
+	}
+	require.NoError(t, json.Unmarshal(req.Body, &payload))
+	require.Equal(t, "anthropic/claude-mythos-preview-fast", payload.Model)
+}
+
+// TestHTTPTransportPreHook_LoadBalancePrefersProviderWithAccessibleKey verifies
+// load balancing skips providers whose only supporting keys are grayscale-blocked
+// for the requesting user.
+func TestHTTPTransportPreHook_LoadBalancePrefersProviderWithAccessibleKey(t *testing.T) {
+	logger := NewMockLogger()
+	grayscaleOn := true
+	mc := modelcatalog.NewTestCatalog(map[string]string{
+		"claude-mythos-preview-fast": "claude-mythos-preview-fast",
+	})
+	mc.UpsertModelDataForProvider(schemas.Anthropic, &schemas.BifrostListModelsResponse{
+		Data: []schemas.Model{{ID: "anthropic/claude-mythos-preview-fast"}},
+	}, nil)
+	mc.UpsertModelDataForProvider(schemas.Bedrock, &schemas.BifrostListModelsResponse{
+		Data: []schemas.Model{{ID: "bedrock/claude-mythos-preview-fast"}},
+	}, nil)
+
+	virtualKey := buildVirtualKeyWithProviders(
+		"vk-grayscale-lb",
+		"sk-bf-grayscale-lb",
+		"grayscale-lb-vk",
+		[]configstoreTables.TableVirtualKeyProviderConfig{
+			func() configstoreTables.TableVirtualKeyProviderConfig {
+				pc := buildProviderConfig("anthropic", []string{"*"})
+				pc.AllowAllKeys = true
+				return pc
+			}(),
+			func() configstoreTables.TableVirtualKeyProviderConfig {
+				pc := buildProviderConfig("bedrock", []string{"*"})
+				pc.AllowAllKeys = true
+				return pc
+			}(),
+		},
+	)
+
+	store, err := NewLocalGovernanceStore(context.Background(), logger, nil, &configstore.GovernanceConfig{
+		VirtualKeys: []configstoreTables.TableVirtualKey{*virtualKey},
+	}, mc)
+	require.NoError(t, err)
+
+	inMemoryStore := &mockInMemoryStore{
+		configuredProviders: map[schemas.ModelProvider]configstore.ProviderConfig{
+			schemas.Anthropic: {
+				Keys: []schemas.Key{{
+					ID:               "anthropic-gray",
+					Name:             "anthropic-gray",
+					Value:            *schemas.NewEnvVar("sk-anthropic-gray"),
+					Models:           []string{"claude-mythos-preview-fast"},
+					GrayscaleEnabled: &grayscaleOn,
+					GrayscaleUsers:   []string{"user-a"},
+				}},
+			},
+			schemas.Bedrock: {
+				Keys: []schemas.Key{{
+					ID:     "bedrock-open",
+					Name:   "bedrock-open",
+					Value:  *schemas.NewEnvVar("sk-bedrock"),
+					Models: []string{"claude-mythos-preview-fast"},
+				}},
+			},
+		},
+	}
+
+	plugin, err := InitFromStore(context.Background(), &Config{IsVkMandatory: boolPtr(false)}, logger, store, nil, mc, nil, inMemoryStore)
+	require.NoError(t, err)
+	defer func() {
+		require.NoError(t, plugin.Cleanup())
+	}()
+
+	req := schemas.AcquireHTTPRequest()
+	defer schemas.ReleaseHTTPRequest(req)
+	req.Method = "POST"
+	req.Path = "/v1/chat/completions"
+	req.Headers["Authorization"] = "Bearer sk-bf-grayscale-lb"
+	req.Headers["Content-Type"] = "application/json"
+	req.Body = []byte(`{"model":"claude-mythos-preview-fast","messages":[{"role":"user","content":"hi"}]}`)
+
+	bfCtx := schemas.NewBifrostContext(context.Background(), schemas.NoDeadline)
+	bfCtx.SetValue(schemas.BifrostContextKeyUserID, "user-b")
+	resp, err := plugin.HTTPTransportPreHook(bfCtx, req)
+	require.NoError(t, err)
+	require.Nil(t, resp)
+
+	var payload struct {
+		Model string `json:"model"`
+	}
+	require.NoError(t, json.Unmarshal(req.Body, &payload))
+	require.Equal(t, "bedrock/claude-mythos-preview-fast", payload.Model)
+}
