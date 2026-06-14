@@ -2256,6 +2256,28 @@ var ErrStreamIdleTimeout = errors.New("stream idle timeout: no data received wit
 // cancellation or cleanup before the next read starts.
 var ErrStreamClosed = errors.New("stream closed")
 
+// ErrStreamTruncated indicates an upstream SSE stream ended with a clean EOF
+// before delivering a terminal event (response.completed / finish_reason). The
+// provider response was truncated rather than completed normally — surfacing this
+// as an error prevents handing the client a silently empty/partial response.
+var ErrStreamTruncated = errors.New("upstream stream ended before terminal event: response truncated")
+
+// NewStreamTruncatedError builds a BifrostError for an upstream-truncated stream,
+// tagged with the given stream request type so the transport formats it correctly.
+// IsBifrostError is false and AllowFallbacks is left nil so fallbacks/retries may run.
+func NewStreamTruncatedError(requestType schemas.RequestType) *schemas.BifrostError {
+	return &schemas.BifrostError{
+		IsBifrostError: false,
+		Error: &schemas.ErrorField{
+			Message: ErrStreamTruncated.Error(),
+			Error:   ErrStreamTruncated,
+		},
+		ExtraFields: schemas.BifrostErrorExtraFields{
+			RequestType: requestType,
+		},
+	}
+}
+
 // HandleStreamCancellation should be called when a streaming goroutine exits
 // due to context cancellation. It ensures proper cleanup by:
 // 1. Checking if StreamEndIndicator was already set (to avoid duplicate handling)

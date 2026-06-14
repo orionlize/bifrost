@@ -710,6 +710,16 @@ func HandleOpenAITextCompletionStreaming(
 			}
 		}
 
+		// Upstream truncation detection (root cause A): a conformant stream terminates
+		// with a finish_reason. A clean EOF with no content forwarded and no finish_reason
+		// means the upstream cut the stream; surface an error instead of an empty response.
+		if customResponseHandler == nil && finishReason == nil && chunkIndex == -1 {
+			ctx.SetValue(schemas.BifrostContextKeyStreamEndIndicator, true)
+			logger.Warn("Stream ended before terminal event (response truncated by upstream)")
+			providerUtils.ProcessAndSendBifrostError(ctx, postHookRunner, providerUtils.EnrichError(ctx, providerUtils.NewStreamTruncatedError(schemas.TextCompletionStreamRequest), jsonBody, nil, sendBackRawRequest, sendBackRawResponse), responseChan, logger, postHookSpanFinalizer)
+			return
+		}
+
 		response := providerUtils.CreateBifrostTextCompletionChunkResponse(messageID, usage, finishReason, chunkIndex, schemas.TextCompletionStreamRequest)
 		if postResponseConverter != nil {
 			response = postResponseConverter(response)
@@ -1347,6 +1357,27 @@ func HandleOpenAIChatCompletionStreaming(
 			}
 		}
 
+		// Upstream truncation detection (root cause A): a conformant stream terminates
+		// with a completed/incomplete event (responses fallback) or a finish_reason (chat).
+		// A clean EOF without one — and with no content forwarded — means the upstream cut
+		// the stream; surface an error instead of returning an empty response as success.
+		if customResponseHandler == nil {
+			truncated := false
+			truncReqType := schemas.ChatCompletionStreamRequest
+			if isResponsesToChatCompletionsFallback {
+				truncated = pendingFinalEvent == nil
+				truncReqType = schemas.ResponsesStreamRequest
+			} else {
+				truncated = finishReason == nil && chunkIndex == -1
+			}
+			if truncated {
+				ctx.SetValue(schemas.BifrostContextKeyStreamEndIndicator, true)
+				logger.Warn("Stream ended before terminal event (response truncated by upstream)")
+				providerUtils.ProcessAndSendBifrostError(ctx, postHookRunner, providerUtils.EnrichError(ctx, providerUtils.NewStreamTruncatedError(truncReqType), jsonBody, nil, sendBackRawRequest, sendBackRawResponse), responseChan, logger, postHookSpanFinalizer)
+				return
+			}
+		}
+
 		if isResponsesToChatCompletionsFallback {
 			if pendingFinalEvent != nil {
 				if usageSeen && pendingFinalEvent.Response != nil {
@@ -1871,6 +1902,14 @@ func HandleOpenAIResponsesStreaming(
 					ctx.SetValue(schemas.BifrostContextKeyStreamEndIndicator, true)
 					logger.Warn("Error reading stream: %v", readErr)
 					providerUtils.ProcessAndSendError(ctx, postHookRunner, readErr, responseChan, logger, postHookSpanFinalizer)
+				} else if customResponseHandler == nil {
+					// Clean EOF before any terminal event. response.completed/incomplete/
+					// failed/error all return from this goroutine, so reaching here means the
+					// upstream truncated the stream. Surface an error instead of silently
+					// closing with an empty/partial response (lets clients retry/fallback).
+					ctx.SetValue(schemas.BifrostContextKeyStreamEndIndicator, true)
+					logger.Warn("Stream ended before terminal event (response truncated by upstream)")
+					providerUtils.ProcessAndSendBifrostError(ctx, postHookRunner, providerUtils.EnrichError(ctx, providerUtils.NewStreamTruncatedError(schemas.ResponsesStreamRequest), jsonBody, nil, sendBackRawRequest, sendBackRawResponse), responseChan, logger, postHookSpanFinalizer)
 				}
 				break
 			}
