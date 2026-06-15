@@ -97,6 +97,33 @@ func TestEvaluateGovernanceRequest_GlobalAPIKeyBypassesMandatoryVirtualKey(t *te
 	require.Equal(t, "user-bypass", bifrost.GetStringFromContext(ctx, schemas.BifrostContextKeyUserID))
 }
 
+func TestEvaluateGovernanceRequest_GlobalAPIKeyFromXAPIKeyBypassesMandatoryVirtualKey(t *testing.T) {
+	const token = configstore.GlobalAPIKeyPrefix + "x-api-key-bypass"
+	logger := NewMockLogger()
+	gs, err := NewLocalGovernanceStore(context.Background(), logger, nil, &configstore.GovernanceConfig{}, nil)
+	require.NoError(t, err)
+
+	plugin, err := InitFromStore(context.Background(), &Config{IsVkMandatory: boolPtr(true)}, logger, gs, nil, nil, nil, nil)
+	require.NoError(t, err)
+	defer func() {
+		require.NoError(t, plugin.Cleanup())
+	}()
+
+	ctx := schemas.NewBifrostContext(context.Background(), schemas.NoDeadline)
+	ctx.SetValue(schemas.BifrostContextKeyRequestHeaders, map[string]string{
+		"x-api-key": token,
+	})
+
+	result, bifrostErr := plugin.EvaluateGovernanceRequest(ctx, &EvaluationRequest{
+		Provider: schemas.OpenAI,
+		Model:    "gpt-4",
+	}, schemas.ChatCompletionRequest)
+	require.Nil(t, bifrostErr)
+	require.NotNil(t, result)
+	require.Equal(t, DecisionAllow, result.Decision)
+	require.True(t, bifrost.GetBoolFromContext(ctx, schemas.IsLocalAdminContextKey))
+}
+
 func TestLookupGlobalAPIKeyByTokenAssignedUser(t *testing.T) {
 	const token = configstore.GlobalAPIKeyPrefix + "assigned-user"
 	mockStore := &lookupGlobalAPIKeyStore{

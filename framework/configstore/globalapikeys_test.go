@@ -128,3 +128,22 @@ func TestExtractGlobalAPIKeyTokenFromAuthorization(t *testing.T) {
 		})
 	}
 }
+
+func TestExtractGlobalAPIKeyTokenFromHeaders(t *testing.T) {
+	token := GlobalAPIKeyPrefix + "from-header"
+	if got := ExtractGlobalAPIKeyTokenFromHeaders(map[string]string{
+		"x-api-key": token,
+	}); got != token {
+		t.Fatalf("x-api-key token = %q, want %q", got, token)
+	}
+	if got := ExtractGlobalAPIKeyTokenFromHeaders(map[string]string{
+		"x-goog-api-key": token,
+	}); got != token {
+		t.Fatalf("x-goog-api-key token = %q, want %q", got, token)
+	}
+	if got := ExtractGlobalAPIKeyTokenFromHeaders(map[string]string{
+		"x-api-key": "sk-bf-personal",
+	}); got != "" {
+		t.Fatalf("virtual key in x-api-key = %q, want empty", got)
+	}
+}

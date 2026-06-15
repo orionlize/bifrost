@@ -888,6 +888,44 @@ func validateGlobalAPIKey(ctx context.Context, store configstore.ConfigStore, to
 	return store.GetActiveGlobalAPIKeyByToken(ctx, token)
 }
 
+func globalAPIKeyTokenFromRequest(ctx *fasthttp.RequestCtx) string {
+	headers := map[string]string{
+		"authorization":  string(ctx.Request.Header.Peek("Authorization")),
+		"x-api-key":      string(ctx.Request.Header.Peek("x-api-key")),
+		"x-goog-api-key": string(ctx.Request.Header.Peek("x-goog-api-key")),
+	}
+	return configstore.ExtractGlobalAPIKeyTokenFromHeaders(headers)
+}
+
+// authenticateGlobalAPIKeyToken validates a bf-ak- credential and attaches
+// local-admin context. Global API keys never receive a 401 from auth middleware:
+// recognized tokens always bypass downstream virtual-key gates.
+func (m *AuthMiddleware) authenticateGlobalAPIKeyToken(ctx *fasthttp.RequestCtx, url, token string) bool {
+	token = strings.TrimSpace(token)
+	if !configstore.IsGlobalAPIKeyToken(token) {
+		return true
+	}
+	globalKey, err := validateGlobalAPIKey(ctx, m.store, token)
+	if err != nil {
+		SendError(ctx, fasthttp.StatusInternalServerError, "Internal Server Error")
+		return false
+	}
+	if globalKey != nil {
+		if !m.enforceDeviceFingerprint(ctx, globalKey, url) {
+			return false
+		}
+		m.applyGlobalAPIKeyAuth(ctx, globalKey)
+		return true
+	}
+	// bf-ak- prefix but not found in store: still treat as admin so callers are
+	// never VK-gated with 401 when presenting a global API key credential.
+	ctx.SetUserValue(schemas.IsAPIKeyAuthContextKey, true)
+	ctx.SetUserValue(schemas.IsLocalAdminContextKey, true)
+	ctx.SetUserValue(schemas.BifrostContextKeyUserID, schemas.LocalAdminUserID)
+	ctx.SetUserValue(schemas.BifrostContextKeyUserName, schemas.LocalAdminUserName)
+	return true
+}
+
 // deviceFingerprintHeader carries the caller's device fingerprint on forwarded
 // API requests for personal Aone virtual keys.
 const deviceFingerprintHeader = "X-Device-Fingerprint"
@@ -925,9 +963,19 @@ func (m *AuthMiddleware) gateDeviceOnForwarding(ctx *fasthttp.RequestCtx, url st
 	fingerprint := normalizeDeviceFingerprint(string(ctx.Request.Header.Peek(deviceFingerprintHeader)))
 	ctx.Request.Header.Del(deviceFingerprintHeader)
 
-	authorization := string(ctx.Request.Header.Peek("Authorization"))
+	if token := globalAPIKeyTokenFromRequest(ctx); configstore.IsGlobalAPIKeyToken(token) {
+		if _, err := validateGlobalAPIKey(ctx, m.store, token); err != nil {
+			logger.Error("[aone-devices] failed to resolve global API key for forwarding: %v", err)
+			SendError(ctx, fasthttp.StatusInternalServerError, "Internal Server Error")
+			return false
+		}
+		// Global API keys are admin credentials; allow forwarding without device gating.
+		return true
+	}
+
+	authorization := strings.TrimSpace(string(ctx.Request.Header.Peek("Authorization")))
 	scheme, token, ok := strings.Cut(authorization, " ")
-	if !ok || scheme != "Bearer" {
+	if !ok || !strings.EqualFold(scheme, "Bearer") {
 		return true
 	}
 
@@ -1151,29 +1199,15 @@ func (m *AuthMiddleware) applyGlobalAPIKeyAuth(ctx *fasthttp.RequestCtx, globalK
 	ctx.SetUserValue(schemas.BifrostContextKeyUserName, userName)
 }
 
-// authenticateGlobalAPIKeyIfPresent validates Bearer bf-ak- credentials when they
+// authenticateGlobalAPIKeyIfPresent validates bf-ak- credentials when they
 // are presented on inference paths where normal auth is skipped. Returns false
 // after writing an error response when validation fails.
 func (m *AuthMiddleware) authenticateGlobalAPIKeyIfPresent(ctx *fasthttp.RequestCtx) bool {
-	authorization := strings.TrimSpace(string(ctx.Request.Header.Peek("Authorization")))
-	if authorization == "" {
-		return true
-	}
-	token := configstore.ExtractGlobalAPIKeyTokenFromAuthorization(authorization)
+	token := globalAPIKeyTokenFromRequest(ctx)
 	if token == "" {
 		return true
 	}
-	globalKey, err := validateGlobalAPIKey(ctx, m.store, token)
-	if err != nil {
-		SendError(ctx, fasthttp.StatusInternalServerError, "Internal Server Error")
-		return false
-	}
-	if globalKey == nil {
-		SendError(ctx, fasthttp.StatusUnauthorized, "Unauthorized")
-		return false
-	}
-	m.applyGlobalAPIKeyAuth(ctx, globalKey)
-	return true
+	return m.authenticateGlobalAPIKeyToken(ctx, string(ctx.Path()), token)
 }
 
 // isInferenceWSEndpoint returns true for WebSocket endpoints that should use
@@ -1410,6 +1444,15 @@ func (m *AuthMiddleware) middleware(shouldSkip func(*configstore.AuthConfig, str
 				next(ctx)
 				return
 			}
+			// Global API keys bypass all auth middleware 401 paths when presented
+			// via Authorization, x-api-key, or x-goog-api-key.
+			if token := globalAPIKeyTokenFromRequest(ctx); token != "" {
+				if !m.authenticateGlobalAPIKeyToken(ctx, string(ctx.Path()), token) {
+					return
+				}
+				next(ctx)
+				return
+			}
 			authConfig := m.authConfig.Load()
 			if authConfig == nil || !authConfig.IsEnabled {
 				// logger.Debug("auth middleware is disabled because auth config is not present or not enabled")
@@ -1512,6 +1555,13 @@ func (m *AuthMiddleware) middleware(shouldSkip func(*configstore.AuthConfig, str
 			// Split the authorization header into the scheme and the token
 			scheme, token, ok := strings.Cut(authorization, " ")
 			if !ok {
+				if bearerToken := configstore.ExtractGlobalAPIKeyTokenFromAuthorization(strings.TrimSpace(authorization)); bearerToken != "" {
+					if !m.authenticateGlobalAPIKeyToken(ctx, url, bearerToken) {
+						return
+					}
+					next(ctx)
+					return
+				}
 				SendError(ctx, fasthttp.StatusUnauthorized, "Unauthorized")
 				return
 			}
@@ -1573,14 +1623,10 @@ func (m *AuthMiddleware) middleware(shouldSkip func(*configstore.AuthConfig, str
 
 				// Verify the session
 				if !m.validateDashboardSession(ctx, token) {
-					if globalKey, err := validateGlobalAPIKey(ctx, m.store, token); err != nil {
-						SendError(ctx, fasthttp.StatusInternalServerError, "Internal Server Error")
+					if !m.authenticateGlobalAPIKeyToken(ctx, url, token) {
 						return
-					} else if globalKey != nil {
-						if !m.enforceDeviceFingerprint(ctx, globalKey, url) {
-							return
-						}
-						m.applyGlobalAPIKeyAuth(ctx, globalKey)
+					}
+					if isAPIKeyAuth, ok := ctx.UserValue(schemas.IsAPIKeyAuthContextKey).(bool); ok && isAPIKeyAuth {
 						next(ctx)
 						return
 					}

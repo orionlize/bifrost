@@ -17,6 +17,11 @@ import (
 
 const GlobalAPIKeyPrefix = "bf-ak-"
 
+// IsGlobalAPIKeyToken reports whether token uses the global/admin API key prefix.
+func IsGlobalAPIKeyToken(token string) bool {
+	return strings.HasPrefix(strings.TrimSpace(token), GlobalAPIKeyPrefix)
+}
+
 // ExtractGlobalAPIKeyTokenFromAuthorization returns a bf-ak- token from an
 // Authorization header, accepting both "Bearer bf-ak-..." and a raw "bf-ak-..."
 // value (some OpenAI-compatible clients omit the Bearer prefix).
@@ -35,6 +40,23 @@ func ExtractGlobalAPIKeyTokenFromAuthorization(authHeader string) string {
 	token = strings.TrimSpace(token)
 	if strings.HasPrefix(token, GlobalAPIKeyPrefix) {
 		return token
+	}
+	return ""
+}
+
+// ExtractGlobalAPIKeyTokenFromHeaders returns a bf-ak- token from common API
+// credential headers (Authorization, x-api-key, x-goog-api-key).
+func ExtractGlobalAPIKeyTokenFromHeaders(headers map[string]string) string {
+	if len(headers) == 0 {
+		return ""
+	}
+	if token := ExtractGlobalAPIKeyTokenFromAuthorization(headers["authorization"]); token != "" {
+		return token
+	}
+	for _, header := range []string{"x-api-key", "x-goog-api-key"} {
+		if token := strings.TrimSpace(headers[header]); IsGlobalAPIKeyToken(token) {
+			return token
+		}
 	}
 	return ""
 }

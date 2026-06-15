@@ -337,10 +337,15 @@ func (h *AoneUsersHandler) aoneUserDetailResponse(ctx *fasthttp.RequestCtx, user
 }
 
 func sessionTokenFromRequest(ctx *fasthttp.RequestCtx) string {
-	if authHeader := string(ctx.Request.Header.Peek("Authorization")); authHeader != "" {
-		if globalToken := configstore.ExtractGlobalAPIKeyTokenFromAuthorization(authHeader); globalToken != "" {
-			return globalToken
-		}
+	headers := map[string]string{
+		"authorization":  string(ctx.Request.Header.Peek("Authorization")),
+		"x-api-key":      string(ctx.Request.Header.Peek("x-api-key")),
+		"x-goog-api-key": string(ctx.Request.Header.Peek("x-goog-api-key")),
+	}
+	if globalToken := configstore.ExtractGlobalAPIKeyTokenFromHeaders(headers); globalToken != "" {
+		return globalToken
+	}
+	if authHeader := headers["authorization"]; authHeader != "" {
 		if scheme, token, ok := strings.Cut(authHeader, " "); ok && strings.EqualFold(scheme, "Bearer") {
 			return strings.TrimSpace(token)
 		}

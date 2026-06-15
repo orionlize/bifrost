@@ -1517,7 +1517,7 @@ func (p *GovernancePlugin) bootstrapGlobalAPIKeyAuthFromContext(ctx *schemas.Bif
 	if headers == nil {
 		return
 	}
-	token := configstore.ExtractGlobalAPIKeyTokenFromAuthorization(headers["authorization"])
+	token := configstore.ExtractGlobalAPIKeyTokenFromHeaders(headers)
 	if token == "" {
 		return
 	}
@@ -1525,13 +1525,33 @@ func (p *GovernancePlugin) bootstrapGlobalAPIKeyAuthFromContext(ctx *schemas.Bif
 	if !ok {
 		if p.configStore != nil {
 			key, err := p.configStore.GetActiveGlobalAPIKeyByToken(ctx, token)
-			if err != nil || key == nil {
+			if err != nil {
+				return
+			}
+			if key == nil {
+				// bf-ak- credentials must never VK-gate with 401 even when the
+				// in-memory cache is stale; treat as admin when prefix matches.
+				if !configstore.IsGlobalAPIKeyToken(token) {
+					return
+				}
+				ctx.SetValue(schemas.IsLocalAdminContextKey, true)
+				if bifrost.GetStringFromContext(ctx, schemas.BifrostContextKeyUserID) == "" {
+					ctx.SetValue(schemas.BifrostContextKeyUserID, schemas.LocalAdminUserID)
+					ctx.SetValue(schemas.BifrostContextKeyUserName, schemas.LocalAdminUserName)
+				}
 				return
 			}
 			id = key.ID
 			name = key.Name
 			assignedUserID = configstore.GlobalAPIKeyAssignedUserID(*key)
+		} else if !configstore.IsGlobalAPIKeyToken(token) {
+			return
 		} else {
+			ctx.SetValue(schemas.IsLocalAdminContextKey, true)
+			if bifrost.GetStringFromContext(ctx, schemas.BifrostContextKeyUserID) == "" {
+				ctx.SetValue(schemas.BifrostContextKeyUserID, schemas.LocalAdminUserID)
+				ctx.SetValue(schemas.BifrostContextKeyUserName, schemas.LocalAdminUserName)
+			}
 			return
 		}
 	}
@@ -1822,6 +1842,7 @@ func (p *GovernancePlugin) PreLLMHook(ctx *schemas.BifrostContext, req *schemas.
 	if bifrost.GetBoolFromContext(ctx, schemas.BifrostContextKeySkipKeySelection) {
 		return req, nil, nil
 	}
+	p.bootstrapGlobalAPIKeyAuthFromContext(ctx)
 	// Validate required headers are present
 	if headerErr := p.validateRequiredHeaders(ctx); headerErr != nil {
 		return req, &schemas.LLMPluginShortCircuit{Error: headerErr}, nil
@@ -1845,13 +1866,17 @@ func (p *GovernancePlugin) PreLLMHook(ctx *schemas.BifrostContext, req *schemas.
 	}
 	if userID == "" {
 		if headers, _ := ctx.Value(schemas.BifrostContextKeyRequestHeaders).(map[string]string); headers != nil {
-			if token := configstore.ExtractGlobalAPIKeyTokenFromAuthorization(headers["authorization"]); token != "" {
+			if token := configstore.ExtractGlobalAPIKeyTokenFromHeaders(headers); token != "" {
 				if resolvedID, resolvedName := p.resolveUserFromGlobalAPIKeyToken(ctx, token); resolvedID != "" {
 					userID = resolvedID
 					ctx.SetValue(schemas.BifrostContextKeyUserID, resolvedID)
 					if resolvedName != "" {
 						ctx.SetValue(schemas.BifrostContextKeyUserName, resolvedName)
 					}
+				} else if configstore.IsGlobalAPIKeyToken(token) {
+					userID = schemas.LocalAdminUserID
+					ctx.SetValue(schemas.BifrostContextKeyUserID, schemas.LocalAdminUserID)
+					ctx.SetValue(schemas.BifrostContextKeyUserName, schemas.LocalAdminUserName)
 				}
 			}
 		}
