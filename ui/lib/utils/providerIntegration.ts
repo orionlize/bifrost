@@ -51,40 +51,29 @@ function getPathPrefix(sdkKind: IntegrationSdkKind): string {
 	}
 }
 
-function getModelForProvider(provider: string, sdkKind: IntegrationSdkKind, exampleModel: string): string {
-	if (sdkKind === "anthropic") {
-		return exampleModel;
-	}
-	if (sdkKind === "genai") {
-		return provider === "vertex" ? `vertex/${exampleModel}` : exampleModel;
-	}
-	if (provider === "openai") {
-		return exampleModel;
-	}
-	return `${provider}/${exampleModel}`;
-}
-
 export function getProviderIntegrationGuide(provider: string, apiKey: string): ProviderIntegrationGuide {
 	const sdkKind = getSdkKind(provider);
 	const exampleModel = getExampleModel(provider);
-	const model = getModelForProvider(provider, sdkKind, exampleModel);
 
+	// Emit the bare model id (no `provider/` prefix). The gateway resolves the
+	// model to a provider whose key the caller can actually access, which is
+	// required for assigned global API keys hitting grayscale models where a
+	// provider-pinned request would select an inaccessible key.
 	return {
 		pathPrefix: getPathPrefix(sdkKind),
 		sdkKind,
-		exampleModel: model,
+		exampleModel,
 		authHeader: `Authorization: Bearer ${apiKey}`,
 	};
 }
 
 export function getModelIntegrationGuide(model: string, provider: string, apiKey: string): ProviderIntegrationGuide {
 	const sdkKind = getSdkKind(provider);
-	const resolvedModel = getModelForProvider(provider, sdkKind, model);
 
 	return {
 		pathPrefix: getPathPrefix(sdkKind),
 		sdkKind,
-		exampleModel: resolvedModel,
+		exampleModel: model,
 		authHeader: `Authorization: Bearer ${apiKey}`,
 	};
 }
