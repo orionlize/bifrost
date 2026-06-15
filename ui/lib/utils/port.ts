@@ -9,7 +9,7 @@
  * - Optional subpath deployments via BIFROST_BASE_PATH
  */
 
-import { withBasePath } from "@/lib/utils/basePath";
+import { getBasePath, withBasePath } from "@/lib/utils/basePath";
 
 interface PortConfig {
 	port: string;
@@ -104,10 +104,12 @@ export function getWebSocketUrl(path: string = ""): string {
 }
 
 /**
- * Get the full base URL (for example code snippets)
+ * Get the full base URL (for example code snippets).
+ * Includes BIFROST_BASE_PATH so curl/SDK examples match subpath deployments.
  */
 export function getExampleBaseUrl(): string {
-	return getPortConfig().baseUrl;
+	const config = getPortConfig();
+	return `${config.baseUrl}${getBasePath()}`;
 }
 
 /**

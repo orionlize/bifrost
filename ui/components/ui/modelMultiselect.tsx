@@ -78,11 +78,20 @@ function filterModelsByProvider(models: ModelResponse[] | undefined, provider?: 
 }
 
 function toModelOptions(models: ModelResponse[]): ModelOption[] {
-	return models.map((model) => ({
-		label: model.name,
-		value: model.name,
-		provider: model.provider,
-	}));
+	const seen = new Set<string>();
+	const options: ModelOption[] = [];
+	for (const model of models) {
+		if (seen.has(model.name)) {
+			continue;
+		}
+		seen.add(model.name);
+		options.push({
+			label: model.name,
+			value: model.name,
+			provider: model.provider,
+		});
+	}
+	return options;
 }
 
 function mergeExtraModelOptions(

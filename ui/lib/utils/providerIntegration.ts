@@ -13,6 +13,11 @@ export interface ProviderIntegrationGuide {
 
 const DEFAULT_EXAMPLE_MODEL = "gpt-4o-mini";
 
+/** Header line for global API key auth in curl examples (OpenAI/Anthropic/Gemini compatible). */
+export function formatGlobalApiKeyAuthHeader(apiKey: string): string {
+	return `x-api-key: ${apiKey}`;
+}
+
 function firstModelFromPlaceholder(placeholder: string): string {
 	const match = placeholder.match(/e\.g\.\s*([^,\.]+)/i);
 	return match?.[1]?.trim() || DEFAULT_EXAMPLE_MODEL;
@@ -63,7 +68,7 @@ export function getProviderIntegrationGuide(provider: string, apiKey: string): P
 		pathPrefix: getPathPrefix(sdkKind),
 		sdkKind,
 		exampleModel,
-		authHeader: `Authorization: Bearer ${apiKey}`,
+		authHeader: formatGlobalApiKeyAuthHeader(apiKey),
 	};
 }
 
@@ -74,7 +79,7 @@ export function getModelIntegrationGuide(model: string, provider: string, apiKey
 		pathPrefix: getPathPrefix(sdkKind),
 		sdkKind,
 		exampleModel: model,
-		authHeader: `Authorization: Bearer ${apiKey}`,
+		authHeader: formatGlobalApiKeyAuthHeader(apiKey),
 	};
 }
 
