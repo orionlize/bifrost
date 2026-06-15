@@ -142,10 +142,7 @@ export function MarketplaceCatalogTab({
 									<button
 										key={plugin.name}
 										type="button"
-										className={cn(
-											"hover:bg-muted/50 w-full px-3 py-2.5 text-left transition-colors",
-											active && "bg-primary/8",
-										)}
+										className={cn("hover:bg-muted/50 w-full px-3 py-2.5 text-left transition-colors", active && "bg-primary/8")}
 										onClick={() => selectedSource && onSelectPlugin(plugin, selectedSource)}
 										data-testid={`marketplace-catalog-plugin-${plugin.name}`}
 									>

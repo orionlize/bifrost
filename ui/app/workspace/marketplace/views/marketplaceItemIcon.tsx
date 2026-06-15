@@ -36,8 +36,7 @@ export function MarketplaceItemIcon({
 	size?: "sm" | "md" | "lg" | "xl";
 }) {
 	const iconSrc = resolveMarketplaceIconUrl(item.icon_url);
-	const sizeClass =
-		size === "xl" ? "size-[72px]" : size === "lg" ? "size-20" : size === "sm" ? "size-12" : "size-16";
+	const sizeClass = size === "xl" ? "size-[72px]" : size === "lg" ? "size-20" : size === "sm" ? "size-12" : "size-16";
 	const letter = item.name?.charAt(0)?.toUpperCase() || "?";
 	const TypeIcon = item.item_type === "skill" ? SparklesIcon : PuzzleIcon;
 
@@ -53,10 +52,7 @@ export function MarketplaceItemIcon({
 				<img src={iconSrc} alt="" className="size-full object-cover" loading="lazy" />
 			) : (
 				<div
-					className={cn(
-						"flex size-full flex-col items-center justify-center bg-gradient-to-br text-white",
-						fallbackGradient(item.name),
-					)}
+					className={cn("flex size-full flex-col items-center justify-center bg-gradient-to-br text-white", fallbackGradient(item.name))}
 				>
 					<TypeIcon className="mb-0.5 size-4 opacity-90" strokeWidth={2} />
 					<span className="text-lg font-semibold tracking-tight">{letter}</span>

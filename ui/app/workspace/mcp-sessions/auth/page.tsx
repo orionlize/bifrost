@@ -74,10 +74,7 @@ function OAuthAuthView() {
 		}
 		return "/workspace/mcp-sessions/auth";
 	}, [flowId]);
-	const loginHref = useMemo(
-		() => getEndpointUrl(`/login?redirect_uri=${encodeURIComponent(loginRedirectUri)}`),
-		[loginRedirectUri],
-	);
+	const loginHref = useMemo(() => getEndpointUrl(`/login?redirect_uri=${encodeURIComponent(loginRedirectUri)}`), [loginRedirectUri]);
 	const showLoginOption = usingTempToken && authState?.is_auth_enabled === true && authState.has_valid_token === false;
 	const showTempTokenSSOWarning = showLoginOption && authState.auth_type === "sso";
 

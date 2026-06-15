@@ -157,10 +157,7 @@ function KeySelect({
 	return (
 		<div className="min-w-0 space-y-1.5">
 			<Label className="text-xs">{label}</Label>
-			<Select
-				value={!value ? ANY_KEY : value}
-				onValueChange={(next) => onChange(next === ANY_KEY ? "" : next)}
-			>
+			<Select value={!value ? ANY_KEY : value} onValueChange={(next) => onChange(next === ANY_KEY ? "" : next)}>
 				<SelectTrigger className="h-9 w-full min-w-0 text-sm" data-testid={testId}>
 					<SelectValue placeholder={t("governance.userGroups.anyKey")} />
 				</SelectTrigger>
@@ -301,10 +298,7 @@ export function UserGroupSheet({ open, onOpenChange, editingGroup }: UserGroupSh
 	const { data: providersData = [] } = useGetProvidersQuery();
 	const { data: allKeysData = [] } = useGetAllKeysQuery();
 	const providers = useMemo(() => providersData.map((p) => p.name), [providersData]);
-	const allKeys = useMemo(
-		() => allKeysData.map((k) => ({ key_id: k.key_id, name: k.name, provider: k.provider })),
-		[allKeysData],
-	);
+	const allKeys = useMemo(() => allKeysData.map((k) => ({ key_id: k.key_id, name: k.name, provider: k.provider })), [allKeysData]);
 	const vkOptions = useMemo(() => (vkData?.virtual_keys ?? []).map((vk) => ({ label: vk.name, value: vk.id })), [vkData]);
 
 	const [createGroup, { isLoading: isCreating }] = useCreateUserGroupMutation();
@@ -432,7 +426,9 @@ export function UserGroupSheet({ open, onOpenChange, editingGroup }: UserGroupSh
 		<Sheet open={open} onOpenChange={onOpenChange}>
 			<SheetContent className="flex w-full flex-col gap-0 overflow-hidden p-0 pt-4 sm:max-w-4xl">
 				<SheetHeader className="flex shrink-0 flex-col items-start px-6 py-3" headerClassName="mb-0">
-					<SheetTitle className="text-base">{isEdit ? t("governance.userGroups.editTitle") : t("governance.userGroups.createTitle")}</SheetTitle>
+					<SheetTitle className="text-base">
+						{isEdit ? t("governance.userGroups.editTitle") : t("governance.userGroups.createTitle")}
+					</SheetTitle>
 				</SheetHeader>
 
 				<div className="flex min-h-0 flex-1 flex-col space-y-6 overflow-y-auto px-6 pb-6">

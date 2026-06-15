@@ -107,8 +107,7 @@ export const prompts = {
 	toolResponsePlaceholder: "输入工具响应...",
 	deleteFolderDialog: {
 		title: "删除文件夹",
-		description:
-			"确定要删除「{{name}}」吗？这将同时删除该文件夹内的所有提示词、版本和会话。此操作无法撤销。",
+		description: "确定要删除「{{name}}」吗？这将同时删除该文件夹内的所有提示词、版本和会话。此操作无法撤销。",
 	},
 	deletePromptDialog: {
 		title: "删除提示词",

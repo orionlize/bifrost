@@ -4,13 +4,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import {
-	getErrorMessage,
-	useCreatePluginMutation,
-	useGetCoreConfigQuery,
-	useGetPluginsQuery,
-	useUpdatePluginMutation,
-} from "@/lib/store";
+import { getErrorMessage, useCreatePluginMutation, useGetCoreConfigQuery, useGetPluginsQuery, useUpdatePluginMutation } from "@/lib/store";
 import { CacheConfig, EditorCacheConfig } from "@/lib/types/config";
 import { EnvVar } from "@/lib/types/schemas";
 import { SEMANTIC_CACHE_PLUGIN } from "@/lib/types/plugins";
@@ -69,8 +63,7 @@ const inferMode = (config: EditorCacheConfig): CacheMode => {
 	return "direct";
 };
 
-const usesLegacyProviderConfig = (config: EditorCacheConfig): boolean =>
-	Boolean(config.provider?.trim()) && !config.embedding_url?.trim();
+const usesLegacyProviderConfig = (config: EditorCacheConfig): boolean => Boolean(config.provider?.trim()) && !config.embedding_url?.trim();
 
 const buildPayload = (config: EditorCacheConfig, mode: CacheMode): CacheConfig => {
 	const base = {
@@ -184,8 +177,7 @@ export default function CachingView() {
 			"default_cache_key",
 		];
 		const changed = fields.some((k) => (cacheConfig[k] ?? "") !== (serverCacheConfig[k] ?? ""));
-		const apiKeyChanged =
-			JSON.stringify(cacheConfig.embedding_api_key) !== JSON.stringify(serverCacheConfig.embedding_api_key);
+		const apiKeyChanged = JSON.stringify(cacheConfig.embedding_api_key) !== JSON.stringify(serverCacheConfig.embedding_api_key);
 		const modeChanged = inferMode(serverCacheConfig) !== mode;
 		return changed || apiKeyChanged || modeChanged;
 	}, [cacheConfig, serverCacheConfig, mode]);
@@ -268,18 +260,14 @@ export default function CachingView() {
 				<h2 className="text-lg font-semibold tracking-tight">{t("configPages.localCacheTitle")}</h2>
 				<p className="text-muted-foreground text-sm">
 					{t("configViews.caching.descriptionIntro")}{" "}
-					{!isVectorStoreEnabled && (
-						<span className="text-destructive font-medium">{t("configViews.caching.vectorStoreRequired")}</span>
-					)}
+					{!isVectorStoreEnabled && <span className="text-destructive font-medium">{t("configViews.caching.vectorStoreRequired")}</span>}
 				</p>
 			</div>
 
 			{configError !== undefined && (
 				<div className="border-destructive/50 bg-destructive/10 rounded-lg border p-4">
 					<p className="text-destructive text-sm font-medium">{t("configViews.caching.loadConfigFailed")}</p>
-					<p className="text-muted-foreground mt-1 text-sm">
-						{getErrorMessage(configError) || t("configViews.shared.unexpectedError")}
-					</p>
+					<p className="text-muted-foreground mt-1 text-sm">{getErrorMessage(configError) || t("configViews.shared.unexpectedError")}</p>
 				</div>
 			)}
 
@@ -508,8 +496,7 @@ export default function CachingView() {
 										min="1"
 										max="50"
 										value={
-											cacheConfig.conversation_history_threshold === undefined ||
-											Number.isNaN(cacheConfig.conversation_history_threshold)
+											cacheConfig.conversation_history_threshold === undefined || Number.isNaN(cacheConfig.conversation_history_threshold)
 												? ""
 												: cacheConfig.conversation_history_threshold
 										}

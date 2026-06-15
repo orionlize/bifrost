@@ -85,9 +85,7 @@ export function FolderSheet({ open, onOpenChange, folder, onSaved }: FolderSheet
 				<form onSubmit={handleSubmit(onSubmit)}>
 					<SheetHeader className="flex flex-col items-start">
 						<SheetTitle>{isEditing ? t("prompts.editFolder") : t("prompts.createFolder")}</SheetTitle>
-						<SheetDescription>
-							{isEditing ? t("prompts.updateFolderDesc") : t("prompts.createFolderDesc")}
-						</SheetDescription>
+						<SheetDescription>{isEditing ? t("prompts.updateFolderDesc") : t("prompts.createFolderDesc")}</SheetDescription>
 					</SheetHeader>
 
 					<div className="mt-6 space-y-4">

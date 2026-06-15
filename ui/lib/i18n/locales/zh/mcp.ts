@@ -108,8 +108,7 @@ export const mcp = {
 		headerKeysRequiredDesc: "请至少声明一个用户必须提供的请求头名称。",
 		connectionTypeImmutable: "连接类型和认证设置创建后无法更改。",
 		codeModeLearnMore: "点击了解更多代码模式",
-		pingHealthTooltip:
-			"启用后使用轻量级 ping 方法进行健康检查。若 MCP 服务器不支持 ping，请禁用 — 将改用 listTools。",
+		pingHealthTooltip: "启用后使用轻量级 ping 方法进行健康检查。若 MCP 服务器不支持 ping，请禁用 — 将改用 listTools。",
 		headerValueRequired: "请求头「{{key}}」必须填写值",
 		oauth20: "OAuth 2.0",
 		oauthClientAdvanced: "OAuth 客户端高级设置",
@@ -209,8 +208,7 @@ export const mcp = {
 		pingHealthTooltip: "启用后使用轻量级 ping 方法进行健康检查。若 MCP 服务器不支持 ping，请禁用 — 将改用 listTools。",
 		allowAllUsersTooltip:
 			"启用后，所有用户均可访问此 MCP 服务器，无需显式按用户分配。默认允许全部工具。若用户对此服务器有显式 MCP 配置，该配置优先并覆盖此行为。",
-		disableClientTooltip:
-			"启用后，将关闭客户端的连接、健康监控和工具同步。重新启用前，此客户端的工具不可用于推理。",
+		disableClientTooltip: "启用后，将关闭客户端的连接、健康监控和工具同步。重新启用前，此客户端的工具不可用于推理。",
 		toolSyncIntervalTooltip: "覆盖此服务器的全局工具同步间隔。留空使用全局设置。设为 -1 禁用此服务器的同步。",
 		perUserHeadersDesc:
 			"调用者首次使用此服务器时必须提供的请求头名称列表（逗号分隔，例如 X-API-Key, X-Tenant-ID）。值按用户提交，不存储在此服务器配置中。",
@@ -245,8 +243,7 @@ export const mcp = {
 		errorOccurred: "发生错误",
 		confirmDescShort: "需要进行一次性测试以验证您的请求头配置。",
 		verifyIntro: "要设置此 MCP 服务器，我们需要验证您的请求头配置是否正确并发现可用工具。",
-		verifySample:
-			"系统将要求您提供必填请求头的示例值。这是一次性测试，用于确认配置有效。您的示例值不会被存储或用于其他用途。",
+		verifySample: "系统将要求您提供必填请求头的示例值。这是一次性测试，用于确认配置有效。您的示例值不会被存储或用于其他用途。",
 		verifyPerUser: "验证完成后，每位用户在使用此 MCP 服务器时将提交自己的请求头值。",
 		inputNotPersisted: "这些值仅用于本次验证，不会被持久化。",
 	},
@@ -264,8 +261,7 @@ export const mcp = {
 		authFailed: "授权失败",
 		confirmDescShort: "需要进行一次性登录以验证您的 OAuth 配置。",
 		verifyIntro: "要设置此 MCP 服务器，我们需要验证您的 OAuth 配置是否正确并发现可用工具。",
-		verifyLogin:
-			"系统将要求您登录 OAuth 提供商。这是一次性测试，用于确认配置有效。您的凭据不会被存储或用于其他用途。",
+		verifyLogin: "系统将要求您登录 OAuth 提供商。这是一次性测试，用于确认配置有效。您的凭据不会被存储或用于其他用途。",
 		verifyPerUser: "验证完成后，每位用户在使用此 MCP 服务器时将单独进行认证。",
 		pollingDesc: "等待授权...",
 		pendingOpenDesc: "打开授权窗口以登录并完成连接。",
@@ -277,13 +273,11 @@ export const mcp = {
 		loadFailed: "加载 MCP 会话失败：",
 		emptyDescription: "用户为配置了按用户认证的 MCP 客户端完成 OAuth 或请求头认证后，凭据会显示在此处。",
 		revokeHeaderTitle: "撤销这些已存储的请求头值？",
-		revokeHeaderDesc:
-			"Bifrost 将移除此绑定上存储的凭据值。没有需要在上游撤销的令牌；用户需要重新提交请求头值才能再次使用此 MCP。",
+		revokeHeaderDesc: "Bifrost 将移除此绑定上存储的凭据值。没有需要在上游撤销的令牌；用户需要重新提交请求头值才能再次使用此 MCP。",
 		revokeOAuthTitle: "撤销此 MCP 会话？",
 		revokeOAuthDesc:
 			"Bifrost 将移除此绑定上存储的凭据。上游 OAuth 令牌不会在提供商处撤销 — 它将保持分离并自然过期。使用此绑定的任何人都需要重新认证以获取新令牌。",
-		emptyRow:
-			"暂无会话。当推理请求或 MCP 网关调用触发按用户认证（OAuth 或请求头提交）时，会话将显示在此处。",
+		emptyRow: "暂无会话。当推理请求或 MCP 网关调用触发按用户认证（OAuth 或请求头提交）时，会话将显示在此处。",
 		typeTooltip:
 			"OAuth：用户完成上游登录流程后存储的按用户 OAuth 令牌。Headers：直接提交的按用户请求头值（API 密钥/签名令牌）。Pending：尚未完成的认证流程。",
 		boundToTooltip:
@@ -359,29 +353,24 @@ export const mcp = {
 		inMinutes: "{{n}} 分钟后",
 		inOneMinute: "1 分钟后",
 		missingFlowDesc: "此 URL 缺少 flow 查询参数。请从推理响应或会话标签页打开链接。",
-		notYoursDesc:
-			"待处理流程属于不同身份。请让触发原始请求的队友（其 VK 或用户身份）完成，或自行触发新请求。",
+		notYoursDesc: "待处理流程属于不同身份。请让触发原始请求的队友（其 VK 或用户身份）完成，或自行触发新请求。",
 		flowExpiredTitle: "此认证流程已过期或已完成",
 		flowExpiredDesc: "待处理流程会在短时间窗口后过期。若仍需认证，请再次触发原始操作以创建新流程。",
-		reauthenticateReplaceDesc:
-			"以下绑定已存在活跃凭据。完成此流程将用新凭据替换现有凭据。您也可以关闭此标签页继续使用现有凭据。",
-		authenticateDesc:
-			"您将被重定向到提供商登录并授权。Bifrost 将生成的凭据存储在以下绑定上，以便本次及后续请求自动进行。",
+		reauthenticateReplaceDesc: "以下绑定已存在活跃凭据。完成此流程将用新凭据替换现有凭据。您也可以关闭此标签页继续使用现有凭据。",
+		authenticateDesc: "您将被重定向到提供商登录并授权。Bifrost 将生成的凭据存储在以下绑定上，以便本次及后续请求自动进行。",
 		tempTokenAlertDesc: "若继续使用临时链接，此凭据的活动将归因于绑定的密钥而非您的用户账户。",
 		alreadyAuthenticatedDesc: "{{name}} 的 OAuth 凭据已存储。您可以关闭此标签页。",
 		flowCannotComplete: "此认证流程已无法完成",
 		flowCannotCompleteDesc: "请再次触发原始操作以创建新流程。",
 		flowExpiredShort: "此认证流程已过期",
 		headersNotYours: "此提交流程不属于您",
-		headersNotYoursDesc:
-			"待处理流程属于不同身份。请让触发原始请求的队友（其 VK 或用户身份）完成，或自行触发新请求。",
+		headersNotYoursDesc: "待处理流程属于不同身份。请让触发原始请求的队友（其 VK 或用户身份）完成，或自行触发新请求。",
 		submissionExpiredTitle: "此提交链接已过期或已使用",
 		submissionExpiredDesc: "提交流程会在短时间窗口后过期。请再次触发原始请求以获取新链接。",
 		couldNotLoadSubmission: "无法加载此提交链接",
 		headersSavedDesc: "Bifrost 已验证连接并存储您的凭据。您可以关闭此标签页并重试原始操作。",
 		updateCredentialsDesc: "此服务器已为您存储凭据。提交新值将替换现有条目；保存前服务器将重新验证。",
-		submitCredentialsDesc:
-			"此服务器要求您提供自己的 API 密钥/令牌。提交的值经加密存储，仅用于认证您自己的请求。",
+		submitCredentialsDesc: "此服务器要求您提供自己的 API 密钥/令牌。提交的值经加密存储，仅用于认证您自己的请求。",
 		invalidLinkDesc: "链接可能已过期、已使用、无效或短期令牌已被剥离。请再次触发原始操作以生成新的认证链接。",
 		defaultMcpServer: "MCP 服务器",
 		defaultThisServer: "此 MCP 服务器",

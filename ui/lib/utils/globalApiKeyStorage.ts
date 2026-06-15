@@ -69,14 +69,12 @@ export function resolveGlobalApiKeySelection(
 	}
 
 	const preferred = preferredKeyId?.trim();
-	const selectedKey =
-		(preferred ? apiKeys.find((key) => key.id === preferred) : undefined) ?? apiKeys[0];
+	const selectedKey = (preferred ? apiKeys.find((key) => key.id === preferred) : undefined) ?? apiKeys[0];
 
 	const token =
-		[
-			isFullGlobalApiKeyToken(selectedKey.token?.trim()) ? selectedKey.token.trim() : null,
-			getStoredGlobalApiKey(selectedKey.id),
-		].find(isFullGlobalApiKeyToken) ?? GLOBAL_API_KEY_PLACEHOLDER;
+		[isFullGlobalApiKeyToken(selectedKey.token?.trim()) ? selectedKey.token.trim() : null, getStoredGlobalApiKey(selectedKey.id)].find(
+			isFullGlobalApiKeyToken,
+		) ?? GLOBAL_API_KEY_PLACEHOLDER;
 	return { keyId: selectedKey.id, token };
 }
 

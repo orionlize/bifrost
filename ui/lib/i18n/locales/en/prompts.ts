@@ -87,11 +87,9 @@ export const prompts = {
 		provider: "Provider",
 		model: "Model",
 		requiredHeaders: "Required Headers",
-		requiredHeadersHint:
-			"These headers are required by the server. Provide a value for each to send requests from the playground.",
+		requiredHeadersHint: "These headers are required by the server. Provide a value for each to send requests from the playground.",
 		variables: "Variables",
-		variablesHint:
-			"Detected from {{ }} syntax in messages. Values are substituted at runtime.",
+		variablesHint: "Detected from {{ }} syntax in messages. Values are substituted at runtime.",
 		variableColumn: "Variable",
 		valueColumn: "Value",
 		apiKey: "API Key",

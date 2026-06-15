@@ -98,7 +98,8 @@ export const mcp = {
 		scopeShared: "Shared",
 		scopePerUser: "Per-User",
 		dockerNotice: "Docker Notice",
-		dockerNoticeBody: "When running Bifrost in Docker, use host.docker.internal instead of localhost for STDIO servers on the host machine.",
+		dockerNoticeBody:
+			"When running Bifrost in Docker, use host.docker.internal instead of localhost for STDIO servers on the host machine.",
 		command: "Command",
 		arguments: "Arguments (comma-separated)",
 		envVars: "Environment Variables (comma-separated)",
@@ -223,20 +224,17 @@ export const mcp = {
 		perUserHeadersUpdateTooltip:
 			"Changing this list marks existing per-user header submissions as needing an update, so callers resubmit values on next use.",
 		allowedExtraHeadersTooltip: "Allowlist of headers that callers can forward to this MCP server at request time.",
-		allowedExtraHeadersHint:
-			"Comma-separated header names, or * to allow all. Leave empty to block all extra headers.",
+		allowedExtraHeadersHint: "Comma-separated header names, or * to allow all. Leave empty to block all extra headers.",
 		oauthCredentialsDisabled:
 			"OAuth credentials cannot be rotated while the client is disabled. Re-enable the client to update credentials.",
-		oauthCredentialsHint:
-			"Update OAuth client credentials only. Connection type, auth type, and connection URL cannot be changed.",
+		oauthCredentialsHint: "Update OAuth client credentials only. Connection type, auth type, and connection URL cannot be changed.",
 		keepCredentialsUnchanged: "Leave empty to keep existing credentials unchanged.",
 		availableToolsCount: "Available Tools ({{count}})",
 		autoExecuteTooltip:
 			"Applies only when Bifrost runs the LLM loop in Agent Mode. In MCP Gateway mode, the connected client (Claude Desktop, Cursor, etc.) controls tool approval and this setting is ignored. Click to learn more.",
 		autoExecuteAria: "Learn more about Auto-execute and Agent Mode",
 		userAccessTooltip: "Control which users can use this MCP server and which specific tools they can call.",
-		userAccessOverrideHint:
-			"Configuring access for a user here overrides the Allow on All Users setting for that user.",
+		userAccessOverrideHint: "Configuring access for a user here overrides the Allow on All Users setting for that user.",
 		allUsersAccess: "All users can access this MCP server unless a user has an explicit override.",
 		noUsersAccess: "No users have access to this MCP server",
 		unsavedNavigateDesc: "You have unsaved changes. Are you sure you want to navigate away? Your changes will be lost.",
@@ -244,7 +242,8 @@ export const mcp = {
 	headersAuth: {
 		testTitle: "Test Header Configuration",
 		authTitle: "Header Authorization",
-		confirmDesc: "This will run a one-time test using the values you provide. Your saved configuration is not changed until you finish creating the server.",
+		confirmDesc:
+			"This will run a one-time test using the values you provide. Your saved configuration is not changed until you finish creating the server.",
 		inputDesc: "Enter sample values to verify the connection.",
 		testingDesc: "Verifying connection...",
 		successDesc: "Verification successful!",
@@ -255,8 +254,7 @@ export const mcp = {
 		connected: "MCP server connected successfully!",
 		errorOccurred: "An error occurred",
 		confirmDescShort: "A one-time test is needed to verify your header setup.",
-		verifyIntro:
-			"To set up this MCP server, we need to verify that your header configuration is correct and discover the available tools.",
+		verifyIntro: "To set up this MCP server, we need to verify that your header configuration is correct and discover the available tools.",
 		verifySample:
 			"You will be asked to provide sample values for the required headers. This is a one-time test to confirm the setup works. Your sample values will not be stored or used for any other purpose.",
 		verifyPerUser: "Once verified, each user will submit their own header values when they use this MCP server.",
@@ -265,7 +263,8 @@ export const mcp = {
 	oauthAuth: {
 		testTitle: "Test OAuth Configuration",
 		authTitle: "OAuth Authorization",
-		confirmDesc: "This will open a browser window for a one-time OAuth test. Your saved configuration is not changed until you finish creating the server.",
+		confirmDesc:
+			"This will open a browser window for a one-time OAuth test. Your saved configuration is not changed until you finish creating the server.",
 		pendingDesc: "Open the authorization window to continue",
 		blockedDesc: "Authorization window was blocked",
 		completePopup: "Please complete authorization in the popup window",
@@ -275,8 +274,7 @@ export const mcp = {
 		errorOccurred: "An error occurred",
 		authFailed: "Authorization failed",
 		confirmDescShort: "A one-time login is needed to verify your OAuth setup.",
-		verifyIntro:
-			"To set up this MCP server, we need to verify that your OAuth configuration is correct and discover the available tools.",
+		verifyIntro: "To set up this MCP server, we need to verify that your OAuth configuration is correct and discover the available tools.",
 		verifyLogin:
 			"You will be asked to log in to the OAuth provider. This is a one-time test to confirm the setup works. Your credentials will not be stored or used for any other purpose.",
 		verifyPerUser: "Once verified, each user will authenticate individually when they use this MCP server.",
@@ -288,7 +286,8 @@ export const mcp = {
 	},
 	sessions: {
 		loadFailed: "Failed to load MCP sessions:",
-		emptyDescription: "Per-user OAuth and header credentials appear here after users authenticate MCP clients configured with per-user auth.",
+		emptyDescription:
+			"Per-user OAuth and header credentials appear here after users authenticate MCP clients configured with per-user auth.",
 		revokeHeaderTitle: "Revoke these stored header values?",
 		revokeHeaderDesc:
 			"Bifrost will remove the stored credential values for this binding. There is no upstream token to revoke; the user will need to resubmit their header values to use this MCP again.",
@@ -371,8 +370,7 @@ export const mcp = {
 		inLessThanMinute: "in less than a minute",
 		inMinutes: "in {{n}} minute(s)",
 		inOneMinute: "in 1 minute",
-		missingFlowDesc:
-			"This URL is missing the flow query parameter. Open the link from your inference response or the sessions tab.",
+		missingFlowDesc: "This URL is missing the flow query parameter. Open the link from your inference response or the sessions tab.",
 		notYoursDesc:
 			"The pending flow belongs to a different identity. Ask the teammate whose VK or user identity triggered the original request to complete it, or trigger a new request yourself.",
 		flowExpiredTitle: "This authentication flow has expired or been completed",
@@ -394,8 +392,7 @@ export const mcp = {
 		submissionExpiredTitle: "This submission link has expired or been used",
 		submissionExpiredDesc: "Submission flows expire after a short window. Trigger the original request again to get a fresh link.",
 		couldNotLoadSubmission: "Could not load this submission link",
-		headersSavedDesc:
-			"Bifrost verified the connection and stored your credentials. You can close this tab and retry the original action.",
+		headersSavedDesc: "Bifrost verified the connection and stored your credentials. You can close this tab and retry the original action.",
 		updateCredentialsDesc:
 			"This server already has stored credentials for you. Submitting new values replaces the existing entry; the server will be re-verified before saving.",
 		submitCredentialsDesc:
@@ -507,7 +504,7 @@ export const mcp = {
 		externalUrlPlaceholder: "https://bifrost.example.com or env.BIFROST_OAUTH_REDIRECT_URL",
 		urlWarningTitle: "Changing this URL can break existing MCP clients",
 		urlWarningDesc:
-			"Upstream OAuth providers lock the redirect_uri to whatever was registered initially, so MCP clients that already completed OAuth will fail with \"Invalid redirect URI\". To recover, clear the stored OAuth client credentials for the affected MCP servers and re-authorize so Bifrost re-runs Dynamic Client Registration with the new URL.",
+			'Upstream OAuth providers lock the redirect_uri to whatever was registered initially, so MCP clients that already completed OAuth will fail with "Invalid redirect URI". To recover, clear the stored OAuth client credentials for the affected MCP servers and re-authorize so Bifrost re-runs Dynamic Client Registration with the new URL.',
 	},
 	toolGroups: {
 		title: "MCP Tool Groups",

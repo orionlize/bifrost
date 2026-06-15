@@ -32,7 +32,9 @@ class AudioErrorBoundary extends Component<{ children: React.ReactNode; t: Trans
 			return (
 				<div className="flex items-center gap-2 rounded-sm border border-red-200 bg-red-50 p-4 text-sm text-red-800">
 					<AlertCircle className="h-4 w-4" />
-					<span>{this.props.t("logsMedia.audioLoadFailed", { error: this.state.error?.message || this.props.t("logsMedia.unknownError") })}</span>
+					<span>
+						{this.props.t("logsMedia.audioLoadFailed", { error: this.state.error?.message || this.props.t("logsMedia.unknownError") })}
+					</span>
 				</div>
 			);
 		}

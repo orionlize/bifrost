@@ -169,7 +169,9 @@ function ConditionGroup({ group, depth = 0 }: { group: RuleGroupType; depth?: nu
 
 	return (
 		<div className="border-foreground/25 relative mx-3 my-1 rounded border border-dashed py-1">
-			<span className="bg-background text-muted-foreground absolute -top-2 right-2 rounded px-1 text-[10px] font-medium">{t("routing.info.group")}</span>
+			<span className="bg-background text-muted-foreground absolute -top-2 right-2 rounded px-1 text-[10px] font-medium">
+				{t("routing.info.group")}
+			</span>
 			{content}
 		</div>
 	);
@@ -270,7 +272,9 @@ export function RoutingRuleInfoSheet({ rule, open, onOpenChange, onNavigate, has
 							<div className="flex flex-col items-start gap-1">
 								<div className="flex w-full flex-wrap items-center gap-2">
 									<SheetTitle className="text-base">{rule.name}</SheetTitle>
-									<Badge variant={rule.enabled ? "default" : "secondary"}>{rule.enabled ? t("routing.enabled") : t("routing.disabled")}</Badge>
+									<Badge variant={rule.enabled ? "default" : "secondary"}>
+										{rule.enabled ? t("routing.enabled") : t("routing.disabled")}
+									</Badge>
 									{rule.chain_rule && (
 										<Tooltip>
 											<TooltipTrigger asChild>
@@ -325,13 +329,21 @@ export function RoutingRuleInfoSheet({ rule, open, onOpenChange, onNavigate, has
 							{/* Conditions */}
 							<div className="space-y-3">
 								<h3 className="text-sm font-semibold">{t("routing.info.conditions")}</h3>
-								{hasQuery ? <ConditionGroup group={rule.query!} /> : <p className="text-muted-foreground text-sm">{t("routing.info.matchesAll")}</p>}
+								{hasQuery ? (
+									<ConditionGroup group={rule.query!} />
+								) : (
+									<p className="text-muted-foreground text-sm">{t("routing.info.matchesAll")}</p>
+								)}
 
 								{/* CEL expression */}
 								<div className="space-y-1.5">
 									<div className="flex items-center justify-between">
 										<span className="text-sm font-semibold">{t("routing.info.celExpression")}</span>
-										<CopyButton value={rule.cel_expression} label={t("routing.info.expression")} testId="routing-rule-copy-expression-btn" />
+										<CopyButton
+											value={rule.cel_expression}
+											label={t("routing.info.expression")}
+											testId="routing-rule-copy-expression-btn"
+										/>
 									</div>
 									<code className="bg-muted/50 block w-full rounded-md border px-3 py-2 font-mono text-xs break-all">
 										{rule.cel_expression || <span className="text-muted-foreground italic">true</span>}

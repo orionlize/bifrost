@@ -120,7 +120,11 @@ export function MCPLogDetailSheet({
 				<SheetHeader className="flex flex-row items-center px-0">
 					<div className="flex w-full items-center justify-between">
 						<SheetTitle className="flex w-fit items-center gap-2 font-medium">
-							{displayLog.id && <p className="text-md max-w-full truncate">{t("mcp.logs.details.requestId")} {displayLog.id}</p>}
+							{displayLog.id && (
+								<p className="text-md max-w-full truncate">
+									{t("mcp.logs.details.requestId")} {displayLog.id}
+								</p>
+							)}
 							<Badge variant="outline" className={`${StatusColors[getValidatedStatus(displayLog.status)]} uppercase`}>
 								{displayLog.status}
 							</Badge>
@@ -250,7 +254,9 @@ export function MCPLogDetailSheet({
 									)
 								}
 							/>
-							{displayLog.virtual_key && <LogEntryDetailsView className="w-full" label={t("mcp.logs.details.user")} value={displayLog.virtual_key.name} />}
+							{displayLog.virtual_key && (
+								<LogEntryDetailsView className="w-full" label={t("mcp.logs.details.user")} value={displayLog.virtual_key.name} />
+							)}
 							{displayLog.llm_request_id && (
 								<LogEntryDetailsView
 									className="col-span-3 w-full"
@@ -315,7 +321,9 @@ export function MCPLogDetailSheet({
 				{/* Error Details */}
 				{displayLog.error_details && (
 					<div className="border-destructive/50 w-full rounded-sm border">
-						<div className="border-destructive/50 text-destructive border-b px-6 py-2 text-sm font-medium">{t("mcp.logs.details.errorDetails")}</div>
+						<div className="border-destructive/50 text-destructive border-b px-6 py-2 text-sm font-medium">
+							{t("mcp.logs.details.errorDetails")}
+						</div>
 						<CodeEditor
 							className="z-0 w-full"
 							shouldAdjustInitialHeight={true}

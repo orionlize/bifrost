@@ -42,7 +42,16 @@ interface CodeBlockProps {
 	typescriptLabel: string;
 }
 
-function CodeBlock({ code, language, onLanguageChange, showLanguageSelect = false, readonly = true, copyLabel, pythonLabel, typescriptLabel }: CodeBlockProps) {
+function CodeBlock({
+	code,
+	language,
+	onLanguageChange,
+	showLanguageSelect = false,
+	readonly = true,
+	copyLabel,
+	pythonLabel,
+	typescriptLabel,
+}: CodeBlockProps) {
 	const { copy: copyToClipboard } = useCopyToClipboard();
 
 	return (
@@ -253,9 +262,7 @@ if (response.choices[0].message.tool_calls) {
 			{error && (
 				<Alert>
 					<AlertTriangle className="h-4 w-4" />
-					<AlertDescription>
-						{isUnexpectedError ? t("mcp.logs.empty.logStoreShort") : error}
-					</AlertDescription>
+					<AlertDescription>{isUnexpectedError ? t("mcp.logs.empty.logStoreShort") : error}</AlertDescription>
 				</Alert>
 			)}
 

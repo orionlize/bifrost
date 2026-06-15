@@ -23,16 +23,7 @@ import { useI18n, useT } from "@/lib/i18n";
 import { getErrorMessage } from "@/lib/store";
 import { useGetAoneUserQuery, useListAoneUsersQuery, useUpdateAoneUserMutation } from "@/lib/store/apis/aoneUsersApi";
 import type { AoneUserDepartment, AoneUserDetailResponse, AoneUserListItem } from "@/lib/types/aoneUser";
-import {
-	Briefcase,
-	Building2,
-	ChevronLeft,
-	ChevronRight,
-	Search,
-	ShieldCheck,
-	UserRound,
-	Users,
-} from "lucide-react";
+import { Briefcase, Building2, ChevronLeft, ChevronRight, Search, ShieldCheck, UserRound, Users } from "lucide-react";
 import { parseAsInteger, parseAsString, useQueryStates } from "nuqs";
 import { useMemo, useState, type ReactNode } from "react";
 import { toast } from "sonner";
@@ -116,8 +107,8 @@ export default function AoneUsersView() {
 					{t("aone.usersTitle")}
 				</h2>
 				<p className="text-muted-foreground max-w-2xl text-sm">
-					{t("aone.usersDescription")}{" "}
-					<code className="bg-muted rounded px-1.5 py-0.5 text-xs">{t("aone.usersDescriptionCode")}</code> {t("aone.usersDescriptionSuffix")}
+					{t("aone.usersDescription")} <code className="bg-muted rounded px-1.5 py-0.5 text-xs">{t("aone.usersDescriptionCode")}</code>{" "}
+					{t("aone.usersDescriptionSuffix")}
 				</p>
 			</header>
 
@@ -327,9 +318,7 @@ function AoneUserEnableSwitch({ user }: { user: AoneUserListItem }) {
 				<AlertDialogContent>
 					<AlertDialogHeader>
 						<AlertDialogTitle>{nextEnabled ? t("aone.enableUser") : t("aone.disableUser")}</AlertDialogTitle>
-						<AlertDialogDescription>
-							{nextEnabled ? t("aone.enableDescription") : t("aone.disableDescription")}
-						</AlertDialogDescription>
+						<AlertDialogDescription>{nextEnabled ? t("aone.enableDescription") : t("aone.disableDescription")}</AlertDialogDescription>
 					</AlertDialogHeader>
 					<AlertDialogFooter>
 						<AlertDialogCancel>{t("governanceShared.cancel")}</AlertDialogCancel>
@@ -406,14 +395,8 @@ function AoneUserDetailSheet({ userId, onClose }: { userId: string; onClose: () 
 									<DetailRow label={t("aone.labelMobile")} value={data.dingtalk.profile.mobile} />
 									<DetailRow label={t("aone.labelWorkplace")} value={data.dingtalk.profile.workPlace} />
 									<DetailRow label={t("aone.labelTelephone")} value={data.dingtalk.profile.telephone} />
-									<DetailRow
-										label={t("aone.labelHiredDate")}
-										value={formatDateShanghai(data.dingtalk.profile.hiredDate, locale)}
-									/>
-									<DetailRow
-										label={t("aone.labelSyncedAt")}
-										value={formatDateTimeShanghai(data.dingtalk.syncedAt, locale)}
-									/>
+									<DetailRow label={t("aone.labelHiredDate")} value={formatDateShanghai(data.dingtalk.profile.hiredDate, locale)} />
+									<DetailRow label={t("aone.labelSyncedAt")} value={formatDateTimeShanghai(data.dingtalk.syncedAt, locale)} />
 								</DetailSection>
 							)}
 

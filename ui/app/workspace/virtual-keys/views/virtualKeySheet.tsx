@@ -70,87 +70,87 @@ interface VirtualKeySheetProps {
 
 // Provider configuration schema
 const createVirtualKeyFormSchema = (t: TranslateFn) => {
-const providerConfigSchema = z.object({
-	id: z.number().optional(),
-	provider: z.string().min(1, t("virtualKeys.validationProviderRequired")),
-	weight: z.number().min(0, t("virtualKeys.validationWeightMin")).max(1, t("virtualKeys.validationWeightMax")).optional(),
-	allowed_models: z.array(z.string()).optional(),
-	blacklisted_models: z.array(z.string()).optional(),
-	key_ids: z.array(z.string()).optional(), // Keys associated with this provider config
-	// Provider-level budget
-	budgets: z
-		.array(
-			z.object({
-				id: z.string().optional(),
-				max_limit: z.number().nonnegative().optional(),
-				reset_duration: z.string().optional(),
-			}),
-		)
-		.optional(),
-	// Provider-level rate limits
-	rate_limit: z
-		.object({
-			token_max_limit: z.number().int().nonnegative().optional(),
-			token_reset_duration: z.string().optional(),
-			request_max_limit: z.number().int().nonnegative().optional(),
-			request_reset_duration: z.string().optional(),
-		})
-		.optional(),
-});
-
-const mcpConfigSchema = z.object({
-	id: z.number().optional(),
-	mcp_client_name: z.string().min(1, t("virtualKeys.validationMcpRequired")),
-	tools_to_execute: z.array(z.string()).optional(),
-});
-
-// Main form schema
-const formSchema = z
-	.object({
-		name: z.string().min(1, t("virtualKeys.validationNameRequired")),
-		description: z.string().optional(),
-		providerConfigs: z.array(providerConfigSchema).optional(),
-		mcpConfigs: z.array(mcpConfigSchema).optional(),
-		entityType: z.enum(["team", "customer", "none"]),
-		teamId: z.string().optional(),
-		customerId: z.string().optional(),
-		isActive: z.boolean(),
-		// Budget
-		budgetCalendarAligned: z.boolean(),
+	const providerConfigSchema = z.object({
+		id: z.number().optional(),
+		provider: z.string().min(1, t("virtualKeys.validationProviderRequired")),
+		weight: z.number().min(0, t("virtualKeys.validationWeightMin")).max(1, t("virtualKeys.validationWeightMax")).optional(),
+		allowed_models: z.array(z.string()).optional(),
+		blacklisted_models: z.array(z.string()).optional(),
+		key_ids: z.array(z.string()).optional(), // Keys associated with this provider config
+		// Provider-level budget
 		budgets: z
 			.array(
 				z.object({
 					id: z.string().optional(),
 					max_limit: z.number().nonnegative().optional(),
-					reset_duration: z.string(),
+					reset_duration: z.string().optional(),
 				}),
 			)
 			.optional(),
-		// Token limits
-		tokenMaxLimit: z.number().int().nonnegative().optional(),
-		tokenResetDuration: z.string().optional(),
-		// Request limits
-		requestMaxLimit: z.number().int().nonnegative().optional(),
-		requestResetDuration: z.string().optional(),
-	})
-	.refine(
-		(data) => {
-			// If entityType is "team", teamId must be provided and not empty
-			if (data.entityType === "team") {
-				return data.teamId && data.teamId.trim() !== "";
-			}
-			// If entityType is "customer", customerId must be provided and not empty
-			if (data.entityType === "customer") {
-				return data.customerId && data.customerId.trim() !== "";
-			}
-			return true;
-		},
-		{
-			message: t("virtualKeys.validationEntity"),
-			path: ["entityType"], // This will show the error on the entityType field
-		},
-	);
-return formSchema;
+		// Provider-level rate limits
+		rate_limit: z
+			.object({
+				token_max_limit: z.number().int().nonnegative().optional(),
+				token_reset_duration: z.string().optional(),
+				request_max_limit: z.number().int().nonnegative().optional(),
+				request_reset_duration: z.string().optional(),
+			})
+			.optional(),
+	});
+
+	const mcpConfigSchema = z.object({
+		id: z.number().optional(),
+		mcp_client_name: z.string().min(1, t("virtualKeys.validationMcpRequired")),
+		tools_to_execute: z.array(z.string()).optional(),
+	});
+
+	// Main form schema
+	const formSchema = z
+		.object({
+			name: z.string().min(1, t("virtualKeys.validationNameRequired")),
+			description: z.string().optional(),
+			providerConfigs: z.array(providerConfigSchema).optional(),
+			mcpConfigs: z.array(mcpConfigSchema).optional(),
+			entityType: z.enum(["team", "customer", "none"]),
+			teamId: z.string().optional(),
+			customerId: z.string().optional(),
+			isActive: z.boolean(),
+			// Budget
+			budgetCalendarAligned: z.boolean(),
+			budgets: z
+				.array(
+					z.object({
+						id: z.string().optional(),
+						max_limit: z.number().nonnegative().optional(),
+						reset_duration: z.string(),
+					}),
+				)
+				.optional(),
+			// Token limits
+			tokenMaxLimit: z.number().int().nonnegative().optional(),
+			tokenResetDuration: z.string().optional(),
+			// Request limits
+			requestMaxLimit: z.number().int().nonnegative().optional(),
+			requestResetDuration: z.string().optional(),
+		})
+		.refine(
+			(data) => {
+				// If entityType is "team", teamId must be provided and not empty
+				if (data.entityType === "team") {
+					return data.teamId && data.teamId.trim() !== "";
+				}
+				// If entityType is "customer", customerId must be provided and not empty
+				if (data.entityType === "customer") {
+					return data.customerId && data.customerId.trim() !== "";
+				}
+				return true;
+			},
+			{
+				message: t("virtualKeys.validationEntity"),
+				path: ["entityType"], // This will show the error on the entityType field
+			},
+		);
+	return formSchema;
 };
 
 type FormData = z.infer<ReturnType<typeof createVirtualKeyFormSchema>>;
@@ -511,7 +511,12 @@ export default function VirtualKeySheet({ virtualKey, teams, customers, defaultT
 				const configChanged = existing.max_limit !== budget.max_limit || existing.reset_duration !== budget.reset_duration;
 				const usage = existing.current_usage ?? 0;
 				if (configChanged && usage >= budget.max_limit) {
-					return t("virtualKeys.sheet.budgetWarningExceeds", { scopeLabel, duration: budget.reset_duration, usage: formatBudgetAmount(usage), limit: formatBudgetAmount(budget.max_limit) });
+					return t("virtualKeys.sheet.budgetWarningExceeds", {
+						scopeLabel,
+						duration: budget.reset_duration,
+						usage: formatBudgetAmount(usage),
+						limit: formatBudgetAmount(budget.max_limit),
+					});
 				}
 				reconciled.push({ ...budget, current_usage: usage });
 				continue;
@@ -531,7 +536,13 @@ export default function VirtualKeySheet({ virtualKey, teams, customers, defaultT
 			}, null);
 			const inheritedUsage = closestShorter?.current_usage ?? 0;
 			if (inheritedUsage >= budget.max_limit) {
-				return t("virtualKeys.sheet.budgetWarningInherit", { scopeLabel, duration: budget.reset_duration, usage: formatBudgetAmount(inheritedUsage), sourceDuration: closestShorter?.reset_duration ?? "", limit: formatBudgetAmount(budget.max_limit) });
+				return t("virtualKeys.sheet.budgetWarningInherit", {
+					scopeLabel,
+					duration: budget.reset_duration,
+					usage: formatBudgetAmount(inheritedUsage),
+					sourceDuration: closestShorter?.reset_duration ?? "",
+					limit: formatBudgetAmount(budget.max_limit),
+				});
 			}
 			reconciled.push({ ...budget, current_usage: inheritedUsage });
 		}
@@ -556,7 +567,11 @@ export default function VirtualKeySheet({ virtualKey, teams, customers, defaultT
 		for (const config of data.providerConfigs || []) {
 			const existingConfig = existingProviderConfigs.get(String(config.id ?? config.provider));
 			const providerLabel = ProviderLabels[config.provider as ProviderName] ?? config.provider;
-			const warning = findBudgetUsageWarning(config.budgets, existingConfig?.budgets, t("virtualKeys.sheet.budgetScopeProvider", { provider: providerLabel }));
+			const warning = findBudgetUsageWarning(
+				config.budgets,
+				existingConfig?.budgets,
+				t("virtualKeys.sheet.budgetScopeProvider", { provider: providerLabel }),
+			);
 			if (warning) {
 				return warning;
 			}
@@ -771,11 +786,7 @@ export default function VirtualKeySheet({ virtualKey, teams, customers, defaultT
 			>
 				<SheetHeader className="flex flex-col items-start px-8 py-4" headerClassName="mb-0 sticky -top-4 bg-card z-10">
 					<SheetTitle className="flex items-center gap-2">{isEditing ? virtualKey?.name : t("virtualKeys.createTitle")}</SheetTitle>
-					<SheetDescription>
-						{isEditing
-							? t("virtualKeys.editDescription")
-							: t("virtualKeys.createDescription")}
-					</SheetDescription>
+					<SheetDescription>{isEditing ? t("virtualKeys.editDescription") : t("virtualKeys.createDescription")}</SheetDescription>
 				</SheetHeader>
 
 				<Form {...form}>
@@ -831,7 +842,12 @@ export default function VirtualKeySheet({ virtualKey, teams, customers, defaultT
 										<FormItem>
 											<FormLabel>{t("virtualKeys.sheet.descriptionLabel")}</FormLabel>
 											<FormControl>
-												<Textarea placeholder={t("virtualKeys.sheet.descriptionPlaceholder")} data-testid="vk-description-input" {...field} rows={3} />
+												<Textarea
+													placeholder={t("virtualKeys.sheet.descriptionPlaceholder")}
+													data-testid="vk-description-input"
+													{...field}
+													rows={3}
+												/>
 											</FormControl>
 											<FormMessage />
 										</FormItem>
@@ -850,7 +866,12 @@ export default function VirtualKeySheet({ virtualKey, teams, customers, defaultT
 										name="isActive"
 										render={({ field }) => (
 											<FormItem>
-												<Toggle label={t("virtualKeys.sheet.isActiveLabel")} val={field.value} setVal={field.onChange} data-testid="vk-is-active-toggle" />
+												<Toggle
+													label={t("virtualKeys.sheet.isActiveLabel")}
+													val={field.value}
+													setVal={field.onChange}
+													data-testid="vk-is-active-toggle"
+												/>
 											</FormItem>
 										)}
 									/>
@@ -1003,7 +1024,9 @@ export default function VirtualKeySheet({ virtualKey, teams, customers, defaultT
 																	<div className="w-3/4 space-y-2">
 																		<Label className="text-sm font-medium">
 																			{t("virtualKeys.sheet.allowedModels")}{" "}
-																			<span className="text-muted-foreground ml-auto text-xs italic">{t("virtualKeys.sheet.typeToSearch")}</span>
+																			<span className="text-muted-foreground ml-auto text-xs italic">
+																				{t("virtualKeys.sheet.typeToSearch")}
+																			</span>
 																		</Label>
 																		{(() => {
 																			const hasWildcardModels = (config.allowed_models || []).includes("*");
@@ -1837,9 +1860,7 @@ export default function VirtualKeySheet({ virtualKey, teams, customers, defaultT
 							<AlertDialogContent>
 								<AlertDialogHeader>
 									<AlertDialogTitle>{t("virtualKeys.sheet.rotateTitle")}</AlertDialogTitle>
-									<AlertDialogDescription>
-										{t("virtualKeys.sheet.rotateDesc", { name: virtualKey?.name ?? "" })}
-									</AlertDialogDescription>
+									<AlertDialogDescription>{t("virtualKeys.sheet.rotateDesc", { name: virtualKey?.name ?? "" })}</AlertDialogDescription>
 								</AlertDialogHeader>
 								<AlertDialogFooter>
 									<AlertDialogCancel data-testid="vk-rotate-cancel-btn">{t("common.actions.cancel")}</AlertDialogCancel>
@@ -1853,9 +1874,7 @@ export default function VirtualKeySheet({ virtualKey, teams, customers, defaultT
 							<AlertDialogContent data-testid="vk-budget-reset-dialog">
 								<AlertDialogHeader>
 									<AlertDialogTitle>
-										{pendingBudgetUsageWarning
-											? t("virtualKeys.sheet.budgetPreserveTitle")
-											: t("virtualKeys.sheet.budgetResetTitle")}
+										{pendingBudgetUsageWarning ? t("virtualKeys.sheet.budgetPreserveTitle") : t("virtualKeys.sheet.budgetResetTitle")}
 									</AlertDialogTitle>
 									<AlertDialogDescription>
 										{pendingBudgetUsageWarning

@@ -17,8 +17,7 @@ export const modelCatalog = {
 	permission: "model catalog",
 	empty: {
 		title: "No providers configured yet",
-		description:
-			"Configure your first model provider to see an overview of all providers, API keys, models, and usage metrics.",
+		description: "Configure your first model provider to see an overview of all providers, API keys, models, and usage metrics.",
 		configureCta: "Configure Providers",
 	},
 	loadFailed: "Failed to load providers",

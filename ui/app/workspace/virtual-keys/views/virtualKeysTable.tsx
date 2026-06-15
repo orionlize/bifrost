@@ -64,11 +64,7 @@ const formatResetDuration = (duration: string) => resetDurationLabels[duration] 
 
 type ExportScope = "current_page" | "all";
 
-function virtualKeysToCSV(
-	t: TranslateFn,
-	vks: VirtualKey[],
-	accessProfileNames: Record<number, string> = {},
-): string {
+function virtualKeysToCSV(t: TranslateFn, vks: VirtualKey[], accessProfileNames: Record<number, string> = {}): string {
 	const headers = [
 		t("virtualKeys.csvName"),
 		t("virtualKeys.csvStatus"),

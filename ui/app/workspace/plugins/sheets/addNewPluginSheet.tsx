@@ -154,9 +154,7 @@ export default function AddNewPluginSheet({ open, onClose, onCreate, plugin }: A
 			<SheetContent className="flex w-full flex-col overflow-x-hidden pt-4">
 				<SheetHeader className="flex flex-col items-start px-8 py-4" headerClassName="mb-0 sticky top-0 bg-card z-10">
 					<SheetTitle>{isEditMode ? t("plugins.updateSheetTitle") : t("plugins.installNewSheetTitle")}</SheetTitle>
-					<SheetDescription>
-						{isEditMode ? t("plugins.updateSheetDesc") : t("plugins.installSheetDesc")}
-					</SheetDescription>
+					<SheetDescription>{isEditMode ? t("plugins.updateSheetDesc") : t("plugins.installSheetDesc")}</SheetDescription>
 				</SheetHeader>
 
 				<Form {...form}>

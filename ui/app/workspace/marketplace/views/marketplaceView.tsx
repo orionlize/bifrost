@@ -103,7 +103,7 @@ export default function MarketplaceView({ activeView }: { activeView: Marketplac
 								value={search}
 								onChange={(e) => setSearch(e.target.value)}
 								placeholder={t("marketplace.searchPlaceholder")}
-								className="h-8 w-full rounded-lg border-0 bg-muted/70 pl-8 text-[13px] shadow-none focus-visible:ring-1"
+								className="bg-muted/70 h-8 w-full rounded-lg border-0 pl-8 text-[13px] shadow-none focus-visible:ring-1"
 								data-testid="marketplace-search-input"
 							/>
 						</div>
@@ -121,9 +121,7 @@ export default function MarketplaceView({ activeView }: { activeView: Marketplac
 
 				<ScrollArea className="min-h-0 flex-1 overflow-y-auto" viewportClassName="no-table">
 					<div className={activeView === "settings" ? "px-6 py-4" : "px-3 py-3"}>
-						{isLoading && activeView !== "settings" && (
-							<p className="text-muted-foreground text-[13px]">{t("marketplace.loading")}</p>
-						)}
+						{isLoading && activeView !== "settings" && <p className="text-muted-foreground text-[13px]">{t("marketplace.loading")}</p>}
 
 						{activeView === "settings" && (
 							<MarketplaceSettingsPanel
@@ -166,13 +164,7 @@ export default function MarketplaceView({ activeView }: { activeView: Marketplac
 							<MarketplacePlatformSections
 								items={plugins}
 								renderItem={renderTile}
-								empty={
-									<MarketplaceEmptyState
-										activeView={activeView}
-										onImport={() => setEditor({ mode: "create" })}
-										compact
-									/>
-								}
+								empty={<MarketplaceEmptyState activeView={activeView} onImport={() => setEditor({ mode: "create" })} compact />}
 							/>
 						)}
 
@@ -180,13 +172,7 @@ export default function MarketplaceView({ activeView }: { activeView: Marketplac
 							<MarketplacePlatformSections
 								items={skills}
 								renderItem={renderTile}
-								empty={
-									<MarketplaceEmptyState
-										activeView={activeView}
-										onImport={() => setEditor({ mode: "create" })}
-										compact
-									/>
-								}
+								empty={<MarketplaceEmptyState activeView={activeView} onImport={() => setEditor({ mode: "create" })} compact />}
 							/>
 						)}
 					</div>

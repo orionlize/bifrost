@@ -31,10 +31,7 @@ export function I18nProvider({ children }: { children: ReactNode }) {
 		writeStoredLocale(next);
 	}, []);
 
-	const t = useMemo(
-		() => createTranslator(localeMessages[locale], locale === "zh" ? localeMessages.en : undefined),
-		[locale],
-	);
+	const t = useMemo(() => createTranslator(localeMessages[locale], locale === "zh" ? localeMessages.en : undefined), [locale]);
 
 	useEffect(() => {
 		document.documentElement.lang = locale === "zh" ? "zh-CN" : "en";

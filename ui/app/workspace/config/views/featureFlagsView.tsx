@@ -44,9 +44,7 @@ export default function FeatureFlagsView() {
 			</header>
 
 			{isLoading && <p className="text-muted-foreground text-sm">{t("configPages.loadingFeatureFlags")}</p>}
-			{isError && (
-				<p className="text-sm text-red-500">{t("configViews.featureFlags.loadFailed", { message: getErrorMessage(error) })}</p>
-			)}
+			{isError && <p className="text-sm text-red-500">{t("configViews.featureFlags.loadFailed", { message: getErrorMessage(error) })}</p>}
 
 			{!isLoading && !isError && flags.length === 0 && <FeatureFlagsEmptyState />}
 

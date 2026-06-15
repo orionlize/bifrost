@@ -33,11 +33,7 @@ export function PricingOverridesEmptyState({ onCreateClick }: PricingOverridesEm
 					>
 						{t("shared.readMore")} <ArrowUpRight className="text-muted-foreground h-3 w-3" />
 					</Button>
-					<Button
-						aria-label={t("pricing.emptyState.createAria")}
-						data-testid="pricing-override-create-btn"
-						onClick={onCreateClick}
-					>
+					<Button aria-label={t("pricing.emptyState.createAria")} data-testid="pricing-override-create-btn" onClick={onCreateClick}>
 						{t("pricing.emptyState.createOverride")}
 					</Button>
 				</div>

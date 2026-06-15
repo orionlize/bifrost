@@ -14,7 +14,11 @@ export function formatCost(value: number): string {
 export function TrendBadge({ value, positiveIsGood = true, isNew = false }: { value: number; positiveIsGood?: boolean; isNew?: boolean }) {
 	const t = useT();
 	if (isNew) {
-		return <span className="inline-flex items-center gap-0.5 text-xs font-medium text-blue-600 dark:text-blue-400">{t("dashboardCharts.rankings.new")}</span>;
+		return (
+			<span className="inline-flex items-center gap-0.5 text-xs font-medium text-blue-600 dark:text-blue-400">
+				{t("dashboardCharts.rankings.new")}
+			</span>
+		);
 	}
 
 	if (value === 0) {

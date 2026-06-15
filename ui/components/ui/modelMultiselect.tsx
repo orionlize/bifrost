@@ -85,7 +85,12 @@ function toModelOptions(models: ModelResponse[]): ModelOption[] {
 	}));
 }
 
-function mergeExtraModelOptions(options: ModelOption[], extraModels: string[] | undefined, provider: string | undefined, query?: string): ModelOption[] {
+function mergeExtraModelOptions(
+	options: ModelOption[],
+	extraModels: string[] | undefined,
+	provider: string | undefined,
+	query?: string,
+): ModelOption[] {
 	if (!extraModels?.length) {
 		return options;
 	}
@@ -125,10 +130,7 @@ function buildModelsQueryArgs(
 
 export function ModelMultiselect(props: ModelMultiselectProps) {
 	const t = useT();
-	const allModelsOption: ModelOption = useMemo(
-		() => ({ label: t("shared.modelMultiselect.allModels"), value: "*" }),
-		[t],
-	);
+	const allModelsOption: ModelOption = useMemo(() => ({ label: t("shared.modelMultiselect.allModels"), value: "*" }), [t]);
 	const {
 		provider,
 		keys,
@@ -197,8 +199,7 @@ export function ModelMultiselect(props: ModelMultiselectProps) {
 	// Load options function for AsyncMultiSelect
 	const loadOptions = useCallback(
 		(query: string, callback: (options: ModelOption[]) => void) => {
-			const prefix: ModelOption[] =
-				allowAllOption && (!query || "all models".includes(query.toLowerCase())) ? [allModelsOption] : [];
+			const prefix: ModelOption[] = allowAllOption && (!query || "all models".includes(query.toLowerCase())) ? [allModelsOption] : [];
 
 			if (!provider && !shouldLoadOnEmpty) {
 				callback(prefix);
@@ -342,7 +343,17 @@ export function ModelMultiselect(props: ModelMultiselectProps) {
 			return [...prefix, ...toModelOptions(scopedModels)];
 		}
 		return prefix;
-	}, [scopedModels, baseModelsData?.models, shouldUseBaseModels, shouldLoadOnEmpty, allowAllOption, providerScoped, extraModels, provider, allModelsOption]);
+	}, [
+		scopedModels,
+		baseModelsData?.models,
+		shouldUseBaseModels,
+		shouldLoadOnEmpty,
+		allowAllOption,
+		providerScoped,
+		extraModels,
+		provider,
+		allModelsOption,
+	]);
 
 	const shouldBeDisabled = disabled || (!provider && !shouldLoadOnEmpty && !wildcardOnlyWithoutProvider);
 	const isLoading = providerScoped
@@ -367,7 +378,14 @@ export function ModelMultiselect(props: ModelMultiselectProps) {
 			isCreatable={creatable}
 			dynamicOptionCreation={creatable}
 			createOptionText={t("shared.modelMultiselect.createOption")}
-			selectKey={[provider ?? "", keys?.join(",") ?? "", vks?.join(",") ?? "", String(unfiltered), String(shouldUseBaseModels), extraModels?.join(",") ?? ""].join("|")}
+			selectKey={[
+				provider ?? "",
+				keys?.join(",") ?? "",
+				vks?.join(",") ?? "",
+				String(unfiltered),
+				String(shouldUseBaseModels),
+				extraModels?.join(",") ?? "",
+			].join("|")}
 			defaultOptions={defaultOptions.length > 0 ? defaultOptions : ([] as Option<ModelOption>[])}
 			isLoading={isLoading}
 			placeholder={placeholder}

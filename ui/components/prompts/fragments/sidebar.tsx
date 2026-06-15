@@ -230,7 +230,9 @@ export function PromptSidebar() {
 				<ScrollArea className="grow overflow-y-auto" viewportClassName="no-table viewport-table-height-full">
 					<div className="flex flex-col p-2 px-3">
 						{filteredData.folders.length === 0 && filteredData.rootPrompts.length === 0 ? (
-							<div className="text-muted-foreground py-8 text-center text-sm">{searchQuery ? t("prompts.noResults") : t("prompts.noPromptsYet")}</div>
+							<div className="text-muted-foreground py-8 text-center text-sm">
+								{searchQuery ? t("prompts.noResults") : t("prompts.noPromptsYet")}
+							</div>
 						) : (
 							<>
 								{filteredData.folders.map((folder) => (

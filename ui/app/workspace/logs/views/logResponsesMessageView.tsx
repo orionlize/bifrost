@@ -268,7 +268,12 @@ function MessageView({ message, index }: { message: ResponsesMessage; index: num
 					{message.summary.every((item) => item.type === "summary_text") ? (
 						// Display as readable text when all items are summary_text
 						message.summary.map((reasoningContent, idx) => (
-							<CollapsibleBox key={idx} title={t("logDetail.summaryN", { n: idx + 1 })} onCopy={() => reasoningContent.text || ""} collapsedHeight={100}>
+							<CollapsibleBox
+								key={idx}
+								title={t("logDetail.summaryN", { n: idx + 1 })}
+								onCopy={() => reasoningContent.text || ""}
+								collapsedHeight={100}
+							>
 								<div className="custom-scrollbar max-h-[400px] overflow-y-auto px-6 py-2 font-mono text-xs whitespace-pre-wrap">
 									{reasoningContent.text}
 								</div>
@@ -276,7 +281,11 @@ function MessageView({ message, index }: { message: ResponsesMessage; index: num
 						))
 					) : (
 						// Fallback to JSON display for mixed or non-text types
-						<CollapsibleBox title={t("logsMedia.summaryHeading")} onCopy={() => JSON.stringify(message.summary, null, 2)} collapsedHeight={100}>
+						<CollapsibleBox
+							title={t("logsMedia.summaryHeading")}
+							onCopy={() => JSON.stringify(message.summary, null, 2)}
+							collapsedHeight={100}
+						>
 							<CodeEditor
 								className="z-0 w-full"
 								shouldAdjustInitialHeight={true}
@@ -294,7 +303,11 @@ function MessageView({ message, index }: { message: ResponsesMessage; index: num
 
 			{/* Handle encrypted reasoning content */}
 			{message.type === "reasoning" && message.encrypted_content && (
-				<CollapsibleBox title={t("logsMedia.encryptedReasoningContent")} onCopy={() => message.encrypted_content || ""} collapsedHeight={100}>
+				<CollapsibleBox
+					title={t("logsMedia.encryptedReasoningContent")}
+					onCopy={() => message.encrypted_content || ""}
+					collapsedHeight={100}
+				>
 					<div className="custom-scrollbar max-h-[400px] overflow-y-auto px-6 py-2 font-mono text-xs break-words whitespace-pre-wrap">
 						{message.encrypted_content}
 					</div>

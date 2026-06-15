@@ -1,13 +1,11 @@
 export const modelLimits = {
 	emptyState: {
 		title: "Budgets and rate limits at the model level",
-		description:
-			"Set spending caps and rate limits per model. For provider-specific limits, configure each provider in Model providers.",
+		description: "Set spending caps and rate limits per model. For provider-specific limits, configure each provider in Model providers.",
 		readMoreAria: "Read more about budgets and limits (opens in new tab)",
 		addFirstAria: "Add your first model limit",
 	},
-	description:
-		"Configure budgets and rate limits at the model level. For provider-specific limits, visit each provider's settings.",
+	description: "Configure budgets and rate limits at the model level. For provider-specific limits, visit each provider's settings.",
 	addModelLimit: "Add Model Limit",
 	searchPlaceholder: "Search by model name...",
 	searchAria: "Search model limits by model name",

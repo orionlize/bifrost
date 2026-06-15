@@ -21,7 +21,7 @@ export const providersKeyForm = {
 	noModelsBlocked: "无阻止的模型",
 	aliases: "别名（可选）",
 	aliasesDesc:
-		"将每个请求模型名称映射到提供商标识符（部署名称、推理配置文件 ID、微调端点 ID 等）或自定义名称，例如 \"claude-sonnet-4-5\" -> \"custom-claude-4.5-sonnet\"。",
+		'将每个请求模型名称映射到提供商标识符（部署名称、推理配置文件 ID、微调端点 ID 等）或自定义名称，例如 "claude-sonnet-4-5" -> "custom-claude-4.5-sonnet"。',
 	requestModelName: "请求模型名称",
 	deploymentPlaceholder: "部署 / 配置文件 / 资源 ID",
 	authMethod: "认证方式",

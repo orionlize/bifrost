@@ -6,8 +6,7 @@ export const customers = {
 	deleteDescription:
 		'Are you sure you want to delete "{{name}}"? This will also delete all associated teams and unassign any users. This action cannot be undone.',
 	emptyTitle: "Customers have their own teams, budgets, and access controls",
-	emptyDescription:
-		"Create customer accounts to manage multi-tenant usage, assign teams, and set spending and rate limits per customer.",
+	emptyDescription: "Create customer accounts to manage multi-tenant usage, assign teams, and set spending and rate limits per customer.",
 	readMoreAria: "Read more about customers (opens in new tab)",
 	addFirstAria: "Add your first customer",
 	editTitle: "Edit Customer",

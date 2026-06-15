@@ -128,9 +128,7 @@ export default function ProxyView() {
 							{isTypeUnsupported && watchedEnabled && (
 								<Alert variant="destructive">
 									<AlertTriangle className="h-4 w-4" />
-									<AlertDescription>
-										{t("configViews.proxy.typeUnsupported", { type: watchedType.toUpperCase() })}
-									</AlertDescription>
+									<AlertDescription>{t("configViews.proxy.typeUnsupported", { type: watchedType.toUpperCase() })}</AlertDescription>
 								</Alert>
 							)}
 
@@ -159,7 +157,12 @@ export default function ProxyView() {
 											<FormItem>
 												<FormLabel>{t("configViews.proxy.username")}</FormLabel>
 												<FormControl>
-													<Input placeholder={t("configViews.proxy.usernamePlaceholder")} disabled={!watchedEnabled} {...field} value={field.value || ""} />
+													<Input
+														placeholder={t("configViews.proxy.usernamePlaceholder")}
+														disabled={!watchedEnabled}
+														{...field}
+														value={field.value || ""}
+													/>
 												</FormControl>
 												<FormMessage />
 											</FormItem>

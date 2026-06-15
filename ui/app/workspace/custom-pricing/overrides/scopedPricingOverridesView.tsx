@@ -430,9 +430,7 @@ export default function ScopedPricingOverridesView() {
 				<AlertDialogContent>
 					<AlertDialogHeader>
 						<AlertDialogTitle>{t("pricing.deleteTitle")}</AlertDialogTitle>
-						<AlertDialogDescription>
-							{t("pricing.deleteConfirm", { name: deleteTarget?.name ?? "" })}
-						</AlertDialogDescription>
+						<AlertDialogDescription>{t("pricing.deleteConfirm", { name: deleteTarget?.name ?? "" })}</AlertDialogDescription>
 					</AlertDialogHeader>
 					<AlertDialogFooter>
 						<AlertDialogCancel data-testid="pricing-override-delete-cancel-btn" disabled={isDeleting}>

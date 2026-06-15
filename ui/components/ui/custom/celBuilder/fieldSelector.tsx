@@ -31,7 +31,15 @@ function updateRuleValueAtPath(query: RuleGroupType, targetPath: number[], newVa
 	return { ...query, rules: newRules };
 }
 
-export function FieldSelector({ value, handleOnChange, options, rule, path, schema, context }: FieldSelectorProps & { context?: CelBuilderI18nContext }) {
+export function FieldSelector({
+	value,
+	handleOnChange,
+	options,
+	rule,
+	path,
+	schema,
+	context,
+}: FieldSelectorProps & { context?: CelBuilderI18nContext }) {
 	// Check if this is a keyValue field (headers/params)
 	const fieldData = useMemo(() => schema?.fields?.find((f) => "value" in f && f.value === value), [schema?.fields, value]);
 	const isKeyValueField = fieldData && "inputType" in fieldData && fieldData.inputType === "keyValue";

@@ -80,8 +80,7 @@ export const aone = {
 	enableDeviceAria: "Enable device",
 	disableDeviceAria: "Disable device",
 	enableDeviceDescription: "This will reactivate the authorization code for this device fingerprint.",
-	disableDeviceDescription:
-		"This will revoke the authorization code. The desktop client must sign in again to obtain a new code.",
+	disableDeviceDescription: "This will revoke the authorization code. The desktop client must sign in again to obtain a new code.",
 	deviceEnabled: "Device enabled",
 	deviceDisabled: "Device disabled",
 } as const;

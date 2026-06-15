@@ -14,11 +14,7 @@ function RouteComponent() {
 	const { data: authStatus } = useIsAuthEnabledQuery();
 	const showAoneUsers = !IS_ENTERPRISE && (authStatus?.aone_oauth_enabled ?? false);
 	const showMarketplace =
-		isAoneUserSession ||
-		hasPluginsAccess ||
-		(showAoneUsers && isLocalAdmin) ||
-		hasSettingsAccess ||
-		!authStatus?.is_auth_enabled;
+		isAoneUserSession || hasPluginsAccess || (showAoneUsers && isLocalAdmin) || hasSettingsAccess || !authStatus?.is_auth_enabled;
 
 	const childMatches = useChildMatches();
 

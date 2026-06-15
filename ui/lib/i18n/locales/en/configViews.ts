@@ -29,8 +29,7 @@ export const configViews = {
 			"You will need to use Basic Auth for all your inference calls (including MCP tool execution). You can disable it below. Check",
 		authDisabledForInference:
 			"Authentication is disabled for inference calls. Only dashboard, admin API and MCP tool execution calls require authentication.",
-		authTypeLoadFailed:
-			"Could not load authentication type. Dashboard password settings are hidden until this request succeeds.",
+		authTypeLoadFailed: "Could not load authentication type. Dashboard password settings are hidden until this request succeeds.",
 		passwordProtectDashboard: "Password protect the dashboard",
 		passwordProtectDesc:
 			"Set up authentication credentials to protect your Bifrost dashboard. Once configured, use the generated token for all admin API calls.",
@@ -54,12 +53,11 @@ export const configViews = {
 		aoneRedirectUriPlaceholder: "https://bifrost.example.com/api/aone/oauth/callback",
 		enableAuthOnInference: "Enable Auth on Inference",
 		enforceUsersOnInference: "Enforce Users on Inference",
-		enableAuthOnInferenceDesc:
-			"Require authentication (user credentials, API key, or user token) for all inference endpoints.",
+		enableAuthOnInferenceDesc: "Require authentication (user credentials, API key, or user token) for all inference endpoints.",
 		enforceUsersOnInferenceDesc: "Require a user for all inference requests.",
 		allowedOrigins: "Allowed Origins",
 		allowedOriginsDesc:
-			"Comma-separated list of allowed origins for CORS and WebSocket connections. Localhost origins are always allowed. Each origin must be a complete URL with protocol (e.g., https://app.example.com, http://localhost:8080). Wildcards are supported for subdomains (e.g., https://*.example.com) or use \"*\" to allow all origins.",
+			'Comma-separated list of allowed origins for CORS and WebSocket connections. Localhost origins are always allowed. Each origin must be a complete URL with protocol (e.g., https://app.example.com, http://localhost:8080). Wildcards are supported for subdomains (e.g., https://*.example.com) or use "*" to allow all origins.',
 		allowedOriginsPlaceholder: "https://app.example.com, https://*.example.com, *",
 		allowedHeaders: "Allowed Headers",
 		allowedHeadersDesc: "Comma-separated list of allowed headers for CORS.",
@@ -73,7 +71,7 @@ export const configViews = {
 			"Comma-separated list of routes that bypass the auth middleware. Requests to these routes will not require authentication. System routes like /health, /api/session/login, and /api/session/is-auth-enabled are always whitelisted regardless of this setting.",
 		whitelistedRoutesPlaceholder: "/api/custom-webhook, /api/public-endpoint",
 		invalidOrigins:
-			"Invalid origins: {{invalidOrigins}}. Origins must be valid URLs like https://example.com, wildcard patterns like https://*.example.com, or \"*\" to allow all origins",
+			'Invalid origins: {{invalidOrigins}}. Origins must be valid URLs like https://example.com, wildcard patterns like https://*.example.com, or "*" to allow all origins',
 		updated: "Security settings updated successfully.",
 	},
 	website: {
@@ -95,8 +93,7 @@ export const configViews = {
 		toggleSuccess: "{{name}} {{state}}",
 		enabled: "enabled",
 		disabled: "disabled",
-		unregisteredHint:
-			"No code currently reads this flag. The override is stored but inert until a Register() call is added.",
+		unregisteredHint: "No code currently reads this flag. The override is stored but inert until a Register() call is added.",
 		lockedTooltip: "Value is pinned by config.json or Helm; edit your config to change it.",
 		enterpriseTooltip: "This flag gates an enterprise-only feature. Upgrade to enable it.",
 		unregisteredTooltip: "This id has no code registration. Restore the Register() call or clean up the stale value.",
@@ -286,8 +283,7 @@ export const configViews = {
 	},
 	logging: {
 		enableLogs: "Enable Logs",
-		enableLogsDesc:
-			"Enable logging of requests and responses to a SQL database. This can add 40-60mb of overhead to the system memory.",
+		enableLogsDesc: "Enable logging of requests and responses to a SQL database. This can add 40-60mb of overhead to the system memory.",
 		logsStoreRequired: " Requires logs store to be configured and enabled in config.json.",
 		disableContentLogging: "Disable Content Logging",
 		disableContentLoggingDesc:
@@ -321,11 +317,9 @@ export const configViews = {
 		aboutHeaderForwarding: "About Header Forwarding",
 		twoWaysToForward: "Two ways to forward headers:",
 		prefixedHeaders: "Prefixed headers:",
-		prefixedHeadersDesc:
-			"Use x-bf-eh-* prefix. For example, x-bf-eh-custom-id is forwarded as custom-id.",
+		prefixedHeadersDesc: "Use x-bf-eh-* prefix. For example, x-bf-eh-custom-id is forwarded as custom-id.",
 		directHeaders: "Direct headers:",
-		directHeadersDesc:
-			"Any header explicitly added to the allowlist can be forwarded directly without the prefix (e.g., anthropic-beta).",
+		directHeadersDesc: "Any header explicitly added to the allowlist can be forwarded directly without the prefix (e.g., anthropic-beta).",
 		howAllowlistDenylist: "How allowlist and denylist work:",
 		allowlistEmpty: "Allowlist empty:",
 		allowlistEmptyDesc: "Only x-bf-eh-* prefixed headers are forwarded (default behavior)",
@@ -338,8 +332,7 @@ export const configViews = {
 			"Use * at the end of a pattern to match prefixes (e.g., anthropic-* matches all headers starting with anthropic-). Use * alone to match all headers.",
 		important: "Important:",
 		allowlistWithoutPrefix: "Allowlist/denylist entries should be the header name without the x-bf-eh- prefix",
-		allowlistExample:
-			"Example: To allow x-bf-eh-custom-id or direct custom-id, add custom-id to the allowlist",
+		allowlistExample: "Example: To allow x-bf-eh-custom-id or direct custom-id, add custom-id to the allowlist",
 		securityNote: "Security Note",
 		securityNoteDesc:
 			"Some headers are always blocked for security reasons regardless of configuration. These headers cannot be added to the allowlist or denylist:",
@@ -348,8 +341,7 @@ export const configViews = {
 			"Headers to allow. Enter names without the x-bf-eh- prefix. Any header in this list can also be sent directly without the prefix.",
 		allowlistPlaceholder: "e.g. anthropic-*, custom-id",
 		denylistTitle: "Denylist",
-		denylistHint:
-			"Headers to block. Enter names without the x-bf-eh- prefix. Applies to both prefixed and direct header forwarding.",
+		denylistHint: "Headers to block. Enter names without the x-bf-eh- prefix. Applies to both prefixed and direct header forwarding.",
 		denylistPlaceholder: "e.g. x-internal-*",
 		addHeader: "Add Header",
 		removeSecurityHeaders: "Remove security header{{plural}}: {{headers}}",
@@ -410,12 +402,11 @@ export const configViews = {
 		externalUrlPlaceholder: "https://bifrost.example.com or env.BIFROST_OAUTH_REDIRECT_URL",
 		urlWarningTitle: "Changing this URL can break existing MCP clients",
 		urlWarningDesc:
-			"Upstream OAuth providers lock the redirect_uri to whatever was registered initially, so MCP clients that already completed OAuth will fail with \"Invalid redirect URI\". To recover, clear the stored OAuth client credentials for the affected MCP servers and re-authorize so Bifrost re-runs Dynamic Client Registration with the new URL.",
+			'Upstream OAuth providers lock the redirect_uri to whatever was registered initially, so MCP clients that already completed OAuth will fail with "Invalid redirect URI". To recover, clear the stored OAuth client credentials for the affected MCP servers and re-authorize so Bifrost re-runs Dynamic Client Registration with the new URL.',
 	},
 	pluginForm: {
 		editHint: "Update your plugin configuration. Plugin name and path are read-only.",
-		installHint:
-			"Install a custom plugin by providing an absolute file path or HTTP URL accessible to Bifrost deployment (.so).",
+		installHint: "Install a custom plugin by providing an absolute file path or HTTP URL accessible to Bifrost deployment (.so).",
 		pluginName: "Plugin Name *",
 		pluginNamePlaceholder: "e.g., my-custom-plugin",
 		pluginPath: "Plugin Path/URL *",

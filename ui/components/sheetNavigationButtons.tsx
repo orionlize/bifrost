@@ -31,14 +31,7 @@ function ShortcutKeys({ keys }: { keys: ShortcutKey[] }) {
 	);
 }
 
-export function SheetNavigationButtons({
-	hasPrev,
-	hasNext,
-	onNavigate,
-	prevKeys,
-	nextKeys,
-	entityLabel,
-}: SheetNavigationButtonsProps) {
+export function SheetNavigationButtons({ hasPrev, hasNext, onNavigate, prevKeys, nextKeys, entityLabel }: SheetNavigationButtonsProps) {
 	const t = useT();
 	const label = entityLabel ?? t("shared.sheetNav.item");
 

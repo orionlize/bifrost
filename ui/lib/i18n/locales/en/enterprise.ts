@@ -2,7 +2,8 @@ export const enterprise = {
 	contactReadMoreAria: "Read more about this feature (opens in new tab)",
 	contactBookDemoAria: "Book a demo (opens Calendly in new tab)",
 	bookDemo: "Book a demo",
-	licenseDescription: "This feature is a part of the Bifrost enterprise license. We would love to know more about your use case and how we can help you.",
+	licenseDescription:
+		"This feature is a part of the Bifrost enterprise license. We would love to know more about your use case and how we can help you.",
 	views: {
 		rbac: { title: "Unlock roles and permissions for better security" },
 		scim: { title: "Unlock SCIM based access management for user provisioning" },
@@ -16,7 +17,11 @@ export const enterprise = {
 		cluster: { title: "Unlock cluster mode to scale reliably" },
 		guardrails: { title: "Unlock guardrails for better security" },
 		mcpAuthConfig: { title: "Unlock MCP Auth Config" },
-		mcpToolGroups: { title: "Unlock MCP Tool Groups", pageTitle: "MCP Tool Groups", pageDesc: "Configure tool groups for MCP servers to organize and govern tools." },
+		mcpToolGroups: {
+			title: "Unlock MCP Tool Groups",
+			pageTitle: "MCP Tool Groups",
+			pageDesc: "Configure tool groups for MCP servers to organize and govern tools.",
+		},
 		piiRedactor: { title: "Unlock PII Redaction for better privacy" },
 		promptDeployments: { title: "Unlock prompt deployments for better prompt versioning and A/B testing." },
 		pubsub: { title: "Unlock Google Cloud Pub/Sub trace streaming" },

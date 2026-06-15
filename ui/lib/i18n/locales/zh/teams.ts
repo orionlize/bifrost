@@ -39,8 +39,7 @@ export const teams = {
 		budgetRowLabel: "预算 #{{index}} — 最大支出 (USD)",
 		remove: "移除",
 		alignCalendar: "按日历周期对齐",
-		alignCalendarDesc:
-			"在每个周期开始时重置预算与速率限制（例如每月 1 日），而不是从创建日起滚动计算。适用于一天及以上的重置周期。",
+		alignCalendarDesc: "在每个周期开始时重置预算与速率限制（例如每月 1 日），而不是从创建日起滚动计算。适用于一天及以上的重置周期。",
 		calendarResetTitle: "重置预算与速率限制用量？",
 		calendarResetDesc:
 			"启用日历对齐将把该团队的预算用量重置为 $0.00，Token/请求速率计数重置为 0，并将各重置日期对齐到当前周期起点（例如日/周/月/年初）。用量重置不可撤销，但之后可关闭日历对齐。保存后生效。",

@@ -239,7 +239,11 @@ export default function LogChatMessageView({ message, audioFormat }: LogChatMess
 
 			{/* Handle annotations */}
 			{message.annotations && message.annotations.length > 0 && (
-				<CollapsibleBox title={t("logsMedia.annotations")} onCopy={() => JSON.stringify(message.annotations, null, 2)} collapsedHeight={100}>
+				<CollapsibleBox
+					title={t("logsMedia.annotations")}
+					onCopy={() => JSON.stringify(message.annotations, null, 2)}
+					collapsedHeight={100}
+				>
 					<CodeEditor
 						className="z-0 w-full"
 						shouldAdjustInitialHeight={true}

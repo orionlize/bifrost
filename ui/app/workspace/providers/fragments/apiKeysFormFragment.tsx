@@ -491,7 +491,11 @@ export function ApiKeyFormFragment({ control, providerName, form }: Props) {
 							render={({ field }) => (
 								<FormItem>
 									<FormLabel>
-										{isVertex ? t("providersKeyForm.apiKeyGeminiOnly") : isVLLM ? t("providersKeyForm.apiKeyOptional") : t("providersKeyForm.apiKey")}
+										{isVertex
+											? t("providersKeyForm.apiKeyGeminiOnly")
+											: isVLLM
+												? t("providersKeyForm.apiKeyOptional")
+												: t("providersKeyForm.apiKey")}
 									</FormLabel>
 									<FormControl>
 										<EnvVarInput placeholder={t("providers.keys.apiKeyPlaceholder")} type="text" {...field} />
@@ -711,7 +715,12 @@ export function ApiKeyFormFragment({ control, providerName, form }: Props) {
 								<FormItem>
 									<FormLabel>{t("providersKeyForm.apiKeyGeminiOnly")}</FormLabel>
 									<FormControl>
-										<EnvVarInput data-testid="apikey-vertex-api-key-input" placeholder={t("providers.keys.apiKeyPlaceholder")} type="text" {...field} />
+										<EnvVarInput
+											data-testid="apikey-vertex-api-key-input"
+											placeholder={t("providers.keys.apiKeyPlaceholder")}
+											type="text"
+											{...field}
+										/>
 									</FormControl>
 									<FormMessage />
 								</FormItem>
@@ -787,7 +796,9 @@ export function ApiKeyFormFragment({ control, providerName, form }: Props) {
 								<FormControl>
 									<EnvVarInput
 										data-testid={`key-input-${isOllama ? "ollama" : "sgl"}-url`}
-										placeholder={isOllama ? t("providersKeyForm.ollama.serverUrlPlaceholder") : t("providersKeyForm.sgl.serverUrlPlaceholder")}
+										placeholder={
+											isOllama ? t("providersKeyForm.ollama.serverUrlPlaceholder") : t("providersKeyForm.sgl.serverUrlPlaceholder")
+										}
 										{...field}
 									/>
 								</FormControl>
@@ -839,12 +850,8 @@ export function ApiKeyFormFragment({ control, providerName, form }: Props) {
 								</TabsTrigger>
 							</TabsList>
 						</Tabs>
-						{bedrockAuthType === "iam_role" && (
-							<p className="text-muted-foreground text-sm">{t("providersKeyForm.bedrock.iamRoleDesc")}</p>
-						)}
-						{bedrockAuthType === "api_key" && (
-							<p className="text-muted-foreground text-sm">{t("providersKeyForm.bedrock.apiKeyDesc")}</p>
-						)}
+						{bedrockAuthType === "iam_role" && <p className="text-muted-foreground text-sm">{t("providersKeyForm.bedrock.iamRoleDesc")}</p>}
+						{bedrockAuthType === "api_key" && <p className="text-muted-foreground text-sm">{t("providersKeyForm.bedrock.apiKeyDesc")}</p>}
 					</div>
 
 					{bedrockAuthType === "explicit" && (

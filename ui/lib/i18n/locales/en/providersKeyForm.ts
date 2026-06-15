@@ -10,8 +10,7 @@ export const providersKeyForm = {
 	apiKeyOptional: "API Key (Optional)",
 	apiKeyGeminiOnly: "API Key (Supported only for gemini and fine-tuned models)",
 	allowedModels: "Allowed Models",
-	allowedModelsTooltip:
-		'Select specific models this key applies to, or choose "Allow All Models" to allow all. Leave empty to deny all.',
+	allowedModelsTooltip: 'Select specific models this key applies to, or choose "Allow All Models" to allow all. Leave empty to deny all.',
 	allModelsAllowed: "All models allowed",
 	noModelsDenyAll: "No models (deny all)",
 	searchModels: "Search models...",

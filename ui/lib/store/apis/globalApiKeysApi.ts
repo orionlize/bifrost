@@ -53,10 +53,7 @@ export const globalApiKeysApi = baseApi.injectEndpoints({
 			}),
 			invalidatesTags: ["APIKeys"],
 		}),
-		updateGlobalApiKey: builder.mutation<
-			{ api_key: GlobalApiKey },
-			{ id: string; is_active?: boolean; allowed_user_ids?: string[] }
-		>({
+		updateGlobalApiKey: builder.mutation<{ api_key: GlobalApiKey }, { id: string; is_active?: boolean; allowed_user_ids?: string[] }>({
 			query: ({ id, ...body }) => ({
 				url: `/settings/api-keys/${id}`,
 				method: "PUT",

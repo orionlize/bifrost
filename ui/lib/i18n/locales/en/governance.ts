@@ -5,8 +5,7 @@ export const governance = {
 		newGroup: "New tier",
 		deleted: "User tier deleted",
 		deleteTitle: "Delete user tier?",
-		deleteDescription:
-			'This will remove the tier "{{name}}" and its degradation rules. Assigned members (users) are not deleted.',
+		deleteDescription: 'This will remove the tier "{{name}}" and its degradation rules. Assigned members (users) are not deleted.',
 		editTitle: "Edit User Tier",
 		createTitle: "Create User Tier",
 		viewUsage: "View usage & degradation",
@@ -48,7 +47,7 @@ export const governance = {
 		modelSubstitutions: "Model substitutions (source → target)",
 		add: "Add",
 		mappingsHint:
-			'Select a source provider to restrict the source model list; an optional source API key narrows matching only when the request pins a key (x-bf-api-key-id / x-bf-api-key) — otherwise provider/model matching still applies. Optionally pin a target API key for the degraded route.',
+			"Select a source provider to restrict the source model list; an optional source API key narrows matching only when the request pins a key (x-bf-api-key-id / x-bf-api-key) — otherwise provider/model matching still applies. Optionally pin a target API key for the degraded route.",
 		sourceKey: "Source API key",
 		targetKey: "Target API key",
 		fallbacksLabel: "Fallbacks (comma-separated provider/model)",

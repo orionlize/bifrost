@@ -38,8 +38,6 @@ function formatLatency(ms: number): string {
 	return `${ms.toFixed(0)}ms`;
 }
 
-
-
 function displayModelLabel(model: string, unnamedLabel: string): string {
 	if (model === OTHER_SERIES_KEY) return OTHER_SERIES_LABEL;
 	return model === "" ? unnamedLabel : model;
@@ -322,7 +320,13 @@ function ModelRankingsTabImpl({ rankingsData, loading, modelData, loadingModels,
 									/>
 								</TableHead>
 								<TableHead className="text-right">
-									<SortableHeader label={t("dashboardCharts.rankings.cost")} field="total_cost" currentSort={sortField} currentOrder={sortOrder} onSort={handleSort} />
+									<SortableHeader
+										label={t("dashboardCharts.rankings.cost")}
+										field="total_cost"
+										currentSort={sortField}
+										currentOrder={sortOrder}
+										onSort={handleSort}
+									/>
 								</TableHead>
 								<TableHead className="text-right">
 									<SortableHeader

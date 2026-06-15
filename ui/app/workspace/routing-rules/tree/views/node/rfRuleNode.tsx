@@ -62,7 +62,9 @@ export function RFRuleNode({ data }: { data: any }) {
 				{/* rule name */}
 				<div className="px-3 py-2">
 					<p className="text-foreground truncate text-xs font-semibold">{rule.name}</p>
-					{rule.priority > 0 && <p className="text-muted-foreground mt-0.5 text-[10px]">{t("routing.tree.priority", { priority: rule.priority })}</p>}
+					{rule.priority > 0 && (
+						<p className="text-muted-foreground mt-0.5 text-[10px]">{t("routing.tree.priority", { priority: rule.priority })}</p>
+					)}
 				</div>
 
 				{/* targets footer */}
@@ -125,18 +127,12 @@ export function RFRuleNode({ data }: { data: any }) {
 									)}
 									<div className="min-w-0 flex-1">
 										<p className="text-foreground truncate text-xs font-medium">
-											{isPassthrough
-												? t("routing.tree.passthrough")
-												: target.provider
-													? getProviderLabel(target.provider)
-													: target.model}
+											{isPassthrough ? t("routing.tree.passthrough") : target.provider ? getProviderLabel(target.provider) : target.model}
 										</p>
 										{target.model && target.provider && (
 											<p className="text-muted-foreground truncate font-mono text-[10px]">{target.model}</p>
 										)}
-										{isPassthrough && (
-											<p className="text-muted-foreground/60 text-[10px] italic">{t("routing.tree.passthroughHint")}</p>
-										)}
+										{isPassthrough && <p className="text-muted-foreground/60 text-[10px] italic">{t("routing.tree.passthroughHint")}</p>}
 									</div>
 									{multi && (
 										<span className="ml-1 shrink-0 text-[11px] font-semibold" style={{ color: scopeColor }}>

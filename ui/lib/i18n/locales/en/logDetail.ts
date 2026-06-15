@@ -150,8 +150,7 @@ export const logDetail = {
 	copyRequestBodyCopied: "Request body copied to clipboard",
 	copyRequestBodyFailed: "Failed to copy request body",
 	copyNotAvailableTranscription: "Copy request body is not available for transcription requests",
-	copyNotAvailableType:
-		"Copy request body is only available for chat, responses, speech, text completion, and embedding requests",
+	copyNotAvailableType: "Copy request body is only available for chat, responses, speech, text completion, and embedding requests",
 	transportLabels: {
 		websocket: "WebSocket",
 		webrtc: "WebRTC",

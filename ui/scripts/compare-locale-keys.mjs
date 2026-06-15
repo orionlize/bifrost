@@ -47,10 +47,7 @@ function exportsFromFile(filePath) {
 	const out = new Map();
 
 	function visit(node) {
-		if (
-			ts.isVariableStatement(node) &&
-			node.modifiers?.some((m) => m.kind === ts.SyntaxKind.ExportKeyword)
-		) {
+		if (ts.isVariableStatement(node) && node.modifiers?.some((m) => m.kind === ts.SyntaxKind.ExportKeyword)) {
 			for (const decl of node.declarationList.declarations) {
 				if (!ts.isIdentifier(decl.name)) continue;
 				const exportName = decl.name.text;
@@ -77,13 +74,9 @@ function listLocaleFiles(dir) {
 
 function parseIndex(indexPath) {
 	const source = fs.readFileSync(indexPath, "utf8");
-	const imports = [...source.matchAll(/^import\s+.+from\s+["']\.\/([^"']+)["'];?/gm)].map(
-		(m) => m[1],
-	);
+	const imports = [...source.matchAll(/^import\s+.+from\s+["']\.\/([^"']+)["'];?/gm)].map((m) => m[1]);
 	const exportMatch = source.match(/export const \w+ = \{([\s\S]*?)\} as const;/);
-	const exportKeys = exportMatch
-		? [...exportMatch[1].matchAll(/^\s*(\w+),?\s*$/gm)].map((m) => m[1])
-		: [];
+	const exportKeys = exportMatch ? [...exportMatch[1].matchAll(/^\s*(\w+),?\s*$/gm)].map((m) => m[1]) : [];
 	return { imports, exportKeys };
 }
 

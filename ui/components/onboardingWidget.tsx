@@ -315,9 +315,7 @@ export default function OnboardingWidget() {
 						</span>
 						<div className="min-w-0 flex-1">
 							<div className="text-sm font-semibold">{t("onboarding.title")}</div>
-							<div className="text-muted-foreground text-xs">
-								{t("onboarding.progress", { done: doneCount, total: steps.length })}
-							</div>
+							<div className="text-muted-foreground text-xs">{t("onboarding.progress", { done: doneCount, total: steps.length })}</div>
 						</div>
 					</div>
 					<button

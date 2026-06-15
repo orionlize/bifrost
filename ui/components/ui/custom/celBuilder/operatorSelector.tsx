@@ -7,12 +7,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { celBuilderT, type CelBuilderI18nContext } from "./i18n";
 import { OperatorSelectorProps } from "react-querybuilder";
 
-export function OperatorSelector({
-	value,
-	handleOnChange,
-	options,
-	context,
-}: OperatorSelectorProps & { context?: CelBuilderI18nContext }) {
+export function OperatorSelector({ value, handleOnChange, options, context }: OperatorSelectorProps & { context?: CelBuilderI18nContext }) {
 	return (
 		<Select value={value || ""} onValueChange={handleOnChange}>
 			<SelectTrigger className="w-[160px]">

@@ -49,9 +49,12 @@ const secondsToHumanReadable = (seconds: number, t: TranslateFn) => {
 	const parts: string[] = [];
 	parts.push(`${days} ${days === 1 ? t("providers.network.duration.day") : t("providers.network.duration.days")}`);
 	if (hours > 0) parts.push(`${hours} ${hours === 1 ? t("providers.network.duration.hour") : t("providers.network.duration.hours")}`);
-	if (minutes > 0) parts.push(`${minutes} ${minutes === 1 ? t("providers.network.duration.minute") : t("providers.network.duration.minutes")}`);
+	if (minutes > 0)
+		parts.push(`${minutes} ${minutes === 1 ? t("providers.network.duration.minute") : t("providers.network.duration.minutes")}`);
 	if (remainingSeconds > 0)
-		parts.push(`${remainingSeconds} ${remainingSeconds === 1 ? t("providers.network.duration.second") : t("providers.network.duration.seconds")}`);
+		parts.push(
+			`${remainingSeconds} ${remainingSeconds === 1 ? t("providers.network.duration.second") : t("providers.network.duration.seconds")}`,
+		);
 	return parts.join(" ");
 };
 
@@ -171,7 +174,9 @@ export function NetworkFormFragment({ provider }: NetworkFormFragmentProps) {
 										</FormLabel>
 										<FormControl>
 											<Input
-												placeholder={isCustomProvider ? t("providers.network.baseUrlPlaceholderCustom") : t("providers.network.baseUrlPlaceholder")}
+												placeholder={
+													isCustomProvider ? t("providers.network.baseUrlPlaceholderCustom") : t("providers.network.baseUrlPlaceholder")
+												}
 												{...field}
 												value={field.value || ""}
 												disabled={!hasUpdateProviderAccess}

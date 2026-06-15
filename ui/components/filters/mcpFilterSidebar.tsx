@@ -300,9 +300,7 @@ function SearchableCheckboxList({
 					className="hover:bg-muted/50 flex w-full cursor-pointer items-center gap-2.5 px-3 py-2 text-left text-sm"
 				>
 					<Plus className="text-muted-foreground size-3.5 shrink-0" />
-					<span className="truncate">
-						{t("mcpFilters.useCustom", { value: trimmed })}
-					</span>
+					<span className="truncate">{t("mcpFilters.useCustom", { value: trimmed })}</span>
 				</button>
 			)}
 		</>
@@ -361,7 +359,12 @@ function ToolNamesFilter({ filters, onFiltersChange, defaultOpen }: FilterCompon
 	if (!isUninitialized && !isLoading && availableToolNames.length === 0 && !hasActive && !opened) return null;
 
 	return (
-		<FilterSection title={t("mcpFilters.sections.toolNames")} defaultOpen={defaultOpen || hasActive} loading={isLoading} onOpenChange={setOpened}>
+		<FilterSection
+			title={t("mcpFilters.sections.toolNames")}
+			defaultOpen={defaultOpen || hasActive}
+			loading={isLoading}
+			onOpenChange={setOpened}
+		>
 			<SearchableCheckboxList
 				inputRef={searchInputRef}
 				placeholder={t("mcpFilters.placeholders.tool")}
@@ -406,7 +409,12 @@ function ServersFilter({ filters, onFiltersChange, defaultOpen }: FilterComponen
 	if (!isUninitialized && !isLoading && availableServerLabels.length === 0 && !hasActive && !opened) return null;
 
 	return (
-		<FilterSection title={t("mcpFilters.sections.servers")} defaultOpen={defaultOpen || hasActive} loading={isLoading} onOpenChange={setOpened}>
+		<FilterSection
+			title={t("mcpFilters.sections.servers")}
+			defaultOpen={defaultOpen || hasActive}
+			loading={isLoading}
+			onOpenChange={setOpened}
+		>
 			<SearchableCheckboxList
 				inputRef={searchInputRef}
 				placeholder={t("mcpFilters.placeholders.server")}
@@ -459,7 +467,12 @@ function VirtualKeysFilter({ filters, onFiltersChange, defaultOpen }: FilterComp
 	};
 
 	return (
-		<FilterSection title={t("mcpFilters.sections.users")} defaultOpen={defaultOpen || hasActive} loading={isLoading} onOpenChange={setOpened}>
+		<FilterSection
+			title={t("mcpFilters.sections.users")}
+			defaultOpen={defaultOpen || hasActive}
+			loading={isLoading}
+			onOpenChange={setOpened}
+		>
 			<SearchableCheckboxList
 				inputRef={searchInputRef}
 				placeholder={t("mcpFilters.placeholders.users")}

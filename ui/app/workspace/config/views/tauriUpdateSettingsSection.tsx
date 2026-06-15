@@ -100,7 +100,7 @@ export default function TauriUpdateSettingsSection() {
 	};
 
 	return (
-		<div className="space-y-4 rounded-xl border bg-muted/20 p-5">
+		<div className="bg-muted/20 space-y-4 rounded-xl border p-5">
 			<div>
 				<h3 className="text-lg font-semibold tracking-tight">{t("configViews.clientSettings.tauriUpdate.title")}</h3>
 				<p className="text-muted-foreground text-sm">{t("configViews.clientSettings.tauriUpdate.description")}</p>
@@ -150,7 +150,7 @@ export default function TauriUpdateSettingsSection() {
 				</div>
 				<div className="space-y-4">
 					{DEFAULT_TAURI_PLATFORMS.map((platform) => (
-						<div key={platform} className="grid gap-3 rounded-lg border bg-background p-4 md:grid-cols-2">
+						<div key={platform} className="bg-background grid gap-3 rounded-lg border p-4 md:grid-cols-2">
 							<div className="md:col-span-2">
 								<p className="font-mono text-xs font-medium">{platform}</p>
 							</div>

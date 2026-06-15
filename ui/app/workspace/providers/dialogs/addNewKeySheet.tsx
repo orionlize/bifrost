@@ -24,7 +24,9 @@ export default function AddNewKeySheet({ show, onCancel, provider, keyId, provid
 		: isOllamaOrSGL
 			? t("providers.keysTable.entityServer")
 			: t("providers.keysTable.entityKey");
-	const dialogTitle = isEditing ? t("providers.keySheet.editEntity", { entity: entityLabel }) : t("providers.keySheet.addEntity", { entity: entityLabel });
+	const dialogTitle = isEditing
+		? t("providers.keySheet.editEntity", { entity: entityLabel })
+		: t("providers.keySheet.addEntity", { entity: entityLabel });
 	const successMessage = isEditing
 		? t("providers.keySheet.updatedSuccess", { entity: entityLabel })
 		: t("providers.keySheet.addedSuccess", { entity: entityLabel });

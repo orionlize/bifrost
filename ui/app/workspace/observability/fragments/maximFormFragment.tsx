@@ -102,7 +102,12 @@ export function MaximFormFragment({ initialConfig, onSave, onDelete, isDeleting 
 								<FormItem>
 									<FormLabel>{t("observabilityConnectors.maxim.logRepoId")}</FormLabel>
 									<FormControl>
-										<Input placeholder={t("observabilityConnectors.maxim.logRepoPlaceholder")} disabled={!hasMaximAccess} {...field} value={field.value ?? ""} />
+										<Input
+											placeholder={t("observabilityConnectors.maxim.logRepoPlaceholder")}
+											disabled={!hasMaximAccess}
+											{...field}
+											value={field.value ?? ""}
+										/>
 									</FormControl>
 									<FormMessage />
 								</FormItem>

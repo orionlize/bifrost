@@ -30,7 +30,9 @@ function TopDimensionTooltip({ active, payload }: any) {
 	return (
 		<div className="rounded-sm border border-zinc-200 bg-white px-3 py-2 shadow-lg dark:border-zinc-700 dark:bg-zinc-900">
 			<div className="mb-1 text-xs text-zinc-500">{data.displayName}</div>
-			<div className="text-sm font-medium">{t("dashboardCharts.rankings.requestsTooltip", { count: data.total_requests.toLocaleString() })}</div>
+			<div className="text-sm font-medium">
+				{t("dashboardCharts.rankings.requestsTooltip", { count: data.total_requests.toLocaleString() })}
+			</div>
 		</div>
 	);
 }
@@ -180,7 +182,9 @@ function DimensionRankingsTabImpl({ data, loading, dimensionLabel, testIdPrefix 
 				</Card>
 			) : (
 				<Card className="rounded-sm p-2 shadow-none" data-testid={`${testIdPrefix}-table`}>
-					<span className="text-primary pl-2 text-sm font-medium">{t("dashboardCharts.rankings.dimensionRankings", { dimension: dimensionLabel })}</span>
+					<span className="text-primary pl-2 text-sm font-medium">
+						{t("dashboardCharts.rankings.dimensionRankings", { dimension: dimensionLabel })}
+					</span>
 					<Table>
 						<TableHeader>
 							<TableRow>
@@ -205,7 +209,13 @@ function DimensionRankingsTabImpl({ data, loading, dimensionLabel, testIdPrefix 
 									/>
 								</TableHead>
 								<TableHead className="text-right">
-									<SortableHeader label={t("dashboardCharts.rankings.cost")} field="total_cost" currentSort={sortField} currentOrder={sortOrder} onSort={handleSort} />
+									<SortableHeader
+										label={t("dashboardCharts.rankings.cost")}
+										field="total_cost"
+										currentSort={sortField}
+										currentOrder={sortOrder}
+										onSort={handleSort}
+									/>
 								</TableHead>
 							</TableRow>
 						</TableHeader>

@@ -193,8 +193,7 @@ export default function APIKeysView() {
 			<div>
 				<h2 className="text-lg font-semibold tracking-tight">{t("apiKeys.title")}</h2>
 				<p className="text-muted-foreground text-sm">
-					{t("apiKeys.description")}{" "}
-					<code className="bg-muted rounded px-1 py-0.5 text-xs">Authorization: Bearer &lt;token&gt;</code>.
+					{t("apiKeys.description")} <code className="bg-muted rounded px-1 py-0.5 text-xs">Authorization: Bearer &lt;token&gt;</code>.
 				</p>
 			</div>
 
@@ -399,7 +398,12 @@ export default function APIKeysView() {
 						<Button variant="outline" onClick={() => setEditDialogOpen(false)} disabled={isUpdating}>
 							{t("common.actions.cancel")}
 						</Button>
-						<Button type="button" onClick={() => void handleSaveAllowedUsers()} disabled={isUpdating} data-testid="global-api-key-edit-users-save">
+						<Button
+							type="button"
+							onClick={() => void handleSaveAllowedUsers()}
+							disabled={isUpdating}
+							data-testid="global-api-key-edit-users-save"
+						>
 							{isUpdating ? <Loader2 className="h-4 w-4 animate-spin" /> : t("common.actions.save")}
 						</Button>
 					</DialogFooter>

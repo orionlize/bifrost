@@ -77,9 +77,7 @@ export function UserGroupsTable({ groups, isLoading, onEdit, onDelete, canUpdate
 										</TableCell>
 										<TableCell>
 											<div className="flex items-center gap-2">
-												{group.color ? (
-													<span className="h-2.5 w-2.5 rounded-full" style={{ backgroundColor: group.color }} />
-												) : null}
+												{group.color ? <span className="h-2.5 w-2.5 rounded-full" style={{ backgroundColor: group.color }} /> : null}
 												<span className="font-medium">{group.name}</span>
 												{group.enabled === false && (
 													<Badge variant="secondary" className="text-xs">
@@ -87,16 +85,10 @@ export function UserGroupsTable({ groups, isLoading, onEdit, onDelete, canUpdate
 													</Badge>
 												)}
 											</div>
-											{group.description ? (
-												<p className="text-muted-foreground mt-0.5 text-xs">{group.description}</p>
-											) : null}
+											{group.description ? <p className="text-muted-foreground mt-0.5 text-xs">{group.description}</p> : null}
 										</TableCell>
-										<TableCell className="text-sm">
-											{formatWindow(group.short_window_token_limit)}
-										</TableCell>
-										<TableCell className="text-sm">
-											{formatWindow(group.weekly_window_token_limit)}
-										</TableCell>
+										<TableCell className="text-sm">{formatWindow(group.short_window_token_limit)}</TableCell>
+										<TableCell className="text-sm">{formatWindow(group.weekly_window_token_limit)}</TableCell>
 										<TableCell>
 											<Badge variant="outline">{group.tiers?.length ?? 0}</Badge>
 										</TableCell>
@@ -106,22 +98,12 @@ export function UserGroupsTable({ groups, isLoading, onEdit, onDelete, canUpdate
 										<TableCell className="text-right" onClick={(e) => e.stopPropagation()}>
 											<div className="flex items-center justify-end gap-1">
 												{canUpdate && (
-													<Button
-														variant="ghost"
-														size="icon"
-														data-testid={`user-group-edit-${group.id}`}
-														onClick={() => onEdit(group)}
-													>
+													<Button variant="ghost" size="icon" data-testid={`user-group-edit-${group.id}`} onClick={() => onEdit(group)}>
 														<Pencil className="h-4 w-4" />
 													</Button>
 												)}
 												{canDelete && (
-													<Button
-														variant="ghost"
-														size="icon"
-														data-testid={`user-group-delete-${group.id}`}
-														onClick={() => onDelete(group)}
-													>
+													<Button variant="ghost" size="icon" data-testid={`user-group-delete-${group.id}`} onClick={() => onDelete(group)}>
 														<Trash2 className="text-destructive h-4 w-4" />
 													</Button>
 												)}

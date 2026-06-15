@@ -195,12 +195,8 @@ export function MarketplaceImportDialog({
 							<div className="min-w-0">
 								<p className="font-medium">{editItem.name}</p>
 								<p className="text-muted-foreground text-sm capitalize">{editItem.item_type}</p>
-								{editItem.description ? (
-									<p className="text-muted-foreground mt-1 text-sm">{editItem.description}</p>
-								) : null}
-								{editItem.version ? (
-									<p className="text-muted-foreground text-xs">v{editItem.version}</p>
-								) : null}
+								{editItem.description ? <p className="text-muted-foreground mt-1 text-sm">{editItem.description}</p> : null}
+								{editItem.version ? <p className="text-muted-foreground text-xs">v{editItem.version}</p> : null}
 							</div>
 						</div>
 						<p className="text-muted-foreground text-xs">{t("marketplace.import.metadataFromSource")}</p>
@@ -232,12 +228,7 @@ export function MarketplaceImportDialog({
 							<Checkbox checked={enabled} onCheckedChange={(v) => setEnabled(Boolean(v))} />
 							<Label>{t("marketplace.import.enabled")}</Label>
 						</div>
-						<MarketplaceItemAssignmentsSection
-							key={editItem.id}
-							itemId={editItem.id}
-							value={assignments}
-							onChange={setAssignments}
-						/>
+						<MarketplaceItemAssignmentsSection key={editItem.id} itemId={editItem.id} value={assignments} onChange={setAssignments} />
 					</div>
 				) : (
 					<div className="grid gap-4">

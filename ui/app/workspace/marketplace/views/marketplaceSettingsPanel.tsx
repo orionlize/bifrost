@@ -76,7 +76,7 @@ export function MarketplaceSettingsPanel({
 						onChangeSources={(catalog_sources) => setDraft((current) => (current ? { ...current, catalog_sources } : current))}
 					/>
 
-					<div className="space-y-4 rounded-xl border bg-muted/20 p-5">
+					<div className="bg-muted/20 space-y-4 rounded-xl border p-5">
 						<div>
 							<h3 className="text-[15px] font-semibold">{t("marketplace.source.publishTitle")}</h3>
 							<p className="text-muted-foreground mt-1 text-[13px]">{t("marketplace.source.publishDescription")}</p>
@@ -84,22 +84,12 @@ export function MarketplaceSettingsPanel({
 						<div className="grid gap-4 md:grid-cols-2">
 							<div>
 								<Label className="text-[13px]">{t("marketplace.source.claudeManifest")}</Label>
-								<Input
-									readOnly
-									value={claudeManifestURL}
-									className="mt-1.5 bg-background"
-									data-testid="marketplace-manifest-url-claude"
-								/>
+								<Input readOnly value={claudeManifestURL} className="bg-background mt-1.5" data-testid="marketplace-manifest-url-claude" />
 								<p className="text-muted-foreground mt-1 text-[11px]">{t("marketplace.source.claudeManifestHint")}</p>
 							</div>
 							<div>
 								<Label className="text-[13px]">{t("marketplace.source.codexManifest")}</Label>
-								<Input
-									readOnly
-									value={codexManifestURL}
-									className="mt-1.5 bg-background"
-									data-testid="marketplace-manifest-url-codex"
-								/>
+								<Input readOnly value={codexManifestURL} className="bg-background mt-1.5" data-testid="marketplace-manifest-url-codex" />
 								<p className="text-muted-foreground mt-1 text-[11px]">{t("marketplace.source.codexManifestHint")}</p>
 							</div>
 						</div>
@@ -107,7 +97,7 @@ export function MarketplaceSettingsPanel({
 							<div>
 								<Label className="text-[13px]">{t("marketplace.source.name")}</Label>
 								<Input
-									className="mt-1.5 bg-background"
+									className="bg-background mt-1.5"
 									value={draft.name}
 									onChange={(e) => setDraft((current) => (current ? { ...current, name: e.target.value } : current))}
 									data-testid="marketplace-config-name"
@@ -116,12 +106,10 @@ export function MarketplaceSettingsPanel({
 							<div>
 								<Label className="text-[13px]">{t("marketplace.source.owner")}</Label>
 								<Input
-									className="mt-1.5 bg-background"
+									className="bg-background mt-1.5"
 									value={draft.owner?.name ?? ""}
 									onChange={(e) =>
-										setDraft((current) =>
-											current ? { ...current, owner: { ...current.owner, name: e.target.value } } : current,
-										)
+										setDraft((current) => (current ? { ...current, owner: { ...current.owner, name: e.target.value } } : current))
 									}
 									data-testid="marketplace-config-owner"
 								/>
@@ -149,5 +137,5 @@ export function MarketplaceSettingsPanel({
 		return content;
 	}
 
-	return <div className="rounded-2xl border bg-muted/30 p-4">{content}</div>;
+	return <div className="bg-muted/30 rounded-2xl border p-4">{content}</div>;
 }

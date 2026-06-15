@@ -83,7 +83,7 @@ export function DebuggingFormFragment({ provider }: DebuggingFormFragmentProps) 
 								<div className="flex items-center justify-between space-x-2">
 									<div className="space-y-0.5">
 										<div className="flex items-center gap-1.5">
-										<FormLabel>{t("providers.debugging.sendBackRawRequest")}</FormLabel>
+											<FormLabel>{t("providers.debugging.sendBackRawRequest")}</FormLabel>
 											<TooltipProvider>
 												<Tooltip>
 													<TooltipTrigger asChild data-testid="provider-debugging-send-back-raw-request-tooltip-trigger">
@@ -124,7 +124,7 @@ export function DebuggingFormFragment({ provider }: DebuggingFormFragmentProps) 
 								<div className="flex items-center justify-between space-x-2">
 									<div className="space-y-0.5">
 										<div className="flex items-center gap-1.5">
-										<FormLabel>{t("providers.debugging.sendBackRawResponse")}</FormLabel>
+											<FormLabel>{t("providers.debugging.sendBackRawResponse")}</FormLabel>
 											<TooltipProvider>
 												<Tooltip>
 													<TooltipTrigger asChild data-testid="provider-debugging-send-back-raw-response-tooltip-trigger">
@@ -165,7 +165,7 @@ export function DebuggingFormFragment({ provider }: DebuggingFormFragmentProps) 
 								<div className="flex items-center justify-between space-x-2">
 									<div className="space-y-0.5">
 										<div className="flex items-center gap-1.5">
-										<FormLabel>{t("providers.debugging.storeRawRequestResponse")}</FormLabel>
+											<FormLabel>{t("providers.debugging.storeRawRequestResponse")}</FormLabel>
 											<TooltipProvider>
 												<Tooltip>
 													<TooltipTrigger asChild data-testid="provider-debugging-store-raw-request-response-tooltip-trigger">

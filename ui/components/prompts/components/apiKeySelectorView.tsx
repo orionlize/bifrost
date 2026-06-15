@@ -61,7 +61,12 @@ export function ApiKeySelectorView({
 				filter={null}
 				itemToStringLabel={getLabel}
 			>
-				<ComboboxInput placeholder={placeholder ?? t("prompts.selectApiKey")} showClear={value !== "__auto__"} showTrigger disabled={disabled} />
+				<ComboboxInput
+					placeholder={placeholder ?? t("prompts.selectApiKey")}
+					showClear={value !== "__auto__"}
+					showTrigger
+					disabled={disabled}
+				/>
 				<ComboboxContent>
 					<ComboboxList>
 						{filteredApiKeys.length > 0 && (
@@ -85,9 +90,7 @@ export function ApiKeySelectorView({
 								))}
 							</ComboboxGroup>
 						)}
-						{filtered.length === 0 && (
-							<div className="text-muted-foreground py-6 text-center text-sm">{t("prompts.noResults")}</div>
-						)}
+						{filtered.length === 0 && <div className="text-muted-foreground py-6 text-center text-sm">{t("prompts.noResults")}</div>}
 					</ComboboxList>
 				</ComboboxContent>
 			</Combobox>

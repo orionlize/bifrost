@@ -124,6 +124,9 @@ export function normalizeGlobalApiKeyFieldsInQuery(
 }
 
 /** @deprecated Use normalizeGlobalApiKeyFieldsInQuery */
-export function normalizeGlobalApiKeyIdsInQuery(query: RuleGroupType | undefined, apiKeys: GlobalApiKeyOption[]): RuleGroupType | undefined {
+export function normalizeGlobalApiKeyIdsInQuery(
+	query: RuleGroupType | undefined,
+	apiKeys: GlobalApiKeyOption[],
+): RuleGroupType | undefined {
 	return normalizeGlobalApiKeyFieldsInQuery(query, apiKeys);
 }

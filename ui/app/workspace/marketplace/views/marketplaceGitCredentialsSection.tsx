@@ -2,10 +2,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { useT } from "@/lib/i18n";
-import {
-	useGetMarketplaceGitCredentialsQuery,
-	useUpdateMarketplaceGitCredentialsMutation,
-} from "@/lib/store/apis/marketplaceApi";
+import { useGetMarketplaceGitCredentialsQuery, useUpdateMarketplaceGitCredentialsMutation } from "@/lib/store/apis/marketplaceApi";
 import { useState } from "react";
 import { toast } from "sonner";
 
@@ -53,7 +50,7 @@ export function MarketplaceGitCredentialsSection() {
 	};
 
 	return (
-		<div className="space-y-4 rounded-xl border bg-muted/20 p-5" data-testid="marketplace-git-credentials-section">
+		<div className="bg-muted/20 space-y-4 rounded-xl border p-5" data-testid="marketplace-git-credentials-section">
 			<div>
 				<h3 className="text-[15px] font-semibold">{t("marketplace.gitCredentials.title")}</h3>
 				<p className="text-muted-foreground mt-1 text-[13px]">{t("marketplace.gitCredentials.description")}</p>
@@ -70,9 +67,7 @@ export function MarketplaceGitCredentialsSection() {
 							value={githubToken}
 							onChange={(e) => setGithubToken(e.target.value)}
 							placeholder={
-								githubConfigured
-									? t("marketplace.gitCredentials.configuredPlaceholder")
-									: t("marketplace.gitCredentials.githubPlaceholder")
+								githubConfigured ? t("marketplace.gitCredentials.configuredPlaceholder") : t("marketplace.gitCredentials.githubPlaceholder")
 							}
 							autoComplete="off"
 							data-testid="marketplace-github-token"
@@ -97,9 +92,7 @@ export function MarketplaceGitCredentialsSection() {
 							value={gitlabToken}
 							onChange={(e) => setGitlabToken(e.target.value)}
 							placeholder={
-								gitlabConfigured
-									? t("marketplace.gitCredentials.configuredPlaceholder")
-									: t("marketplace.gitCredentials.gitlabPlaceholder")
+								gitlabConfigured ? t("marketplace.gitCredentials.configuredPlaceholder") : t("marketplace.gitCredentials.gitlabPlaceholder")
 							}
 							autoComplete="off"
 							data-testid="marketplace-gitlab-token"

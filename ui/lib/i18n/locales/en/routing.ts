@@ -76,7 +76,7 @@ export const routing = {
 		ruleBuilder: "Rule Builder",
 		ruleBuilderHint: "Build conditions to determine when this rule should apply. Leave empty to apply this rule to all requests.",
 		governanceNote:
-			'Note: Ensure token limits, request limits, and budget are configured in Model Providers → Configurations → {provider} → Governance (provider-level) or Model Providers → Budgets & Limits section (model-level) before using them in routing rules.',
+			"Note: Ensure token limits, request limits, and budget are configured in Model Providers → Configurations → {provider} → Governance (provider-level) or Model Providers → Budgets & Limits section (model-level) before using them in routing rules.",
 		routingTargets: "Routing Targets",
 		targetsHint: "Weights must sum to 1. Leave provider or model empty to use the incoming request value.",
 		addTarget: "Add Target",
@@ -145,9 +145,11 @@ export const routing = {
 		selectField: "Select field...",
 		adminApiKey: "Admin API Key (ID)",
 		selectAdminApiKey: "Select admin API key",
-		adminApiKeyHint: "Match requests authenticated with a global admin API key (bf-ak-) by key ID. Use 'is not empty' to match any admin key.",
+		adminApiKeyHint:
+			"Match requests authenticated with a global admin API key (bf-ak-) by key ID. Use 'is not empty' to match any admin key.",
 		adminApiKeyName: "Admin API Key (Name)",
-		adminApiKeyNameHint: "Match requests authenticated with a global admin API key (bf-ak-) by key name. Use 'is not empty' to match any admin key.",
+		adminApiKeyNameHint:
+			"Match requests authenticated with a global admin API key (bf-ak-) by key name. Use 'is not empty' to match any admin key.",
 		user: "User",
 		selectUser: "Select user",
 		userHint: "Match requests by the resolved Aone user ID from personal virtual keys, assigned global API keys, or admin credentials.",
@@ -178,17 +180,14 @@ export const routing = {
 		resetLayoutButton: "Reset layout",
 		chainRule: "Chain rule",
 		staticChain: "Static chain",
-		staticChainTooltip:
-			"Re-entry point is fully proven by static analysis — every condition on the path evaluated to a known value.",
+		staticChainTooltip: "Re-entry point is fully proven by static analysis — every condition on the path evaluated to a known value.",
 		dynamicChain: "Dynamic chain",
-		dynamicChainTooltip:
-			"Re-entry point is a conditional — one or more conditions on the path are not fully evaluated at build time.",
+		dynamicChainTooltip: "Re-entry point is a conditional — one or more conditions on the path are not fully evaluated at build time.",
 		off: "Off",
 		priority: "Priority {{priority}}",
 		targetCount: "{{count}} target",
 		targetsCount: "{{count}} targets",
-		chainRulePopover:
-			"Chain rule — resolved provider/model feeds back as the new input and the full scope chain re-evaluates.",
+		chainRulePopover: "Chain rule — resolved provider/model feeds back as the new input and the full scope chain re-evaluates.",
 		passthroughHint: "original provider & model",
 		sourceNode: {
 			title: "Incoming Request",

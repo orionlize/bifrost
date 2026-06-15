@@ -358,11 +358,7 @@ export default function CustomerSheet({ open, onOpenChange, customer, onSuccess 
 								<TooltipTrigger asChild>
 									<span>
 										<Button type="submit" disabled={isSubmitDisabled}>
-											{loading
-												? t("common.actions.saving")
-												: isEditing
-													? t("customers.updateCustomer")
-													: t("customers.addCustomer")}
+											{loading ? t("common.actions.saving") : isEditing ? t("customers.updateCustomer") : t("customers.addCustomer")}
 										</Button>
 									</span>
 								</TooltipTrigger>

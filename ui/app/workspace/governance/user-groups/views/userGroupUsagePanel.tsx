@@ -27,8 +27,7 @@ function findWindow(member: UserGroupMemberUsage, window: string): UserGroupWind
 function WindowCell({ status }: { status?: UserGroupWindowStatus }) {
 	if (!status) return <span className="text-muted-foreground text-xs">—</span>;
 	const barValue = Math.min(100, Math.round(status.percent_used));
-	const isOverLimit =
-		status.token_limit != null && status.token_limit > 0 && status.token_used >= status.token_limit;
+	const isOverLimit = status.token_limit != null && status.token_limit > 0 && status.token_used >= status.token_limit;
 	return (
 		<div className="space-y-1">
 			<div className="text-xs">
@@ -68,7 +67,7 @@ export function UserGroupUsagePanel({ group, active, canUpdate }: UserGroupUsage
 	);
 
 	return (
-		<div className="border-t bg-muted/20" data-testid="user-group-usage-content">
+		<div className="bg-muted/20 border-t" data-testid="user-group-usage-content">
 			<div className="px-4 py-3">
 				<p className="text-muted-foreground mb-3 text-xs">{t("governance.usage.description")}</p>
 				<Table>

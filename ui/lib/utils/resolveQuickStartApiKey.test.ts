@@ -45,10 +45,7 @@ describe("pickQuickStartGlobalApiKey", () => {
 
 	it("uses the explicitly selected key", () => {
 		const selected = pickQuickStartGlobalApiKey(
-			[
-				makeGlobalApiKey({ id: "key-1", name: "first" }),
-				makeGlobalApiKey({ id: "key-2", name: "second", token_prefix: "bf-ak-222..." }),
-			],
+			[makeGlobalApiKey({ id: "key-1", name: "first" }), makeGlobalApiKey({ id: "key-2", name: "second", token_prefix: "bf-ak-222..." })],
 			"key-2",
 		);
 
@@ -71,9 +68,7 @@ describe("resolveQuickStartApiKeyToken", () => {
 	});
 
 	it("uses access full token when fetch is unavailable", () => {
-		const token = resolveQuickStartApiKeyToken(
-			makeGlobalApiKey({ id: "key-1", name: "first", token: FULL_GLOBAL_API_KEY }),
-		);
+		const token = resolveQuickStartApiKeyToken(makeGlobalApiKey({ id: "key-1", name: "first", token: FULL_GLOBAL_API_KEY }));
 
 		expect(token).toBe(FULL_GLOBAL_API_KEY);
 	});

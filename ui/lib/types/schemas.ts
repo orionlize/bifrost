@@ -668,11 +668,7 @@ const directURLEmbeddingCacheConfigSchema = baseCacheConfigSchema
 	})
 	.strict();
 
-export const cacheConfigSchema = z.union([
-	directCacheConfigSchema,
-	providerBackedCacheConfigSchema,
-	directURLEmbeddingCacheConfigSchema,
-]);
+export const cacheConfigSchema = z.union([directCacheConfigSchema, providerBackedCacheConfigSchema, directURLEmbeddingCacheConfigSchema]);
 
 // Core config schema
 export const coreConfigSchema = z.object({

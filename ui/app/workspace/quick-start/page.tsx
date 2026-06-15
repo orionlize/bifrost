@@ -16,11 +16,7 @@ import {
 	formatCodexModel,
 	getProviderIntegrationGuide,
 } from "@/lib/utils/providerIntegration";
-import {
-	isFullGlobalApiKeyToken,
-	setStoredGlobalApiKey,
-	setStoredGlobalApiKeySelectedId,
-} from "@/lib/utils/globalApiKeyStorage";
+import { isFullGlobalApiKeyToken, setStoredGlobalApiKey, setStoredGlobalApiKeySelectedId } from "@/lib/utils/globalApiKeyStorage";
 import { pickQuickStartGlobalApiKey, resolveQuickStartApiKeyToken } from "@/lib/utils/resolveQuickStartApiKey";
 import { getExampleBaseUrl } from "@/lib/utils/port";
 import { Link } from "@tanstack/react-router";
@@ -73,10 +69,7 @@ export default function QuickStartView() {
 		}
 	}, [assignedApiKeys]);
 
-	const selectedKey = useMemo(
-		() => pickQuickStartGlobalApiKey(assignedApiKeys, userSelectedKeyId),
-		[assignedApiKeys, userSelectedKeyId],
-	);
+	const selectedKey = useMemo(() => pickQuickStartGlobalApiKey(assignedApiKeys, userSelectedKeyId), [assignedApiKeys, userSelectedKeyId]);
 	const selectedKeyId = selectedKey?.id ?? "";
 
 	const { data: fetchedTokenData, isFetching: isFetchingToken } = useGetGlobalApiKeyTokenQuery(selectedKeyId, {
@@ -84,10 +77,7 @@ export default function QuickStartView() {
 		refetchOnMountOrArgChange: true,
 	});
 
-	const apiKey = useMemo(
-		() => resolveQuickStartApiKeyToken(selectedKey, fetchedTokenData?.token),
-		[fetchedTokenData?.token, selectedKey],
-	);
+	const apiKey = useMemo(() => resolveQuickStartApiKeyToken(selectedKey, fetchedTokenData?.token), [fetchedTokenData?.token, selectedKey]);
 
 	const isResolvingApiKey = !isFullGlobalApiKeyToken(apiKey) && isFetchingToken;
 	const usingPlaceholderKey = !isFullGlobalApiKeyToken(apiKey) && !isResolvingApiKey;
@@ -206,12 +196,7 @@ export default function QuickStartView() {
 							{t("quickStart.loadingApiKey")}
 						</p>
 					) : null}
-					<ModelCurlExampleCard
-						baseUrl={baseUrl}
-						apiKey={apiKey}
-						selectedKeyId={selectedKeyId}
-						isApiKeyLoading={isResolvingApiKey}
-					/>
+					<ModelCurlExampleCard baseUrl={baseUrl} apiKey={apiKey} selectedKeyId={selectedKeyId} isApiKeyLoading={isResolvingApiKey} />
 				</CardContent>
 			</Card>
 

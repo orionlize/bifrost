@@ -21,10 +21,7 @@ export function mergeRoutingUserOptions(users: RoutingUserOption[], extraValues:
 	return Array.from(merged.values());
 }
 
-export function normalizeUserFieldsInQuery(
-	query: RuleGroupType | undefined,
-	users: RoutingUserOption[],
-): RuleGroupType | undefined {
+export function normalizeUserFieldsInQuery(query: RuleGroupType | undefined, users: RoutingUserOption[]): RuleGroupType | undefined {
 	if (!query?.rules?.length || users.length === 0) {
 		return query;
 	}

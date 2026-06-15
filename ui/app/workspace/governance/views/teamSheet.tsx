@@ -374,9 +374,7 @@ export default function TeamSheet({ team, customers, onSave, onCancel }: TeamShe
 									{t("teams.sheet.addBudget")}
 								</button>
 							</div>
-							{formData.budgets.length === 0 && (
-								<p className="text-muted-foreground text-xs">{t("teams.noBudgets")}</p>
-							)}
+							{formData.budgets.length === 0 && <p className="text-muted-foreground text-xs">{t("teams.noBudgets")}</p>}
 							{formData.budgets.map((row, idx) => (
 								<div key={row.id} className="space-y-2 rounded-md border p-3" data-testid={`team-budget-row-${idx}`}>
 									<div className="flex items-start gap-2">
@@ -553,7 +551,8 @@ export default function TeamSheet({ team, customers, onSave, onCancel }: TeamShe
 												</Badge>
 											</div>
 											<p className="text-muted-foreground text-xs">
-												{t("teams.sheet.lastReset")} {formatDistanceToNow(new Date(team.rate_limit.request_last_reset), { addSuffix: true })}
+												{t("teams.sheet.lastReset")}{" "}
+												{formatDistanceToNow(new Date(team.rate_limit.request_last_reset), { addSuffix: true })}
 											</p>
 										</div>
 									)}

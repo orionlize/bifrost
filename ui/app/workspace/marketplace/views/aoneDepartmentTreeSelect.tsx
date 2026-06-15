@@ -145,10 +145,7 @@ function DepartmentCascaderPanel({
 		>
 			<div className="inline-flex h-64 divide-x rounded-md border" data-testid="aone-dept-cascader">
 				{columns.map((column, columnIndex) => (
-					<div
-						key={`cascader-col-${columnIndex}`}
-						className="box-border flex h-64 w-[9.5rem] shrink-0 flex-col overflow-hidden"
-					>
+					<div key={`cascader-col-${columnIndex}`} className="box-border flex h-64 w-[9.5rem] shrink-0 flex-col overflow-hidden">
 						<div className="min-h-0 flex-1 overflow-y-auto overscroll-y-contain p-1">
 							{column.map((node) => {
 								const deptId = String(node.dept_id);
@@ -158,16 +155,13 @@ function DepartmentCascaderPanel({
 								return (
 									<div
 										key={node.dept_id}
-										className={cn(
-											"hover:bg-muted/60 flex items-start gap-1 rounded-md px-1 py-1",
-											isActive && "bg-muted/80",
-										)}
+										className={cn("hover:bg-muted/60 flex items-start gap-1 rounded-md px-1 py-1", isActive && "bg-muted/80")}
 										data-testid={`aone-dept-node-${deptId}`}
 									>
 										<Checkbox
 											checked={checked}
 											onCheckedChange={(next) => handleToggle(deptId, Boolean(next))}
-											className="ml-1 mt-0.5 shrink-0"
+											className="mt-0.5 ml-1 shrink-0"
 										/>
 										<button
 											type="button"
@@ -254,7 +248,9 @@ export function AoneDepartmentTreeSelect({
 						<p className="text-muted-foreground mt-2 px-1 text-xs">{t("marketplace.assignments.departmentsCascaderHint")}</p>
 					</div>
 					<div className="p-2">
-						{isLoading ? <p className="text-muted-foreground px-2 py-4 text-sm">{t("marketplace.assignments.departmentsLoading")}</p> : null}
+						{isLoading ? (
+							<p className="text-muted-foreground px-2 py-4 text-sm">{t("marketplace.assignments.departmentsLoading")}</p>
+						) : null}
 						{!isLoading && filteredTree.length === 0 ? (
 							<p className="text-muted-foreground px-2 py-4 text-sm">{t("marketplace.assignments.departmentsEmpty")}</p>
 						) : null}
@@ -271,7 +267,11 @@ export function AoneDepartmentTreeSelect({
 												key={`search-${deptId}`}
 												className="hover:bg-muted/60 flex cursor-pointer items-start gap-2 rounded-md px-2 py-1.5"
 											>
-												<Checkbox checked={value.includes(deptId)} onCheckedChange={(next) => handleToggle(deptId, Boolean(next))} className="mt-0.5" />
+												<Checkbox
+													checked={value.includes(deptId)}
+													onCheckedChange={(next) => handleToggle(deptId, Boolean(next))}
+													className="mt-0.5"
+												/>
 												<div className="min-w-0">
 													<p className="truncate text-sm">{node.name}</p>
 													{node.full_path && node.full_path !== node.name ? (

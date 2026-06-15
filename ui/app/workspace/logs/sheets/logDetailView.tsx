@@ -399,7 +399,9 @@ function EncryptedReveal({ text, label }: { text: string; label: string }) {
 				<ChevronDown className={cn("h-3 w-3 transition-transform", open ? "rotate-180" : "-rotate-90")} />
 				{label}
 				{!open ? (
-					<span className="text-muted-foreground/70 ml-1 font-mono text-[10px] tracking-normal normal-case">{t("logDetail.chars", { count: text.length })}</span>
+					<span className="text-muted-foreground/70 ml-1 font-mono text-[10px] tracking-normal normal-case">
+						{t("logDetail.chars", { count: text.length })}
+					</span>
 				) : null}
 			</button>
 			{open ? <pre className="font-mono text-[12.5px] leading-[1.6] break-all whitespace-pre-wrap">{text}</pre> : null}
@@ -432,7 +434,8 @@ function CollapsibleCode({ text, preview = 3, lang, mono = true }: { text: strin
 						<ChevronDown className={cn("h-3 w-3 transition-transform", open && "rotate-180")} />
 					</button>
 					<span className="text-muted-foreground font-mono text-[10.5px]">
-						{t(lines.length === 1 ? "logDetail.meta.lines" : "logDetail.meta.linesPlural", { count: lines.length })}{lang ? ` · ${lang}` : ""}
+						{t(lines.length === 1 ? "logDetail.meta.lines" : "logDetail.meta.linesPlural", { count: lines.length })}
+						{lang ? ` · ${lang}` : ""}
 					</span>
 				</div>
 			)}
@@ -636,7 +639,9 @@ export function LogDetailView({
 							)}
 						</div>
 						<div className="mt-3 flex items-center gap-2">
-							<div className="text-muted-foreground w-24 shrink-0 text-[10.5px] font-semibold tracking-wider uppercase">{t("logDetail.request")}</div>
+							<div className="text-muted-foreground w-24 shrink-0 text-[10.5px] font-semibold tracking-wider uppercase">
+								{t("logDetail.request")}
+							</div>
 							<code className="text-foreground truncate font-mono text-[13px]">{log.id || "—"}</code>
 							{log.id ? <CopyInlineButton text={log.id} testId="logdetails-copy-request-id-button" /> : null}
 						</div>
@@ -651,13 +656,17 @@ export function LogDetailView({
 						)}
 						{log.routing_rule && (
 							<div className="mt-1 flex items-center gap-2">
-								<div className="text-muted-foreground w-24 shrink-0 text-[10.5px] font-semibold tracking-wider uppercase">{t("logDetail.rule")}</div>
+								<div className="text-muted-foreground w-24 shrink-0 text-[10.5px] font-semibold tracking-wider uppercase">
+									{t("logDetail.rule")}
+								</div>
 								<span className="text-foreground truncate text-[13px] font-medium">&ldquo;{log.routing_rule.name}&rdquo;</span>
 							</div>
 						)}
 						{log.selected_key && (
 							<div className="mt-1 flex items-center gap-2">
-								<div className="text-muted-foreground w-24 shrink-0 text-[10.5px] font-semibold tracking-wider uppercase">{t("logDetail.key")}</div>
+								<div className="text-muted-foreground w-24 shrink-0 text-[10.5px] font-semibold tracking-wider uppercase">
+									{t("logDetail.key")}
+								</div>
 								<code className="text-foreground truncate font-mono text-[13px]">{log.selected_key.name}</code>
 							</div>
 						)}
@@ -729,7 +738,11 @@ export function LogDetailView({
 						<HeroStat
 							label={t("logDetail.toolsAvailable")}
 							value={(log.params?.tools?.length ?? 0).toString()}
-							sub={(log.params as any)?.tool_choice != null ? t("logDetail.choice", { value: formatToolChoice((log.params as any).tool_choice) }) : ""}
+							sub={
+								(log.params as any)?.tool_choice != null
+									? t("logDetail.choice", { value: formatToolChoice((log.params as any).tool_choice) })
+									: ""
+							}
 						/>
 					)}
 				</div>
@@ -840,7 +853,9 @@ export function LogDetailView({
 									}
 								/>
 							)}
-							{log.selected_key && <LogEntryDetailsView className="w-full" label={t("logDetail.selectedKey")} value={log.selected_key.name} />}
+							{log.selected_key && (
+								<LogEntryDetailsView className="w-full" label={t("logDetail.selectedKey")} value={log.selected_key.name} />
+							)}
 							{(log.selected_prompt_id || log.selected_prompt_name || log.selected_prompt_version) && (
 								<LogEntryDetailsView
 									className="w-full"
@@ -926,7 +941,9 @@ export function LogDetailView({
 									}
 								/>
 							)}
-							{log.fallback_index > 0 && <LogEntryDetailsView className="w-full" label={t("logDetail.fallbackIndex")} value={log.fallback_index} />}
+							{log.fallback_index > 0 && (
+								<LogEntryDetailsView className="w-full" label={t("logDetail.fallbackIndex")} value={log.fallback_index} />
+							)}
 							{log.virtual_key && <LogEntryDetailsView className="w-full" label={t("common.user")} value={log.virtual_key.name} />}
 							{log.routing_engines_used && log.routing_engines_used.length > 0 && (
 								<LogEntryDetailsView
@@ -949,7 +966,9 @@ export function LogDetailView({
 									}
 								/>
 							)}
-							{log.routing_rule && <LogEntryDetailsView className="w-full" label={t("logDetail.routingRule")} value={log.routing_rule.name} />}
+							{log.routing_rule && (
+								<LogEntryDetailsView className="w-full" label={t("logDetail.routingRule")} value={log.routing_rule.name} />
+							)}
 
 							{(log.params as any)?.audio && (
 								<>
@@ -1023,8 +1042,12 @@ export function LogDetailView({
 
 							{passthroughParams && (
 								<>
-									{passthroughParams.method && <LogEntryDetailsView className="w-full" label={t("logDetail.method")} value={passthroughParams.method} />}
-									{passthroughParams.path && <LogEntryDetailsView className="w-full" label={t("logDetail.path")} value={passthroughParams.path} />}
+									{passthroughParams.method && (
+										<LogEntryDetailsView className="w-full" label={t("logDetail.method")} value={passthroughParams.method} />
+									)}
+									{passthroughParams.path && (
+										<LogEntryDetailsView className="w-full" label={t("logDetail.path")} value={passthroughParams.path} />
+									)}
 									{passthroughParams.raw_query && (
 										<LogEntryDetailsView className="w-full" label={t("logDetail.query")} value={passthroughParams.raw_query} />
 									)}
@@ -1053,8 +1076,16 @@ export function LogDetailView({
 							<div className="space-y-4">
 								<BlockHeader title={t("logDetail.tokensSection")} />
 								<div className="grid w-full grid-cols-3 items-center justify-between gap-4">
-									<LogEntryDetailsView className="w-full" label={t("logDetail.inputTokens")} value={log.token_usage?.prompt_tokens || "-"} />
-									<LogEntryDetailsView className="w-full" label={t("logDetail.outputTokens")} value={log.token_usage?.completion_tokens || "-"} />
+									<LogEntryDetailsView
+										className="w-full"
+										label={t("logDetail.inputTokens")}
+										value={log.token_usage?.prompt_tokens || "-"}
+									/>
+									<LogEntryDetailsView
+										className="w-full"
+										label={t("logDetail.outputTokens")}
+										value={log.token_usage?.completion_tokens || "-"}
+									/>
 									<LogEntryDetailsView className="w-full" label={t("logDetail.totalTokens")} value={log.token_usage?.total_tokens || "-"} />
 									<LogEntryDetailsView
 										className="w-full"
@@ -1200,7 +1231,9 @@ export function LogDetailView({
 														}
 													/>
 												)}
-												{reasoning.max_tokens && <LogEntryDetailsView className="w-full" label={t("logDetail.maxTokens")} value={reasoning.max_tokens} />}
+												{reasoning.max_tokens && (
+													<LogEntryDetailsView className="w-full" label={t("logDetail.maxTokens")} value={reasoning.max_tokens} />
+												)}
 											</div>
 										</div>
 									</>
@@ -1241,10 +1274,18 @@ export function LogDetailView({
 																/>
 															)}
 															{log.cache_debug.model_used && (
-																<LogEntryDetailsView className="w-full" label={t("logDetail.embeddingModel")} value={log.cache_debug.model_used} />
+																<LogEntryDetailsView
+																	className="w-full"
+																	label={t("logDetail.embeddingModel")}
+																	value={log.cache_debug.model_used}
+																/>
 															)}
 															{log.cache_debug.threshold && (
-																<LogEntryDetailsView className="w-full" label={t("logDetail.threshold")} value={log.cache_debug.threshold || "-"} />
+																<LogEntryDetailsView
+																	className="w-full"
+																	label={t("logDetail.threshold")}
+																	value={log.cache_debug.threshold || "-"}
+																/>
 															)}
 															{log.cache_debug.similarity && (
 																<LogEntryDetailsView
@@ -1277,10 +1318,18 @@ export function LogDetailView({
 														/>
 													)}
 													{log.cache_debug.model_used && (
-														<LogEntryDetailsView className="w-full" label={t("logDetail.embeddingModel")} value={log.cache_debug.model_used} />
+														<LogEntryDetailsView
+															className="w-full"
+															label={t("logDetail.embeddingModel")}
+															value={log.cache_debug.model_used}
+														/>
 													)}
 													{log.cache_debug.input_tokens && (
-														<LogEntryDetailsView className="w-full" label={t("logDetail.embeddingInputTokens")} value={log.cache_debug.input_tokens} />
+														<LogEntryDetailsView
+															className="w-full"
+															label={t("logDetail.embeddingInputTokens")}
+															value={log.cache_debug.input_tokens}
+														/>
 													)}
 												</>
 											)}
@@ -1498,7 +1547,14 @@ export function LogDetailView({
 																	</div>
 																);
 															}
-															return <img key={`${i}-${src}`} src={src} alt={t("logDetail.attachedImage")} className="mt-2 max-w-full rounded border" />;
+															return (
+																<img
+																	key={`${i}-${src}`}
+																	src={src}
+																	alt={t("logDetail.attachedImage")}
+																	className="mt-2 max-w-full rounded border"
+																/>
+															);
 														})}
 												{hasToolCalls && text ? (
 													<div className="text-muted-foreground mt-2 text-[11px]">
@@ -1677,14 +1733,20 @@ export function LogDetailView({
 														))}
 														{reasoningParts.encrypted ? (
 															<div className="space-y-1">
-																<div className="text-muted-foreground text-[10.5px] font-semibold tracking-wider uppercase">{t("logDetail.encrypted")}</div>
+																<div className="text-muted-foreground text-[10.5px] font-semibold tracking-wider uppercase">
+																	{t("logDetail.encrypted")}
+																</div>
 																<CollapsibleCode text={reasoningParts.encrypted} preview={2} />
 															</div>
 														) : null}
 														{reasoningParts.signatures.length > 0 ? (
 															<EncryptedReveal
 																text={reasoningParts.signatures.join("\n\n")}
-																label={reasoningParts.signatures.length > 1 ? t("logDetail.encryptedSignatures") : t("logDetail.encryptedSignature")}
+																label={
+																	reasoningParts.signatures.length > 1
+																		? t("logDetail.encryptedSignatures")
+																		: t("logDetail.encryptedSignature")
+																}
 															/>
 														) : null}
 													</div>

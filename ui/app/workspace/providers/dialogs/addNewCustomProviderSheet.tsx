@@ -154,7 +154,12 @@ export function AddCustomProviderSheetContent({ show = true, onClose, onSave }: 
 									<FormLabel className="text-right">{t("providers.customProviderSheet.name")}</FormLabel>
 									<div className="col-span-3">
 										<FormControl>
-											<Input placeholder={t("providers.customProviderSheet.name")} data-testid="custom-provider-name" disabled={!hasProviderCreateAccess} {...field} />
+											<Input
+												placeholder={t("providers.customProviderSheet.name")}
+												data-testid="custom-provider-name"
+												disabled={!hasProviderCreateAccess}
+												{...field}
+											/>
 										</FormControl>
 										<FormMessage />
 									</div>

@@ -42,11 +42,7 @@ export function MarketplacePlatformLabel({
 
 	return (
 		<span
-			className={cn(
-				"text-muted-foreground/75 font-normal",
-				resolved === "codex" ? "text-muted-foreground/85" : "",
-				className,
-			)}
+			className={cn("text-muted-foreground/75 font-normal", resolved === "codex" ? "text-muted-foreground/85" : "", className)}
 			data-testid={`marketplace-platform-${resolved}`}
 		>
 			{label}

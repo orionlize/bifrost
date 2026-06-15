@@ -34,7 +34,12 @@ export function RoutingRulesEmptyState({ onAddClick, canCreate = true }: Routing
 					>
 						{t("shared.readMore")} <ArrowUpRight className="text-muted-foreground h-3 w-3" />
 					</Button>
-					<Button aria-label={t("routing.empty.createAria")} data-testid="create-routing-rule-btn" onClick={onAddClick} disabled={!canCreate}>
+					<Button
+						aria-label={t("routing.empty.createAria")}
+						data-testid="create-routing-rule-btn"
+						onClick={onAddClick}
+						disabled={!canCreate}
+					>
 						{t("routing.empty.newRule")}
 					</Button>
 				</div>

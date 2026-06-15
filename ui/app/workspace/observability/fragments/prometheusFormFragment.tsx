@@ -187,7 +187,8 @@ export function PrometheusFormFragment({
 	const renderActions = (tabKey: "pull" | "push", tabDirty: boolean, onResetTab: () => void) => {
 		const thisTabHasErrors = tabKey === "pull" ? hasPullErrors : hasPushErrors;
 		const otherTabHasErrors = tabKey === "pull" ? hasPushErrors : hasPullErrors;
-		const otherTabLabel = tabKey === "pull" ? t("observabilityConnectors.prometheus.pushTab") : t("observabilityConnectors.prometheus.pullTab");
+		const otherTabLabel =
+			tabKey === "pull" ? t("observabilityConnectors.prometheus.pushTab") : t("observabilityConnectors.prometheus.pullTab");
 		const saveDisabled = !hasPrometheusAccess || !tabDirty || formIsInvalid;
 		let tooltipMsg = "";
 		if (!tabDirty) {
@@ -314,8 +315,7 @@ export function PrometheusFormFragment({
 						<div className="flex items-center justify-between gap-4">
 							<div className="flex flex-col gap-1">
 								<h3 className="flex flex-row items-center gap-2 text-sm font-medium">
-									{t("observabilityConnectors.prometheus.pushTitle")}{" "}
-									<Badge variant="secondary">{t("observabilityConnectors.beta")}</Badge>
+									{t("observabilityConnectors.prometheus.pushTitle")} <Badge variant="secondary">{t("observabilityConnectors.beta")}</Badge>
 								</h3>
 								<p className="text-muted-foreground text-xs">{t("observabilityConnectors.prometheus.pushDescCluster")}</p>
 							</div>

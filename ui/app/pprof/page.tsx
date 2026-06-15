@@ -842,9 +842,7 @@ export default function PprofPage() {
 	if (error && !data) {
 		return (
 			<div className="flex min-h-screen items-center justify-center">
-				<div className="rounded-lg border border-red-800 bg-red-900/20 px-6 py-4 text-red-400">
-					{t("pprof.loadError")}
-				</div>
+				<div className="rounded-lg border border-red-800 bg-red-900/20 px-6 py-4 text-red-400">{t("pprof.loadError")}</div>
 			</div>
 		);
 	}
@@ -1018,7 +1016,14 @@ export default function PprofPage() {
 											}}
 											labelStyle={{ color: "#a1a1aa" }}
 										/>
-										<Area type="monotone" dataKey="alloc" stroke="#22d3ee" strokeWidth={2} fill="url(#allocGradient)" name={t("pprof.allocMb")} />
+										<Area
+											type="monotone"
+											dataKey="alloc"
+											stroke="#22d3ee"
+											strokeWidth={2}
+											fill="url(#allocGradient)"
+											name={t("pprof.allocMb")}
+										/>
 										<Area
 											type="monotone"
 											dataKey="heapInuse"

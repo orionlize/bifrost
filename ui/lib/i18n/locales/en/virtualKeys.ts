@@ -195,8 +195,7 @@ export const virtualKeys = {
 		loadMcpFailed: "Failed to load available MCP clients: {{message}}",
 		budgetScopeUser: "User",
 		budgetScopeProvider: "{{provider}} provider",
-		budgetWarningExceeds:
-			"{{scopeLabel}} {{duration}} budget has {{usage}} usage, which meets or exceeds the new {{limit}} limit.",
+		budgetWarningExceeds: "{{scopeLabel}} {{duration}} budget has {{usage}} usage, which meets or exceeds the new {{limit}} limit.",
 		budgetWarningInherit:
 			"{{scopeLabel}} {{duration}} budget will inherit {{usage}} from the {{sourceDuration}} budget, which meets or exceeds the new {{limit}} limit.",
 	},

@@ -332,7 +332,9 @@ export default function VirtualKeyDetailSheet({
 															{/* Request Limits */}
 															{config.rate_limit.request_max_limit != null ? (
 																<div className="space-y-2">
-																	<span className="text-muted-foreground text-xs font-medium">{t("virtualKeys.details.requestLimits")}</span>
+																	<span className="text-muted-foreground text-xs font-medium">
+																		{t("virtualKeys.details.requestLimits")}
+																	</span>
 																	<UsageLine
 																		current={config.rate_limit.request_current_usage}
 																		max={config.rate_limit.request_max_limit}

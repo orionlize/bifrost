@@ -310,9 +310,7 @@ export function RoutingRulesTable({
 				<AlertDialogContent>
 					<AlertDialogHeader>
 						<AlertDialogTitle>{t("routing.deleteDialog.title")}</AlertDialogTitle>
-						<AlertDialogDescription>
-							{t("routing.deleteDialog.description", { name: ruleToDelete?.name ?? "" })}
-						</AlertDialogDescription>
+						<AlertDialogDescription>{t("routing.deleteDialog.description", { name: ruleToDelete?.name ?? "" })}</AlertDialogDescription>
 					</AlertDialogHeader>
 					<AlertDialogFooter>
 						<AlertDialogCancel disabled={isDeleting}>{t("common.actions.cancel")}</AlertDialogCancel>

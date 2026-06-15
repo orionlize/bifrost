@@ -235,9 +235,7 @@ export function ValueEditor({
 							<span>{getProviderLabel(value)}</span>
 						</div>
 					) : (isGlobalApiKeyIdField || isGlobalApiKeyNameField || isUserIdField) && value ? (
-						<span>
-							{(fieldData.values as any[]).find((opt) => (opt as any).name === value)?.label || value}
-						</span>
+						<span>{(fieldData.values as any[]).find((opt) => (opt as any).name === value)?.label || value}</span>
 					) : (
 						<SelectValue placeholder={fieldData.placeholder || celBuilderT(context, "routing.celBuilder.select")} />
 					)}

@@ -123,9 +123,15 @@ function TranscriptionView({ transcriptionInput, transcriptionOutput, isStreamin
 													</div>
 													<div className="text-sm">{segment.text}</div>
 													<div className="text-muted-foreground mt-2 flex gap-4 text-xs">
-														<span>{t("logsMedia.avgLogProb")}: {segment.avg_logprob.toFixed(3)}</span>
-														<span>{t("logsMedia.noSpeech")}: {(segment.no_speech_prob * 100).toFixed(1)}%</span>
-														<span>{t("logsMedia.temp")}: {segment.temperature.toFixed(1)}</span>
+														<span>
+															{t("logsMedia.avgLogProb")}: {segment.avg_logprob.toFixed(3)}
+														</span>
+														<span>
+															{t("logsMedia.noSpeech")}: {(segment.no_speech_prob * 100).toFixed(1)}%
+														</span>
+														<span>
+															{t("logsMedia.temp")}: {segment.temperature.toFixed(1)}
+														</span>
 													</div>
 												</div>
 											))}

@@ -98,8 +98,7 @@ export const virtualKeys = {
 		descriptionLabel: "描述",
 		descriptionPlaceholder: "此密钥用于...",
 		isActiveLabel: "此密钥是否启用？",
-		managedAlert:
-			"此用户由访问配置文件管理。仅可修改名称与描述 — 提供商、预算、速率限制与 MCP 访问由配置文件控制。",
+		managedAlert: "此用户由访问配置文件管理。仅可修改名称与描述 — 提供商、预算、速率限制与 MCP 访问由配置文件控制。",
 		teamLockedAlert: "正在团队 {{team}} 下创建此用户。团队分配已预设 — 其他字段可编辑。",
 		providerConfigs: "提供商配置",
 		providerTooltip: "配置此用户可使用的提供商及其设置。留空则拒绝所有提供商。添加提供商以允许访问。",
@@ -131,8 +130,7 @@ export const virtualKeys = {
 		maxTokens: "最大 Token 数",
 		maxRequests: "最大请求数",
 		mcpConfigs: "MCP 客户端配置",
-		mcpTooltip:
-			"配置此用户可使用的 MCP 客户端及允许的工具。留空则阻止全部 MCP 工具。添加 MCP 客户端后，须选择具体工具或选择",
+		mcpTooltip: "配置此用户可使用的 MCP 客户端及允许的工具。留空则阻止全部 MCP 工具。添加 MCP 客户端后，须选择具体工具或选择",
 		mcpTooltipAllowAll: "允许全部工具",
 		mcpTooltipSuffix: "授予工具访问权限。",
 		defaultMcpServersHint:
@@ -172,8 +170,7 @@ export const virtualKeys = {
 		selectCustomerPlaceholder: "选择客户",
 		noCustomersFound: "未找到客户。",
 		rotateTitle: "轮换用户？",
-		rotateDesc:
-			"将替换「{{name}}」的密钥值。ID、预算、速率限制、提供商权限、MCP 访问与分配保持不变。旧密钥将立即失效。",
+		rotateDesc: "将替换「{{name}}」的密钥值。ID、预算、速率限制、提供商权限、MCP 访问与分配保持不变。旧密钥将立即失效。",
 		rotateKey: "轮换密钥",
 		budgetPreserveTitle: "保留超限用量？",
 		budgetResetTitle: "重置预算用量？",
@@ -191,8 +188,7 @@ export const virtualKeys = {
 		budgetScopeUser: "用户",
 		budgetScopeProvider: "{{provider}} 提供商",
 		budgetWarningExceeds: "{{scopeLabel}} {{duration}} 预算已用 {{usage}}，达到或超过新上限 {{limit}}。",
-		budgetWarningInherit:
-			"{{scopeLabel}} {{duration}} 预算将继承 {{usage}}（来自 {{sourceDuration}} 预算），达到或超过新上限 {{limit}}。",
+		budgetWarningInherit: "{{scopeLabel}} {{duration}} 预算将继承 {{usage}}（来自 {{sourceDuration}} 预算），达到或超过新上限 {{limit}}。",
 	},
 	details: {
 		exhausted: "已耗尽",

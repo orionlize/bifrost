@@ -25,8 +25,7 @@ export const pprof = {
 	severityHigh: "{{count}} 高",
 	severityMedium: "{{count}} 中",
 	severityLow: "{{count}} 低",
-	leaksDesc:
-		"实时字节占累计分配比例较高的堆栈（保留率），可选地结合过去一分钟内实时字节上升趋势。增长与高保留率同时出现是最强的泄漏信号。",
+	leaksDesc: "实时字节占累计分配比例较高的堆栈（保留率），可选地结合过去一分钟内实时字节上升趋势。增长与高保留率同时出现是最强的泄漏信号。",
 	liveHeapAllocations: "实时堆分配",
 	sitesCount: "（{{count}} 处）",
 	liveHeapDesc: "当前在堆上持有内存的调用栈 — 展开行可查看完整堆栈。",

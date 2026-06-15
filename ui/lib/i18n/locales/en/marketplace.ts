@@ -45,7 +45,8 @@ export const marketplace = {
 		publishTitle: "Published catalog",
 		publishDescription: "Configure catalog metadata. Clients must authenticate; users only see assigned entries.",
 		catalogSourcesTitle: "Plugin sources",
-		catalogSourcesDescription: "Configure official and third-party plugin marketplaces by platform. Enabled sources appear when adding plugins.",
+		catalogSourcesDescription:
+			"Configure official and third-party plugin marketplaces by platform. Enabled sources appear when adding plugins.",
 		claudeCatalogSourcesTitle: "Claude Code sources",
 		claudeCatalogSourcesDescription: "Remote marketplaces for Claude Code plugins (.claude-plugin/marketplace.json).",
 		codexCatalogSourcesTitle: "Codex sources",

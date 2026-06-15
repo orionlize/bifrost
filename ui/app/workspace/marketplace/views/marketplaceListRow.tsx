@@ -21,8 +21,7 @@ interface MarketplaceListRowProps {
 
 export function MarketplaceListRow({ item, onEdit, onDelete, onSync }: MarketplaceListRowProps) {
 	const t = useT();
-	const canSync =
-		item.source_type === "github" || item.source_type === "gitlab" || item.source_type === "catalog";
+	const canSync = item.source_type === "github" || item.source_type === "gitlab" || item.source_type === "catalog";
 	const meta = [
 		item.item_type,
 		item.version ? t("marketplace.card.version", { version: item.version }) : null,
@@ -44,9 +43,7 @@ export function MarketplaceListRow({ item, onEdit, onDelete, onSync }: Marketpla
 
 			<div className="min-w-0 flex-1">
 				<p className="truncate text-[13px] font-semibold">{item.name}</p>
-				<p className="text-muted-foreground truncate text-[11px]">
-					{item.description || t("marketplace.card.noDescription")}
-				</p>
+				<p className="text-muted-foreground truncate text-[11px]">{item.description || t("marketplace.card.noDescription")}</p>
 				{meta && <p className="text-muted-foreground/80 mt-0.5 truncate text-[10px] capitalize">{meta}</p>}
 			</div>
 

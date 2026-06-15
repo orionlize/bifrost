@@ -358,9 +358,7 @@ function SearchableCheckboxList({
 					data-testid={testIdPrefix ? `${testIdPrefix}-add-custom` : undefined}
 				>
 					<Plus className="text-muted-foreground size-3.5 shrink-0" />
-					<span className="truncate">
-						{t("logsFilters.useCustom", { value: trimmed })}
-					</span>
+					<span className="truncate">{t("logsFilters.useCustom", { value: trimmed })}</span>
 				</button>
 			)}
 		</>
@@ -686,10 +684,7 @@ function VirtualKeysFilter({ filters, onFiltersChange, defaultOpen }: FilterComp
 	const [opened, setOpened] = useState(defaultOpen || hasActive);
 	const searchInputRef = useAutoFocusOnOpen(opened);
 	const [searchQuery, setSearchQuery] = useState("");
-	const {
-		data: filterData,
-		isFetching,
-	} = useGetAvailableFilterDataQuery(
+	const { data: filterData, isFetching } = useGetAvailableFilterDataQuery(
 		{ dimensions: ["virtual_keys"], q: searchQuery || undefined },
 		{ skip: !opened && !hasActive },
 	);
@@ -977,7 +972,11 @@ function LocalCachingFilter({ filters, onFiltersChange, defaultOpen }: FilterCom
 	const t = useT();
 	const hasActive = (filters.cache_hit_types || []).length > 0;
 	return (
-		<FilterSection title={t("logsFilters.sections.localCaching")} defaultOpen={defaultOpen || hasActive} testId="local-caching-filter-toggle">
+		<FilterSection
+			title={t("logsFilters.sections.localCaching")}
+			defaultOpen={defaultOpen || hasActive}
+			testId="local-caching-filter-toggle"
+		>
 			{LocalCachingOptions(t).map((option) => (
 				<CheckboxFilterItem
 					key={option.key}

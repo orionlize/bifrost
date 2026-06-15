@@ -596,9 +596,7 @@ const ClientForm: React.FC<ClientFormProps> = ({ open, onClose, onSaved }) => {
 																		data-testid="mcp-oauth-client-id"
 																	/>
 																</FormControl>
-																<p className="text-muted-foreground text-xs">
-																	{t("mcp.form.oauthClientIdHint")}
-																</p>
+																<p className="text-muted-foreground text-xs">{t("mcp.form.oauthClientIdHint")}</p>
 																<FormMessage />
 															</FormItem>
 														)}

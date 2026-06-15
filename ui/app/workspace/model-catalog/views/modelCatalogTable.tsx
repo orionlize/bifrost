@@ -141,9 +141,7 @@ export default function ModelCatalogTable({
 												size="sm"
 												className="h-4 w-4 shrink-0"
 											/>
-											<span className="truncate font-medium">
-												{row.isCustom ? row.providerName : getProviderLabel(row.providerName)}
-											</span>
+											<span className="truncate font-medium">{row.isCustom ? row.providerName : getProviderLabel(row.providerName)}</span>
 											{row.isCustom && (
 												<Badge variant="secondary" className="text-muted-foreground shrink-0 px-1.5 py-0.5 text-[10px] font-bold">
 													{t("providers.customBadge")}

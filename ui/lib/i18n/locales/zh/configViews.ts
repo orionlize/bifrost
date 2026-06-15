@@ -24,8 +24,7 @@ export const configViews = {
 		see: "查看",
 	},
 	security: {
-		basicAuthRequired:
-			"所有推理调用（包括 MCP 工具执行）都需要使用 Basic Auth。您可以在下方禁用此要求。查看",
+		basicAuthRequired: "所有推理调用（包括 MCP 工具执行）都需要使用 Basic Auth。您可以在下方禁用此要求。查看",
 		authDisabledForInference: "推理调用已禁用身份验证。仅仪表板、管理 API 和 MCP 工具执行调用需要身份验证。",
 		authTypeLoadFailed: "无法加载身份验证类型。在此请求成功之前，仪表板密码设置将被隐藏。",
 		passwordProtectDashboard: "密码保护仪表板",
@@ -35,8 +34,7 @@ export const configViews = {
 		password: "密码",
 		passwordPlaceholder: "输入管理员密码或 env.VAR_NAME",
 		disableAuthOnInference: "在推理调用上禁用身份验证",
-		disableAuthOnInferenceDesc:
-			"启用后，推理 API 调用（聊天补全、嵌入等）不需要身份验证。仪表板和管理 API 调用仍需要身份验证。",
+		disableAuthOnInferenceDesc: "启用后，推理 API 调用（聊天补全、嵌入等）不需要身份验证。仪表板和管理 API 调用仍需要身份验证。",
 		aoneOAuthLogin: "Aone OAuth2 登录",
 		aoneOAuthDesc: "允许用户通过外部 Aone OAuth2 提供商登录仪表板。请在 Aone 注册回调 URL /api/aone/oauth/callback。",
 		baseUrl: "Base URL",
@@ -53,21 +51,20 @@ export const configViews = {
 		enforceUsersOnInferenceDesc: "所有推理请求都需要用户。",
 		allowedOrigins: "允许的来源",
 		allowedOriginsDesc:
-			"用于 CORS 和 WebSocket 连接的来源逗号分隔列表。localhost 来源始终允许。每个来源必须是包含协议的完整 URL（例如 https://app.example.com、http://localhost:8080）。支持子域通配符（例如 https://*.example.com）或使用 \"*\" 允许所有来源。",
+			'用于 CORS 和 WebSocket 连接的来源逗号分隔列表。localhost 来源始终允许。每个来源必须是包含协议的完整 URL（例如 https://app.example.com、http://localhost:8080）。支持子域通配符（例如 https://*.example.com）或使用 "*" 允许所有来源。',
 		allowedOriginsPlaceholder: "https://app.example.com, https://*.example.com, *",
 		allowedHeaders: "允许的请求头",
 		allowedHeadersDesc: "用于 CORS 的请求头逗号分隔列表。",
 		allowedHeadersPlaceholder: "X-Stainless-Timeout",
 		requiredHeaders: "必需的请求头",
-		requiredHeadersDesc:
-			"每个请求必须包含的请求头逗号分隔列表。缺少任何这些请求头的请求将被拒绝并返回 400 错误。请求头名称不区分大小写。",
+		requiredHeadersDesc: "每个请求必须包含的请求头逗号分隔列表。缺少任何这些请求头的请求将被拒绝并返回 400 错误。请求头名称不区分大小写。",
 		requiredHeadersPlaceholder: "X-Tenant-ID, X-Custom-Header",
 		whitelistedRoutes: "白名单路由",
 		whitelistedRoutesDesc:
 			"绕过身份验证中间件的路由逗号分隔列表。对这些路由的请求不需要身份验证。系统路由如 /health、/api/session/login 和 /api/session/is-auth-enabled 始终在白名单中，不受此设置影响。",
 		whitelistedRoutesPlaceholder: "/api/custom-webhook, /api/public-endpoint",
 		invalidOrigins:
-			"无效来源：{{invalidOrigins}}。来源必须是有效 URL，如 https://example.com，通配符模式如 https://*.example.com，或 \"*\" 允许所有来源",
+			'无效来源：{{invalidOrigins}}。来源必须是有效 URL，如 https://example.com，通配符模式如 https://*.example.com，或 "*" 允许所有来源',
 		updated: "安全设置更新成功。",
 	},
 	website: {
@@ -105,8 +102,7 @@ export const configViews = {
 		cacheMode: "缓存模式",
 		directOnly: "仅 Direct",
 		directPlusSemantic: "Direct + Semantic",
-		directModeDesc:
-			"仅 Direct 模式对每个请求进行哈希并精确重放匹配。无需嵌入，无需提供商。成本最低，适合稳定提示词。",
+		directModeDesc: "仅 Direct 模式对每个请求进行哈希并精确重放匹配。无需嵌入，无需提供商。成本最低，适合稳定提示词。",
 		semanticModeDesc:
 			"Direct + semantic 模式在 direct 哈希匹配之上添加向量相似度搜索。配置 OpenAI 兼容的嵌入端点（URL、API key、模型和维度）。Direct 命中仍优先；仅在 direct 查找未命中时运行 semantic 搜索。",
 		structuralChangeWarning:
@@ -120,8 +116,7 @@ export const configViews = {
 		embeddingApiKeyPlaceholder: "sk-... 或 env.OPENAI_API_KEY",
 		embeddingModel: "嵌入模型*",
 		embeddingModelPlaceholder: "text-embedding-3-small",
-		legacyProviderConfigNotice:
-			"当前缓存仍使用旧版 provider 嵌入配置（{{provider}}）。保存下方字段后将迁移为直接 URL 模式。",
+		legacyProviderConfigNotice: "当前缓存仍使用旧版 provider 嵌入配置（{{provider}}）。保存下方字段后将迁移为直接 URL 模式。",
 		dimension: "维度",
 		dimensionDesc:
 			"嵌入模型产生的向量大小。必须与模型完全匹配（例如 OpenAI text-embedding-3-small 为 1536，text-embedding-3-large 为 3072，许多 Cohere/Voyage 模型为 768）。",
@@ -321,8 +316,7 @@ export const configViews = {
 		denylist: "拒绝列表：",
 		denylistDesc: "拒绝列表中的请求头始终被阻止转发",
 		wildcards: "通配符：",
-		wildcardsDesc:
-			"在模式末尾使用 * 匹配前缀（例如 anthropic-* 匹配所有以 anthropic- 开头的请求头）。单独使用 * 匹配所有请求头。",
+		wildcardsDesc: "在模式末尾使用 * 匹配前缀（例如 anthropic-* 匹配所有以 anthropic- 开头的请求头）。单独使用 * 匹配所有请求头。",
 		important: "重要：",
 		allowlistWithoutPrefix: "允许列表/拒绝列表条目应为不带 x-bf-eh- 前缀的请求头名称",
 		allowlistExample: "示例：要允许 x-bf-eh-custom-id 或直接 custom-id，将 custom-id 添加到允许列表",
@@ -393,7 +387,7 @@ export const configViews = {
 		externalUrlPlaceholder: "https://bifrost.example.com 或 env.BIFROST_OAUTH_REDIRECT_URL",
 		urlWarningTitle: "更改此 URL 可能破坏现有 MCP 客户端",
 		urlWarningDesc:
-			"上游 OAuth 提供商将 redirect_uri 锁定为最初注册的值，因此已完成 OAuth 的 MCP 客户端将失败并显示 \"Invalid redirect URI\"。要恢复，请清除受影响 MCP 服务器的已存储 OAuth 客户端凭据并重新授权，以便 Bifrost 使用新 URL 重新运行 Dynamic Client Registration。",
+			'上游 OAuth 提供商将 redirect_uri 锁定为最初注册的值，因此已完成 OAuth 的 MCP 客户端将失败并显示 "Invalid redirect URI"。要恢复，请清除受影响 MCP 服务器的已存储 OAuth 客户端凭据并重新授权，以便 Bifrost 使用新 URL 重新运行 Dynamic Client Registration。',
 	},
 	pluginForm: {
 		editHint: "更新插件配置。插件名称和路径为只读。",

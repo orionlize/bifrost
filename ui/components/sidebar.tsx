@@ -524,8 +524,7 @@ export default function AppSidebar() {
 	const showAoneUsers = !IS_ENTERPRISE && (authStatus?.aone_oauth_enabled ?? false);
 	// Marketplace is admin-facing; Aone OAuth users land on marketplace when prompt repo is hidden.
 	const showMarketplace =
-		isAoneUserSession ||
-		(!isAoneUserSession && (hasPluginsAccess || showAoneUsers || hasSettingsAccess || isLocalAdmin));
+		isAoneUserSession || (!isAoneUserSession && (hasPluginsAccess || showAoneUsers || hasSettingsAccess || isLocalAdmin));
 	const hideManualVirtualKeys = showAoneUsers;
 	const { enabled: aoneUserEnabled, displayName: aoneDisplayName, avatar: aoneAvatar } = useAoneCurrentUser();
 	const hasAnyGovernanceAccess =
@@ -685,9 +684,7 @@ export default function AppSidebar() {
 					{ ...nav("compatibility"), url: "/workspace/config/compatibility", icon: Plug, hasAccess: hasSettingsAccess },
 					{ ...nav("caching"), url: "/workspace/config/caching", icon: DatabaseZap, hasAccess: hasSettingsAccess },
 					{ ...nav("security"), url: "/workspace/config/security", icon: ShieldCheck, hasAccess: hasSettingsAccess },
-					...(IS_ENTERPRISE
-						? [{ ...nav("proxy"), url: "/workspace/config/proxy", icon: Globe, hasAccess: hasSettingsAccess }]
-						: []),
+					...(IS_ENTERPRISE ? [{ ...nav("proxy"), url: "/workspace/config/proxy", icon: Globe, hasAccess: hasSettingsAccess }] : []),
 					{
 						...nav("apiKeys"),
 						url: "/workspace/config/api-keys",

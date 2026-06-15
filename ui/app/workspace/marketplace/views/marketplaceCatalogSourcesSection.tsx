@@ -37,7 +37,7 @@ function CatalogSourceRow({
 
 	return (
 		<div
-			className="flex flex-col gap-3 rounded-lg border bg-background/80 p-3 sm:flex-row sm:items-center sm:justify-between"
+			className="bg-background/80 flex flex-col gap-3 rounded-lg border p-3 sm:flex-row sm:items-center sm:justify-between"
 			data-testid={`marketplace-catalog-source-${source.id}`}
 		>
 			<div className="min-w-0 flex-1">
@@ -105,7 +105,7 @@ function CatalogSourcePlatformSection({
 	const t = useT();
 
 	return (
-		<div className="space-y-3 rounded-lg border bg-background/40 p-4">
+		<div className="bg-background/40 space-y-3 rounded-lg border p-4">
 			<div>
 				<h4 className="text-[14px] font-semibold">{title}</h4>
 				<p className="text-muted-foreground mt-1 text-[12px]">{description}</p>
@@ -174,14 +174,8 @@ export function MarketplaceCatalogSourcesSection({
 
 	const claudeSources = useMemo(() => sources.filter((source) => resolveSourcePlatform(source) === "claude"), [sources]);
 	const codexSources = useMemo(() => sources.filter((source) => resolveSourcePlatform(source) === "codex"), [sources]);
-	const claudePresets = useMemo(
-		() => availablePresets.filter((preset) => (preset.platform ?? "claude") === "claude"),
-		[availablePresets],
-	);
-	const codexPresets = useMemo(
-		() => availablePresets.filter((preset) => preset.platform === "codex"),
-		[availablePresets],
-	);
+	const claudePresets = useMemo(() => availablePresets.filter((preset) => (preset.platform ?? "claude") === "claude"), [availablePresets]);
+	const codexPresets = useMemo(() => availablePresets.filter((preset) => preset.platform === "codex"), [availablePresets]);
 
 	const addSource = (source: Omit<MarketplaceCatalogSource, "id"> & { id?: string }) => {
 		const next: MarketplaceCatalogSource = {
@@ -225,7 +219,7 @@ export function MarketplaceCatalogSourcesSection({
 	};
 
 	return (
-		<div className="space-y-4 rounded-xl border bg-muted/20 p-5">
+		<div className="bg-muted/20 space-y-4 rounded-xl border p-5">
 			<div>
 				<h3 className="text-[15px] font-semibold">{t("marketplace.source.catalogSourcesTitle")}</h3>
 				<p className="text-muted-foreground mt-1 text-[13px]">{t("marketplace.source.catalogSourcesDescription")}</p>

@@ -181,8 +181,7 @@ export function AllowedRequestsFields({
 			<div>
 				<div className="text-sm font-medium">{t("providers.allowedRequestsFields.title")}</div>
 				<p className="text-muted-foreground text-xs">
-					{t("providers.allowedRequestsFields.description")}{" "}
-					{!isPathOverrideDisabled ? t("providers.allowedRequestsFields.pathHint") : ""}
+					{t("providers.allowedRequestsFields.description")} {!isPathOverrideDisabled ? t("providers.allowedRequestsFields.pathHint") : ""}
 				</p>
 			</div>
 

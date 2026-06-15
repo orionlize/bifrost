@@ -790,9 +790,7 @@ export default function MCPClientSheet({
 																onChange={field.onChange}
 															/>
 														</FormControl>
-														{!isDisabled && (
-															<p className="text-muted-foreground text-xs">{t("mcp.sheet.keepCredentialsUnchanged")}</p>
-														)}
+														{!isDisabled && <p className="text-muted-foreground text-xs">{t("mcp.sheet.keepCredentialsUnchanged")}</p>}
 														<FormMessage />
 													</FormItem>
 												)}
@@ -1061,7 +1059,9 @@ export default function MCPClientSheet({
 																	<tr>
 																		<td colSpan={5} className="p-0">
 																			<div className="bg-muted/30 border-b px-4 py-3">
-																				<div className="text-muted-foreground mb-2 text-xs font-medium">{t("mcp.sheet.parametersSchema")}</div>
+																				<div className="text-muted-foreground mb-2 text-xs font-medium">
+																					{t("mcp.sheet.parametersSchema")}
+																				</div>
 																				{tool.parameters ? (
 																					<CodeEditor
 																						className="z-0 w-full rounded-sm border"

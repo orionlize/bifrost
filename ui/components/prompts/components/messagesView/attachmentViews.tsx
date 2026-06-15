@@ -36,9 +36,7 @@ export function AttachmentBadge({ attachment, onRemove }: { attachment: MessageC
 			) : (
 				<>
 					<FileIcon className="text-muted-foreground size-3" />
-					<span className="text-muted-foreground max-w-[120px] truncate">
-						{attachment.file?.filename || t("prompts.attachments.file")}
-					</span>
+					<span className="text-muted-foreground max-w-[120px] truncate">{attachment.file?.filename || t("prompts.attachments.file")}</span>
 				</>
 			)}
 			<button

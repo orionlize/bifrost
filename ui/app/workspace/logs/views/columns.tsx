@@ -308,7 +308,9 @@ export const createColumns = (
 						{provider ? <RenderProviderIcon provider={provider as ProviderIconType} size="xs" /> : null}
 						<div className="flex min-w-0 flex-col leading-tight">
 							<span className="truncate font-mono text-[12px]">{model || t("logsColumns.na")}</span>
-							<span className="text-muted-foreground truncate text-[10.5px]">{provider ? getProviderLabel(provider) : t("logsColumns.na")}</span>
+							<span className="text-muted-foreground truncate text-[10.5px]">
+								{provider ? getProviderLabel(provider) : t("logsColumns.na")}
+							</span>
 						</div>
 					</div>
 				);

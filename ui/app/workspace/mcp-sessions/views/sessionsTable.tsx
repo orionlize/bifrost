@@ -163,7 +163,9 @@ export default function SessionsTable({ sessions }: SessionsTableProps) {
 										<div className="flex flex-col">
 											<span>{formatAccessExpiry(row, t)}</span>
 											{row.last_refreshed_at && (
-												<span className="text-xs">{t("mcp.sessions.refreshed", { time: formatRelativePast(row.last_refreshed_at, t) })}</span>
+												<span className="text-xs">
+													{t("mcp.sessions.refreshed", { time: formatRelativePast(row.last_refreshed_at, t) })}
+												</span>
 											)}
 										</div>
 									</TableCell>

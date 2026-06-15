@@ -49,7 +49,9 @@ function LocalCacheTokenMeterChartImpl({ data }: LocalCacheTokenMeterChartProps)
 		<ChartErrorBoundary resetKey={`${directHits}-${semanticHits}-${totalRequests}`}>
 			<div className="grid h-full grid-rows-[104px_auto] items-start overflow-hidden pt-8">
 				<div ref={ref} className="relative h-[104px] w-full">
-					{!hasData && <div className="text-muted-foreground flex h-full items-center justify-center text-sm">{t("dashboardCharts.noData")}</div>}
+					{!hasData && (
+						<div className="text-muted-foreground flex h-full items-center justify-center text-sm">{t("dashboardCharts.noData")}</div>
+					)}
 					{hasData && gaugeGeometry && (
 						<>
 							<ResponsiveContainer width="100%" height="100%">
@@ -87,11 +89,15 @@ function LocalCacheTokenMeterChartImpl({ data }: LocalCacheTokenMeterChartProps)
 						<div className="flex flex-wrap items-center justify-center gap-x-4 gap-y-1 pt-2 text-[11px] leading-none">
 							<span className="flex items-center gap-1.5">
 								<span className="h-2 w-2 rounded-full" style={{ backgroundColor: METER_COLORS.direct }} />
-								<span className="text-primary">{t("dashboardCharts.cache.direct")} {directHits}</span>
+								<span className="text-primary">
+									{t("dashboardCharts.cache.direct")} {directHits}
+								</span>
 							</span>
 							<span className="flex items-center gap-1.5">
 								<span className="h-2 w-2 rounded-full" style={{ backgroundColor: METER_COLORS.semantic }} />
-								<span className="text-primary">{t("dashboardCharts.cache.semantic")} {semanticHits}</span>
+								<span className="text-primary">
+									{t("dashboardCharts.cache.semantic")} {semanticHits}
+								</span>
 							</span>
 						</div>
 					</div>

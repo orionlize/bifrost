@@ -68,14 +68,7 @@ export default function LoginView() {
 			return;
 		}
 		navigateToAoneOAuthAuthorize();
-	}, [
-		aoneOAuthEnabled,
-		authReady,
-		isZwitchSource,
-		search.error,
-		shouldRedirectAway,
-		shouldRedirectToZwitchHandoff,
-	]);
+	}, [aoneOAuthEnabled, authReady, isZwitchSource, search.error, shouldRedirectAway, shouldRedirectToZwitchHandoff]);
 
 	useEffect(() => {
 		if (search.error) {

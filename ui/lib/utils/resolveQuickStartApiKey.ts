@@ -1,14 +1,7 @@
 import type { GlobalApiKey } from "@/lib/store/apis/globalApiKeysApi";
-import {
-	GLOBAL_API_KEY_PLACEHOLDER,
-	getStoredGlobalApiKey,
-	isFullGlobalApiKeyToken,
-} from "@/lib/utils/globalApiKeyStorage";
+import { GLOBAL_API_KEY_PLACEHOLDER, getStoredGlobalApiKey, isFullGlobalApiKeyToken } from "@/lib/utils/globalApiKeyStorage";
 
-export function pickQuickStartGlobalApiKey(
-	apiKeys: GlobalApiKey[],
-	preferredKeyId?: string | null,
-): GlobalApiKey | null {
+export function pickQuickStartGlobalApiKey(apiKeys: GlobalApiKey[], preferredKeyId?: string | null): GlobalApiKey | null {
 	if (apiKeys.length === 0) {
 		return null;
 	}
@@ -29,10 +22,7 @@ function normalizeGlobalApiKeyCandidate(token: string | null | undefined): strin
 	return trimmed ? trimmed : null;
 }
 
-export function resolveQuickStartApiKeyToken(
-	selectedKey: GlobalApiKey | null,
-	fetchedToken?: string | null,
-): string {
+export function resolveQuickStartApiKeyToken(selectedKey: GlobalApiKey | null, fetchedToken?: string | null): string {
 	if (!selectedKey) {
 		return GLOBAL_API_KEY_PLACEHOLDER;
 	}

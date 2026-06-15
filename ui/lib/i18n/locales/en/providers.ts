@@ -19,7 +19,8 @@ export const providers = {
 	addProviderAria: "Add new provider",
 	empty: {
 		title: "Add a provider to start routing requests",
-		description: "Configure API keys for OpenAI, Anthropic, Bedrock, and other supported providers. Bifrost unifies them behind a single API.",
+		description:
+			"Configure API keys for OpenAI, Anthropic, Bedrock, and other supported providers. Bifrost unifies them behind a single API.",
 		readMoreAria: "Read more about providers (opens in new tab)",
 	},
 	tabs: {
@@ -105,8 +106,7 @@ export const providers = {
 		password: "Password",
 		caCertPem: "CA Certificate (PEM) (Optional)",
 		caCertPlaceholder: "-----BEGIN CERTIFICATE-----\n...\n-----END CERTIFICATE----- or env.OPENAI_PROXY_CA_CERT_PEM",
-		caCertDesc:
-			"PEM-encoded CA certificate to trust for TLS connections through SSL-intercepting proxies. You can also use",
+		caCertDesc: "PEM-encoded CA certificate to trust for TLS connections through SSL-intercepting proxies. You can also use",
 		caCertDescEnvSuffix: "env.YOUR_PROXY_CA_CERT_VAR",
 		typeHttp: "HTTP",
 		typeSocks5: "SOCKS5",
@@ -264,8 +264,7 @@ export const providers = {
 		pathHint: "Click the settings icon to customize endpoint paths or use full URLs.",
 		customizePathAria: "Customize endpoint path",
 		customPathTitle: "Custom Path or URL",
-		customPathDesc:
-			"Override with a path (e.g., /v1/chat) or a full URL (e.g., https://api.example.com/chat) to bypass base_url",
+		customPathDesc: "Override with a path (e.g., /v1/chat) or a full URL (e.g., https://api.example.com/chat) to bypass base_url",
 		notSupported: "Not supported by {{provider}}",
 		transcription: "Transcription",
 		transcriptionStream: "Transcription Stream",

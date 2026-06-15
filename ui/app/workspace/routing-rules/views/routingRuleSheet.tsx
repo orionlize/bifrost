@@ -393,9 +393,7 @@ export function RoutingRuleSheet({ open, onOpenChange, editingRule, onSuccess }:
 						)}
 
 						{(scope === "customer" || scope === "virtual_key") && isEditing && (
-							<p className="text-muted-foreground text-sm">
-								{t("routing.sheet.legacyScopeHint", { scope: routingScopeLabel(t, scope) })}
-							</p>
+							<p className="text-muted-foreground text-sm">{t("routing.sheet.legacyScopeHint", { scope: routingScopeLabel(t, scope) })}</p>
 						)}
 
 						<Separator />

@@ -102,8 +102,18 @@ export function OtelFormFragment({
 
 	const traceTypeOptions: { value: string; label: string; disabled?: boolean; disabledReason?: string }[] = [
 		{ value: "genai_extension", label: t("observabilityConnectors.otel.traceTypes.genai") },
-		{ value: "vercel", label: t("observabilityConnectors.otel.traceTypes.vercel"), disabled: true, disabledReason: t("observabilityConnectors.comingSoon") },
-		{ value: "open_inference", label: t("observabilityConnectors.otel.traceTypes.openInference"), disabled: true, disabledReason: t("observabilityConnectors.comingSoon") },
+		{
+			value: "vercel",
+			label: t("observabilityConnectors.otel.traceTypes.vercel"),
+			disabled: true,
+			disabledReason: t("observabilityConnectors.comingSoon"),
+		},
+		{
+			value: "open_inference",
+			label: t("observabilityConnectors.otel.traceTypes.openInference"),
+			disabled: true,
+			disabledReason: t("observabilityConnectors.comingSoon"),
+		},
 	];
 	const protocolOptions: { value: string; label: string }[] = [
 		{ value: "http", label: t("observabilityConnectors.otel.protocolHttp") },

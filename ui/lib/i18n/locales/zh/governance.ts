@@ -32,8 +32,7 @@ export const governance = {
 		tableActions: "操作",
 		disabled: "已禁用",
 		usageWindows: "用量窗口",
-		usageWindowsHint:
-			"按窗口统计每用户 token 消耗。限额以百万 token (M) 为单位。较高的窗口使用百分比决定当前生效层级。",
+		usageWindowsHint: "按窗口统计每用户 token 消耗。限额以百万 token (M) 为单位。较高的窗口使用百分比决定当前生效层级。",
 		shortWindowLimit: "短窗口 token 限额 (M)",
 		shortWindowReset: "短窗口重置周期",
 		weeklyWindowLimit: "周窗口 token 限额 (M)",

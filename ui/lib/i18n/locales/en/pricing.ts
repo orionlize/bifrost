@@ -55,7 +55,7 @@ export const pricing = {
 	},
 	fieldSelector: {
 		searchPlaceholder: "Search all pricing fields...",
-		noMatch: "No fields match \"{{query}}\"",
+		noMatch: 'No fields match "{{query}}"',
 		noFieldsForTypes: "No pricing fields for the selected request types",
 		removeField: "Remove field",
 		groups: {

@@ -21,11 +21,9 @@ interface MarketplaceItemTileProps {
 
 export function MarketplaceItemTile({ item, onEdit, onDelete, onSync }: MarketplaceItemTileProps) {
 	const t = useT();
-	const canSync =
-		item.source_type === "github" || item.source_type === "gitlab" || item.source_type === "catalog";
+	const canSync = item.source_type === "github" || item.source_type === "gitlab" || item.source_type === "catalog";
 	const subtitle =
-		item.description?.trim() ||
-		(item.item_type === "plugin" ? t("marketplace.card.typePlugin") : t("marketplace.card.typeSkill"));
+		item.description?.trim() || (item.item_type === "plugin" ? t("marketplace.card.typePlugin") : t("marketplace.card.typeSkill"));
 
 	return (
 		<div

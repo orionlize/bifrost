@@ -58,9 +58,7 @@ export function MarketplaceItemAssignmentsSection({
 				<p className="text-sm font-medium">{t("marketplace.assignments.title")}</p>
 				<p className="text-muted-foreground text-xs">{t("marketplace.assignments.itemHint")}</p>
 			</div>
-			{itemId && assignmentsLoading ? (
-				<p className="text-muted-foreground text-sm">{t("marketplace.assignments.loading")}</p>
-			) : null}
+			{itemId && assignmentsLoading ? <p className="text-muted-foreground text-sm">{t("marketplace.assignments.loading")}</p> : null}
 			<div className="grid gap-2">
 				<Label className="flex items-center gap-2">
 					<Users className="size-4" />

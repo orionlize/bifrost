@@ -6,7 +6,6 @@ import { useCallback, useState } from "react";
 import { useT } from "@/lib/i18n";
 import { type DashboardData, getCSVSections } from "../utils/exportUtils";
 
-
 interface ExportPopoverProps {
 	getData: () => DashboardData;
 	onPreloadData: () => Promise<void>;
@@ -52,11 +51,11 @@ export function ExportPopover({ getData, onPreloadData, onPdfExport, onPdfExport
 			const sections = elements.map((element, i) => ({
 				element,
 				label: [
-				t("dashboardCharts.export.tabs.overview"),
-				t("dashboardCharts.export.tabs.providerUsage"),
-				t("dashboardCharts.export.tabs.modelRankings"),
-				t("dashboardCharts.export.tabs.mcpUsage"),
-			][i],
+					t("dashboardCharts.export.tabs.overview"),
+					t("dashboardCharts.export.tabs.providerUsage"),
+					t("dashboardCharts.export.tabs.modelRankings"),
+					t("dashboardCharts.export.tabs.mcpUsage"),
+				][i],
 			}));
 
 			await generatePdf(sections, "dashboard-export", {
