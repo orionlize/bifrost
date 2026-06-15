@@ -7,7 +7,6 @@ import (
 	"path"
 	"strconv"
 	"strings"
-	"time"
 
 	"github.com/fasthttp/router"
 	"github.com/maximhq/bifrost/core/schemas"
@@ -965,32 +964,9 @@ func (h *MarketplaceHandler) requireMarketplaceItemAccess(ctx *fasthttp.RequestC
 }
 
 func resolveMarketplaceAoneUserID(ctx *fasthttp.RequestCtx, store configstore.ConfigStore) (string, *marketplaceAuthError) {
-	token := strings.TrimSpace(sessionTokenFromRequest(ctx))
-	if token == "" {
-		return "", &marketplaceAuthError{fasthttp.StatusUnauthorized, "Authentication required"}
+	userID, status, message := resolveAoneUserIDFromToken(ctx, store)
+	if status != 0 {
+		return "", &marketplaceAuthError{status, message}
 	}
-
-	if strings.HasPrefix(token, configstore.AoneDeviceCredentialPrefix) {
-		cred, err := store.ResolveActiveAoneDeviceTemporaryCredential(ctx, token)
-		if err != nil {
-			return "", &marketplaceAuthError{fasthttp.StatusUnauthorized, "Invalid or expired access token"}
-		}
-		aoneUserID := strings.TrimSpace(cred.AoneUserID)
-		if aoneUserID == "" {
-			return "", &marketplaceAuthError{fasthttp.StatusUnauthorized, "Invalid or expired access token"}
-		}
-		return aoneUserID, nil
-	}
-
-	session, err := store.GetSession(ctx, token)
-	if err != nil || session == nil {
-		return "", &marketplaceAuthError{fasthttp.StatusUnauthorized, "Invalid session"}
-	}
-	if session.ExpiresAt.Before(time.Now()) {
-		return "", &marketplaceAuthError{fasthttp.StatusUnauthorized, "Session expired"}
-	}
-	if session.AoneUserID == nil || strings.TrimSpace(*session.AoneUserID) == "" {
-		return "", &marketplaceAuthError{fasthttp.StatusNotFound, "No Aone user linked to this session"}
-	}
-	return strings.TrimSpace(*session.AoneUserID), nil
+	return userID, nil
 }

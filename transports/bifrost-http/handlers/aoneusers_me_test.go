@@ -116,6 +116,66 @@ func TestGetCurrentUserWithSessionToken(t *testing.T) {
 	require.Equal(t, vkValue, resp["api_key"])
 }
 
+func TestGetCurrentUserWithAssignedGlobalAPIKey(t *testing.T) {
+	store := setupAoneDevicesHandlerStore(t)
+	ctx := context.Background()
+	aoneID := "aone-user-global-key-me"
+	vkID := "vk-aone-user-global-key-me"
+	vkValue := "sk-bf-global-key-me"
+	isActive := true
+	require.NoError(t, store.CreateVirtualKey(ctx, &tables.TableVirtualKey{
+		ID:              vkID,
+		Name:            "global-key-me",
+		Value:           vkValue,
+		IsActive:        &isActive,
+		CreatedByUserID: &aoneID,
+		CreatedAt:       time.Now(),
+		UpdatedAt:       time.Now(),
+	}))
+	require.NoError(t, store.DB().WithContext(ctx).Create(&tables.AoneUserTable{
+		AoneUserID:   aoneID,
+		VirtualKeyID: &vkID,
+		LastLoginAt:  time.Now(),
+		CreatedAt:    time.Now(),
+		UpdatedAt:    time.Now(),
+	}).Error)
+
+	_, token, err := store.CreateGlobalAPIKey(ctx, "assigned-key", []string{aoneID})
+	require.NoError(t, err)
+
+	handler := NewAoneUsersHandler(store, nil)
+	reqCtx := initGateDeviceRequestCtx()
+	reqCtx.Request.Header.SetMethod(fasthttp.MethodGet)
+	reqCtx.Request.SetRequestURI("/api/aone/users/me")
+	reqCtx.Request.Header.Set("Authorization", "Bearer "+token)
+
+	handler.getCurrentUser(reqCtx)
+	require.Equal(t, fasthttp.StatusOK, reqCtx.Response.StatusCode())
+
+	var resp map[string]any
+	require.NoError(t, json.Unmarshal(reqCtx.Response.Body(), &resp))
+	user, ok := resp["user"].(map[string]any)
+	require.True(t, ok)
+	require.Equal(t, aoneID, user["id"])
+}
+
+func TestGetCurrentUserRejectsUnassignedGlobalAPIKey(t *testing.T) {
+	store := setupAoneDevicesHandlerStore(t)
+	ctx := context.Background()
+
+	_, token, err := store.CreateGlobalAPIKey(ctx, "admin-key", nil)
+	require.NoError(t, err)
+
+	handler := NewAoneUsersHandler(store, nil)
+	reqCtx := initGateDeviceRequestCtx()
+	reqCtx.Request.Header.SetMethod(fasthttp.MethodGet)
+	reqCtx.Request.SetRequestURI("/api/aone/users/me")
+	reqCtx.Request.Header.Set("Authorization", "Bearer "+token)
+
+	handler.getCurrentUser(reqCtx)
+	require.Equal(t, fasthttp.StatusForbidden, reqCtx.Response.StatusCode())
+}
+
 func TestGetCurrentUserRejectsUnknownToken(t *testing.T) {
 	store := setupAoneDevicesHandlerStore(t)
 	handler := NewAoneUsersHandler(store, nil)
