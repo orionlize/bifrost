@@ -337,8 +337,13 @@ func (h *AoneUsersHandler) aoneUserDetailResponse(ctx *fasthttp.RequestCtx, user
 }
 
 func sessionTokenFromRequest(ctx *fasthttp.RequestCtx) string {
-	if authHeader := string(ctx.Request.Header.Peek("Authorization")); strings.HasPrefix(authHeader, "Bearer ") {
-		return strings.TrimPrefix(authHeader, "Bearer ")
+	if authHeader := string(ctx.Request.Header.Peek("Authorization")); authHeader != "" {
+		if globalToken := configstore.ExtractGlobalAPIKeyTokenFromAuthorization(authHeader); globalToken != "" {
+			return globalToken
+		}
+		if scheme, token, ok := strings.Cut(authHeader, " "); ok && strings.EqualFold(scheme, "Bearer") {
+			return strings.TrimSpace(token)
+		}
 	}
 	return string(ctx.Request.Header.Cookie("token"))
 }

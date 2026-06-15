@@ -1505,7 +1505,57 @@ func (p *GovernancePlugin) validateRequiredHeaders(ctx *schemas.BifrostContext) 
 // Returns:
 //   - *EvaluationResult: The governance evaluation result
 //   - *schemas.BifrostError: The error to return if request is not allowed, nil if allowed
+// bootstrapGlobalAPIKeyAuthFromContext promotes a valid bf-ak- Authorization
+// header to local-admin credentials when auth middleware did not run (e.g.
+// enterprise inference without InferenceMiddleware) or failed to propagate
+// IsLocalAdmin into the Bifrost context.
+func (p *GovernancePlugin) bootstrapGlobalAPIKeyAuthFromContext(ctx *schemas.BifrostContext) {
+	if bifrost.GetBoolFromContext(ctx, schemas.IsLocalAdminContextKey) {
+		return
+	}
+	headers, _ := ctx.Value(schemas.BifrostContextKeyRequestHeaders).(map[string]string)
+	if headers == nil {
+		return
+	}
+	token := configstore.ExtractGlobalAPIKeyTokenFromAuthorization(headers["authorization"])
+	if token == "" {
+		return
+	}
+	id, name, assignedUserID, ok := p.store.LookupGlobalAPIKeyByToken(ctx, token)
+	if !ok {
+		if p.configStore != nil {
+			key, err := p.configStore.GetActiveGlobalAPIKeyByToken(ctx, token)
+			if err != nil || key == nil {
+				return
+			}
+			id = key.ID
+			name = key.Name
+			assignedUserID = configstore.GlobalAPIKeyAssignedUserID(*key)
+		} else {
+			return
+		}
+	}
+	ctx.SetValue(schemas.IsLocalAdminContextKey, true)
+	ctx.SetValue(schemas.BifrostContextKeyGlobalAPIKeyID, id)
+	ctx.SetValue(schemas.BifrostContextKeyGlobalAPIKeyName, name)
+	if bifrost.GetStringFromContext(ctx, schemas.BifrostContextKeyUserID) != "" {
+		return
+	}
+	userID := schemas.LocalAdminUserID
+	userName := schemas.LocalAdminUserName
+	if assignedUserID != "" {
+		userID = assignedUserID
+		userName = p.aoneUserDisplayName(ctx, assignedUserID)
+		if userName == "" {
+			userName = assignedUserID
+		}
+	}
+	ctx.SetValue(schemas.BifrostContextKeyUserID, userID)
+	ctx.SetValue(schemas.BifrostContextKeyUserName, userName)
+}
+
 func (p *GovernancePlugin) EvaluateGovernanceRequest(ctx *schemas.BifrostContext, evaluationRequest *EvaluationRequest, requestType schemas.RequestType) (*EvaluationResult, *schemas.BifrostError) {
+	p.bootstrapGlobalAPIKeyAuthFromContext(ctx)
 	// Global API keys and other local-admin credentials bypass virtual-key governance.
 	if bifrost.GetBoolFromContext(ctx, schemas.IsLocalAdminContextKey) {
 		return &EvaluationResult{Decision: DecisionAllow}, nil
@@ -1790,6 +1840,19 @@ func (p *GovernancePlugin) PreLLMHook(ctx *schemas.BifrostContext, req *schemas.
 			ctx.SetValue(schemas.BifrostContextKeyUserID, resolvedID)
 			if resolvedName != "" {
 				ctx.SetValue(schemas.BifrostContextKeyUserName, resolvedName)
+			}
+		}
+	}
+	if userID == "" {
+		if headers, _ := ctx.Value(schemas.BifrostContextKeyRequestHeaders).(map[string]string); headers != nil {
+			if token := configstore.ExtractGlobalAPIKeyTokenFromAuthorization(headers["authorization"]); token != "" {
+				if resolvedID, resolvedName := p.resolveUserFromGlobalAPIKeyToken(ctx, token); resolvedID != "" {
+					userID = resolvedID
+					ctx.SetValue(schemas.BifrostContextKeyUserID, resolvedID)
+					if resolvedName != "" {
+						ctx.SetValue(schemas.BifrostContextKeyUserName, resolvedName)
+					}
+				}
 			}
 		}
 	}

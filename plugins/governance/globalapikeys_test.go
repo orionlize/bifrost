@@ -4,9 +4,12 @@ import (
 	"context"
 	"testing"
 
+	bifrost "github.com/maximhq/bifrost/core"
+	"github.com/maximhq/bifrost/core/schemas"
 	"github.com/maximhq/bifrost/framework/configstore"
 	configstoreTables "github.com/maximhq/bifrost/framework/configstore/tables"
 	"github.com/maximhq/bifrost/framework/encrypt"
+	"github.com/stretchr/testify/require"
 )
 
 type lookupGlobalAPIKeyStore struct {
@@ -53,6 +56,45 @@ func TestLookupGlobalAPIKeyByToken(t *testing.T) {
 	if _, _, _, ok := gs.LookupGlobalAPIKeyByToken(context.Background(), configstore.GlobalAPIKeyPrefix+"missing"); ok {
 		t.Fatal("expected missing token lookup to fail")
 	}
+}
+
+func TestEvaluateGovernanceRequest_GlobalAPIKeyBypassesMandatoryVirtualKey(t *testing.T) {
+	const token = configstore.GlobalAPIKeyPrefix + "mandatory-bypass"
+	logger := NewMockLogger()
+	mockStore := &lookupGlobalAPIKeyStore{
+		keys: []configstoreTables.GlobalAPIKey{{
+			ID:             "gak-bypass",
+			Name:           "assigned-bypass",
+			TokenHash:      encrypt.HashSHA256(token),
+			IsActive:       true,
+			AllowedUserIDs: []string{"user-bypass"},
+		}},
+	}
+	gs, err := NewLocalGovernanceStore(context.Background(), logger, nil, &configstore.GovernanceConfig{}, nil)
+	require.NoError(t, err)
+	gs.configStore = mockStore
+	require.NoError(t, gs.ReloadGlobalAPIKeys(context.Background()))
+
+	plugin, err := InitFromStore(context.Background(), &Config{IsVkMandatory: boolPtr(true)}, logger, gs, nil, nil, nil, nil)
+	require.NoError(t, err)
+	defer func() {
+		require.NoError(t, plugin.Cleanup())
+	}()
+
+	ctx := schemas.NewBifrostContext(context.Background(), schemas.NoDeadline)
+	ctx.SetValue(schemas.BifrostContextKeyRequestHeaders, map[string]string{
+		"authorization": token,
+	})
+
+	result, bifrostErr := plugin.EvaluateGovernanceRequest(ctx, &EvaluationRequest{
+		Provider: schemas.OpenAI,
+		Model:    "gpt-4",
+	}, schemas.ChatCompletionRequest)
+	require.Nil(t, bifrostErr)
+	require.NotNil(t, result)
+	require.Equal(t, DecisionAllow, result.Decision)
+	require.True(t, bifrost.GetBoolFromContext(ctx, schemas.IsLocalAdminContextKey))
+	require.Equal(t, "user-bypass", bifrost.GetStringFromContext(ctx, schemas.BifrostContextKeyUserID))
 }
 
 func TestLookupGlobalAPIKeyByTokenAssignedUser(t *testing.T) {

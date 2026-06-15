@@ -25,6 +25,11 @@ func TestParseGlobalAPIKeyBearerToken(t *testing.T) {
 	if got := parseGlobalAPIKeyBearerToken(req); got != "" {
 		t.Fatalf("virtual key token = %q, want empty", got)
 	}
+
+	req.Headers["Authorization"] = configstore.GlobalAPIKeyPrefix + "raw-token"
+	if got := parseGlobalAPIKeyBearerToken(req); got != configstore.GlobalAPIKeyPrefix+"raw-token" {
+		t.Fatalf("raw token = %q, want bf-ak-raw-token", got)
+	}
 }
 
 func TestResolveProviderForRouting(t *testing.T) {

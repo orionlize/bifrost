@@ -106,3 +106,25 @@ func TestIsGlobalAPIKeyAssignedToUser(t *testing.T) {
 		t.Fatal("expected key without allowed users to be unassigned")
 	}
 }
+
+func TestExtractGlobalAPIKeyTokenFromAuthorization(t *testing.T) {
+	token := GlobalAPIKeyPrefix + "abc123def456"
+	cases := []struct {
+		name   string
+		header string
+		want   string
+	}{
+		{name: "bearer", header: "Bearer " + token, want: token},
+		{name: "lowercase bearer", header: "bearer " + token, want: token},
+		{name: "raw token", header: token, want: token},
+		{name: "virtual key", header: "Bearer sk-bf-personal", want: ""},
+		{name: "empty", header: "", want: ""},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			if got := ExtractGlobalAPIKeyTokenFromAuthorization(tc.header); got != tc.want {
+				t.Fatalf("ExtractGlobalAPIKeyTokenFromAuthorization(%q) = %q, want %q", tc.header, got, tc.want)
+			}
+		})
+	}
+}

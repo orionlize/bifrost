@@ -1159,11 +1159,8 @@ func (m *AuthMiddleware) authenticateGlobalAPIKeyIfPresent(ctx *fasthttp.Request
 	if authorization == "" {
 		return true
 	}
-	scheme, token, ok := strings.Cut(authorization, " ")
-	if !ok || !strings.EqualFold(scheme, "Bearer") {
-		return true
-	}
-	if !strings.HasPrefix(token, configstore.GlobalAPIKeyPrefix) {
+	token := configstore.ExtractGlobalAPIKeyTokenFromAuthorization(authorization)
+	if token == "" {
 		return true
 	}
 	globalKey, err := validateGlobalAPIKey(ctx, m.store, token)
@@ -1557,7 +1554,7 @@ func (m *AuthMiddleware) middleware(shouldSkip func(*configstore.AuthConfig, str
 				return
 			}
 			// Checking bearer auth for dashboard calls
-			if scheme == "Bearer" {
+			if strings.EqualFold(scheme, "Bearer") {
 				// A device-issued temporary credential (bf-tmp-...) on a forwarding
 				// path is the device-bound AI credential: validate it, enforce the
 				// fingerprint, and rewrite Authorization to the user's virtual key.

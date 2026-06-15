@@ -17,6 +17,28 @@ import (
 
 const GlobalAPIKeyPrefix = "bf-ak-"
 
+// ExtractGlobalAPIKeyTokenFromAuthorization returns a bf-ak- token from an
+// Authorization header, accepting both "Bearer bf-ak-..." and a raw "bf-ak-..."
+// value (some OpenAI-compatible clients omit the Bearer prefix).
+func ExtractGlobalAPIKeyTokenFromAuthorization(authHeader string) string {
+	authHeader = strings.TrimSpace(authHeader)
+	if authHeader == "" {
+		return ""
+	}
+	if strings.HasPrefix(authHeader, GlobalAPIKeyPrefix) {
+		return authHeader
+	}
+	scheme, token, ok := strings.Cut(authHeader, " ")
+	if !ok || !strings.EqualFold(strings.TrimSpace(scheme), "Bearer") {
+		return ""
+	}
+	token = strings.TrimSpace(token)
+	if strings.HasPrefix(token, GlobalAPIKeyPrefix) {
+		return token
+	}
+	return ""
+}
+
 var (
 	ErrGlobalAPIKeyNotFound              = errors.New("global api key not found")
 	ErrGlobalAPIKeyTokenUnavailable      = errors.New("global api key token unavailable")

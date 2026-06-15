@@ -82,20 +82,9 @@ func parseVirtualKeyFromHTTPRequest(req *schemas.HTTPRequest) *string {
 	return nil
 }
 
-// parseGlobalAPIKeyBearerToken extracts a bf-ak- bearer token from the HTTP request Authorization header.
+// parseGlobalAPIKeyBearerToken extracts a bf-ak- token from the HTTP request Authorization header.
 func parseGlobalAPIKeyBearerToken(req *schemas.HTTPRequest) string {
-	authHeader := req.CaseInsensitiveHeaderLookup("Authorization")
-	if authHeader == "" {
-		return ""
-	}
-	if !strings.HasPrefix(strings.ToLower(authHeader), "bearer ") {
-		return ""
-	}
-	token := strings.TrimSpace(authHeader[7:])
-	if token == "" || !strings.HasPrefix(token, configstore.GlobalAPIKeyPrefix) {
-		return ""
-	}
-	return token
+	return configstore.ExtractGlobalAPIKeyTokenFromAuthorization(req.CaseInsensitiveHeaderLookup("Authorization"))
 }
 
 // getWeight safely dereferences a *float64 weight pointer, returning 1.0 as default if nil.
