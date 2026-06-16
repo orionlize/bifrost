@@ -188,6 +188,7 @@ var passthroughSafeHeaders = map[string]bool{
 	"anthropic-beta": true,
 	"anthropic-dangerous-direct-browser-access": true,
 	"anthropic-version":                         true,
+	"user-agent": true,
 }
 
 func hasPromptCachingScopeBetaHeader(headers map[string][]string) bool {

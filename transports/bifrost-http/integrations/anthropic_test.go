@@ -27,6 +27,10 @@ func TestCheckAnthropicPassthrough_APIKeyFlowPreservesQueryString(t *testing.T) 
 	assert.Equal(t, "/v1/messages?beta=true", bifrostCtx.Value(schemas.BifrostContextKeyURLPath))
 	assert.Nil(t, bifrostCtx.Value(schemas.BifrostContextKeySkipKeySelection))
 	assert.Equal(t, true, bifrostCtx.Value(schemas.BifrostContextKeyUseRawRequestBody))
+
+	extraHeaders, ok := bifrostCtx.Value(schemas.BifrostContextKeyExtraHeaders).(map[string][]string)
+	require.True(t, ok)
+	assert.Equal(t, []string{"claude-cli/2.1.156 (external, cli)"}, extraHeaders["user-agent"])
 }
 
 func TestCheckAnthropicPassthrough_OAuthFlowSkipsKeySelection(t *testing.T) {
