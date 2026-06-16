@@ -11,6 +11,9 @@ export const auth = {
 	showPassword: "显示密码",
 	hidePassword: "隐藏密码",
 	sessionNotEstablished: "登录成功，但会话未建立，请重试。",
+	adminSignInTitle: "管理员登录",
+	adminSignInDescription: "使用管理员账号密码登录。不会影响当前已登录的普通用户会话。",
+	adminSessionNotEstablished: "管理员登录成功，但管理员会话未建立，请重试。",
 	logout: "退出登录",
 	redirecting: "正在跳转...",
 	zdSwitch: {

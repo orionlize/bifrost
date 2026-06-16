@@ -11,6 +11,9 @@ export const auth = {
 	showPassword: "Show password",
 	hidePassword: "Hide password",
 	sessionNotEstablished: "Login succeeded but the session was not established. Please try again.",
+	adminSignInTitle: "Admin sign in",
+	adminSignInDescription: "Use administrator credentials. This does not affect your signed-in user session.",
+	adminSessionNotEstablished: "Admin login succeeded but the admin session was not established. Please try again.",
 	logout: "Logout",
 	redirecting: "Redirecting...",
 	zdSwitch: {

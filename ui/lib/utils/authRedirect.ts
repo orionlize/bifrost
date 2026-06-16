@@ -28,6 +28,17 @@ export function shouldEnterDashboard(auth: IsAuthEnabledResponse | null | undefi
 	return auth.is_auth_enabled !== true || auth.has_valid_token === true;
 }
 
+/** True when an admin session is already active and /admin-login should redirect away. */
+export function shouldRedirectFromAdminLogin(auth: IsAuthEnabledResponse | null | undefined): boolean {
+	if (!auth) {
+		return false;
+	}
+	if (auth.is_auth_enabled !== true) {
+		return true;
+	}
+	return auth.is_local_admin_session === true;
+}
+
 export function defaultAuthenticatedPath(): string {
 	return DEFAULT_POST_LOGIN_PATH;
 }
