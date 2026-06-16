@@ -1131,10 +1131,10 @@ export default function AppSidebar() {
 		[setCookie],
 	);
 
-	const handleLogout = async () => {
+	const handleLogout = async (scope: "admin" | "user" = "user") => {
 		setUserPopoverOpen(false);
 		try {
-			await logout().unwrap();
+			await logout({ scope }).unwrap();
 		} catch {
 			// Redirect is handled in the logout mutation lifecycle.
 		}
@@ -1261,7 +1261,7 @@ export default function AppSidebar() {
 									</div>
 									<Separator />
 									<button
-										onClick={handleLogout}
+										onClick={() => handleLogout("user")}
 										className="hover:bg-accent hover:text-accent-foreground flex w-full items-center gap-2 px-4 py-2.5 text-left text-sm transition-colors"
 										type="button"
 									>
@@ -1297,7 +1297,7 @@ export default function AppSidebar() {
 									</div>
 									<Separator />
 									<button
-										onClick={handleLogout}
+										onClick={() => handleLogout("admin")}
 										className="hover:bg-accent hover:text-accent-foreground flex w-full items-center gap-2 px-4 py-2.5 text-left text-sm transition-colors"
 										type="button"
 										data-testid="sidebar-admin-logout-btn"
@@ -1355,7 +1355,7 @@ export default function AppSidebar() {
 												</div>
 												<Separator />
 												<button
-													onClick={handleLogout}
+													onClick={() => handleLogout("user")}
 													className="hover:bg-accent hover:text-accent-foreground flex w-full items-center gap-2 px-4 py-2.5 text-left text-sm transition-colors"
 													type="button"
 												>

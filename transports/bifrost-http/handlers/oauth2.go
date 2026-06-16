@@ -147,7 +147,7 @@ func (h *OAuthHandler) handleCallbackError(ctx *fasthttp.RequestCtx, state, erro
 // cookie. This mirrors the model used by the temp-token-aware UI: keep admins
 // in the dashboard, route end users to chrome-less landings.
 func perUserCallbackRedirect(ctx *fasthttp.RequestCtx, store configstore.ConfigStore, userMsg string, success bool) string {
-	cookieToken := string(ctx.Request.Header.Cookie("token"))
+	cookieToken := userSessionTokenFromCookie(ctx)
 	authenticated := cookieToken != "" && validateSession(ctx, store, cookieToken)
 	if success {
 		if authenticated {

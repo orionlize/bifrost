@@ -830,7 +830,7 @@ func refreshDashboardSession(ctx *fasthttp.RequestCtx, store configstore.ConfigS
 		return false
 	}
 	// Re-set the cookie so the browser keeps the (refreshed) session alive.
-	setSessionCookie(ctx, token, newExpiry)
+	setUserSessionCookie(ctx, token, newExpiry)
 	return true
 }
 
@@ -1088,7 +1088,7 @@ func (m *AuthMiddleware) bypassDeviceFingerprintForWebSession(ctx *fasthttp.Requ
 			allowed[trimmed] = struct{}{}
 		}
 	}
-	sessionToken := strings.TrimSpace(string(ctx.Request.Header.Cookie("token")))
+	sessionToken := userSessionTokenFromCookie(ctx)
 	if sessionToken == "" {
 		return false
 	}
@@ -1524,8 +1524,7 @@ func (m *AuthMiddleware) middleware(shouldSkip func(*configstore.AuthConfig, str
 							return
 						}
 						// Fallback: cookie-based WS auth
-						cookieToken := string(ctx.Request.Header.Cookie("token"))
-						if cookieToken != "" && validateSession(ctx, m.store, cookieToken) {
+						if cookieToken := dashboardSessionTokenFromCookie(m.store, ctx); cookieToken != "" && validateSession(ctx, m.store, cookieToken) {
 							ctx.SetUserValue(schemas.BifrostContextKeySessionToken, cookieToken)
 							next(ctx)
 							return
@@ -1536,13 +1535,9 @@ func (m *AuthMiddleware) middleware(shouldSkip func(*configstore.AuthConfig, str
 				}
 				// Cookie-based auth fallback: if no Authorization header, check for the HTTPOnly session cookie.
 				// This supports the dashboard which relies on cookies instead of localStorage tokens.
-				cookieToken := string(ctx.Request.Header.Cookie("token"))
-				if cookieToken != "" && m.validateDashboardSession(ctx, cookieToken) {
-					ctx.SetUserValue(schemas.BifrostContextKeySessionToken, cookieToken)
-					if validateLocalAdminSession(m.store, cookieToken) {
-						ctx.SetUserValue(schemas.IsLocalAdminContextKey, true)
-					}
-					recordDeviceForwardingAccessIfApplicable(m.store, cookieToken, url)
+				if sessionToken := resolveDashboardAuthSession(ctx, m.store, m.validateDashboardSession); sessionToken != "" {
+					ctx.SetUserValue(schemas.BifrostContextKeySessionToken, sessionToken)
+					recordDeviceForwardingAccessIfApplicable(m.store, sessionToken, url)
 					next(ctx)
 					return
 				}

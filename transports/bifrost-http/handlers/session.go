@@ -67,8 +67,10 @@ func (h *SessionHandler) isAuthEnabled(ctx *fasthttp.RequestCtx) {
 	if authHeader := string(ctx.Request.Header.Peek("Authorization")); strings.HasPrefix(authHeader, "Bearer ") {
 		token = strings.TrimPrefix(authHeader, "Bearer ")
 	}
+	userToken := userSessionTokenFromCookie(ctx)
+	adminToken := adminSessionTokenFromCookie(ctx)
 	if token == "" {
-		token = string(ctx.Request.Header.Cookie("token"))
+		token = userToken
 	}
 	hasValidToken := false
 	isAoneUserSession := false
@@ -86,7 +88,26 @@ func (h *SessionHandler) isAuthEnabled(ctx *fasthttp.RequestCtx) {
 				isLocalAdminSession = !isAoneUserSession
 			}
 		}
-	} else if authConfig == nil || !authConfig.IsEnabled {
+	} else {
+		if userToken != "" {
+			session, err := h.configStore.GetSession(ctx, userToken)
+			if err == nil && session != nil {
+				if session.ExpiresAt.After(time.Now()) || refreshDashboardSession(ctx, h.configStore, session, userToken) {
+					hasValidToken = true
+					isAoneUserSession = session.AoneUserID != nil && *session.AoneUserID != ""
+				}
+			}
+		}
+		if adminToken != "" {
+			session, err := h.configStore.GetSession(ctx, adminToken)
+			if err == nil && session != nil && session.ExpiresAt.After(time.Now()) &&
+				(session.AoneUserID == nil || *session.AoneUserID == "") {
+				hasValidToken = true
+				isLocalAdminSession = true
+			}
+		}
+	}
+	if authConfig == nil || !authConfig.IsEnabled {
 		isLocalAdminSession = true
 	}
 	SendJSON(ctx, map[string]any{
@@ -159,8 +180,9 @@ func (h *SessionHandler) login(ctx *fasthttp.RequestCtx) {
 		return
 	}
 
-	// Setting cookies
-	setSessionCookie(ctx, token, session.ExpiresAt)
+	// Setting cookies — admin sessions use a separate cookie so a concurrent
+	// Aone user session in the same browser is not overwritten.
+	setAdminSessionCookie(ctx, token, session.ExpiresAt)
 
 	SendJSON(ctx, map[string]any{
 		"message": "Login successful",
@@ -173,29 +195,59 @@ func (h *SessionHandler) logout(ctx *fasthttp.RequestCtx) {
 		SendError(ctx, fasthttp.StatusForbidden, "Authentication is not enabled")
 		return
 	}
+	payload := struct {
+		Scope string `json:"scope"`
+	}{}
+	if len(ctx.PostBody()) > 0 {
+		if err := json.Unmarshal(ctx.PostBody(), &payload); err != nil {
+			SendError(ctx, fasthttp.StatusBadRequest, fmt.Sprintf("Invalid request format: %v", err))
+			return
+		}
+	}
+	scope := strings.TrimSpace(strings.ToLower(payload.Scope))
+	if scope == "" {
+		scope = "user"
+	}
+	switch scope {
+	case "admin":
+		h.logoutAdminSession(ctx)
+	case "user":
+		h.logoutUserSession(ctx)
+	default:
+		SendError(ctx, fasthttp.StatusBadRequest, "Invalid logout scope; use \"admin\" or \"user\"")
+	}
+}
+
+func (h *SessionHandler) logoutAdminSession(ctx *fasthttp.RequestCtx) {
+	token := adminSessionTokenFromCookie(ctx)
+	clearNamedSessionCookie(ctx, adminSessionCookieName)
+	if token == "" {
+		SendJSON(ctx, map[string]any{
+			"message": "Logout successful",
+		})
+		return
+	}
+	if err := h.configStore.DeleteSession(ctx, token); err != nil && !errors.Is(err, configstore.ErrNotFound) {
+		logger.Error("failed to delete admin session during logout: %v", err)
+		SendError(ctx, fasthttp.StatusInternalServerError, "Failed to invalidate session. Please try again.")
+		return
+	}
+	SendJSON(ctx, map[string]any{
+		"message": "Logout successful",
+	})
+}
+
+func (h *SessionHandler) logoutUserSession(ctx *fasthttp.RequestCtx) {
 	// Get token from Authorization header
 	token := string(ctx.Request.Header.Peek("Authorization"))
 	token = strings.TrimPrefix(token, "Bearer ")
 
 	// If no token in header, try to get from cookie
 	if token == "" {
-		token = string(ctx.Request.Header.Cookie("token"))
+		token = userSessionTokenFromCookie(ctx)
 	}
 
-	// clear token from cookies
-	cookie := fasthttp.AcquireCookie()
-	defer fasthttp.ReleaseCookie(cookie)
-	cookie.SetKey("token")
-	cookie.SetValue("")
-	cookie.SetExpire(time.Now().Add(-time.Hour * 24 * 30))
-	cookie.SetPath("/")
-	cookie.SetHTTPOnly(true)
-	cookie.SetSameSite(fasthttp.CookieSameSiteLaxMode)
-	// Check if source is https then set secure
-	if string(ctx.Request.Header.Peek("X-Forwarded-Proto")) == "https" {
-		cookie.SetSecure(true)
-	}
-	ctx.Response.Header.SetCookie(cookie)
+	clearNamedSessionCookie(ctx, userSessionCookieName)
 
 	// delete session from database if token exists
 	if token != "" {

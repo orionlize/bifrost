@@ -22,6 +22,10 @@ export interface IsAuthEnabledResponse {
 	is_local_admin_session?: boolean;
 }
 
+export interface LogoutRequest {
+	scope?: "admin" | "user";
+}
+
 export interface LogoutResponse {
 	message: string;
 }
@@ -48,11 +52,13 @@ export const sessionApi = baseApi.injectEndpoints({
 		}),
 
 		// Logout endpoint
-		logout: builder.mutation<LogoutResponse, void>({
-			async queryFn(_arg, _api, _extraOptions, baseQuery) {
+		logout: builder.mutation<LogoutResponse, LogoutRequest | void>({
+			async queryFn(arg, _api, _extraOptions, baseQuery) {
+				const scope = arg && typeof arg === "object" && arg.scope ? arg.scope : "user";
 				const passwordLogout = await baseQuery({
 					url: "/session/logout",
 					method: "POST",
+					body: { scope },
 				});
 
 				if (IS_ENTERPRISE) {
@@ -69,15 +75,31 @@ export const sessionApi = baseApi.injectEndpoints({
 
 				return { data: { message: "Logout successful" } };
 			},
-			async onQueryStarted(_arg, { queryFulfilled }) {
+			async onQueryStarted(arg, { dispatch, queryFulfilled }) {
 				setLoggingOut(true);
 				clearAuthStorage();
 				clearAoneApiKey();
+				const scope = arg && typeof arg === "object" && arg.scope ? arg.scope : "user";
 				try {
 					await queryFulfilled;
+					const authStatus = await dispatch(
+						sessionApi.endpoints.isAuthEnabled.initiate(undefined, { forceRefetch: true }),
+					).unwrap();
+					if (typeof window === "undefined") {
+						return;
+					}
+					if (authStatus.has_valid_token) {
+						if (scope === "user" && authStatus.is_local_admin_session) {
+							window.location.replace(getEndpointUrl("/workspace/logs"));
+							return;
+						}
+						if (scope === "admin" && authStatus.is_aone_user_session) {
+							window.location.replace(getEndpointUrl("/workspace/quick-start"));
+							return;
+						}
+					}
+					window.location.replace(getEndpointUrl("/login"));
 				} catch {
-					// Server logout may fail; still leave the dashboard.
-				} finally {
 					if (typeof window !== "undefined") {
 						window.location.replace(getEndpointUrl("/login"));
 					}

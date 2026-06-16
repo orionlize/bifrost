@@ -350,7 +350,7 @@ func sessionTokenFromRequest(ctx *fasthttp.RequestCtx) string {
 			return strings.TrimSpace(token)
 		}
 	}
-	return string(ctx.Request.Header.Cookie("token"))
+	return userSessionTokenFromCookie(ctx)
 }
 
 func aoneUserListItem(user *tables.AoneUserTable) map[string]any {

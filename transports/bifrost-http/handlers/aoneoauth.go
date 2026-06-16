@@ -429,13 +429,6 @@ func (h *AoneOAuthHandler) zwitchHandoff(ctx *fasthttp.RequestCtx) {
 	h.redirectTo(ctx, buildZwitchSuccessReturnTo(ctx, token, cfg.RedirectURI.GetValue(), basePath))
 }
 
-func dashboardSessionTokenFromRequest(ctx *fasthttp.RequestCtx) string {
-	if authHeader := string(ctx.Request.Header.Peek("Authorization")); strings.HasPrefix(authHeader, "Bearer ") {
-		return strings.TrimSpace(strings.TrimPrefix(authHeader, "Bearer "))
-	}
-	return strings.TrimSpace(string(ctx.Request.Header.Cookie("token")))
-}
-
 func (h *AoneOAuthHandler) bootstrapSourceScopedLogin(
 	ctx *fasthttp.RequestCtx,
 	client *aoneoauth.Client,
@@ -618,7 +611,7 @@ func (h *AoneOAuthHandler) createDashboardSessionToken(ctx *fasthttp.RequestCtx,
 	if err := h.configStore.CreateSession(ctx, session); err != nil {
 		return "", err
 	}
-	setSessionCookie(ctx, token, session.ExpiresAt)
+	setUserSessionCookie(ctx, token, session.ExpiresAt)
 	return token, nil
 }
 
@@ -630,21 +623,6 @@ func aoneSessionExpiresAt(tokenResp *aoneoauth.TokenResponse) time.Time {
 		return time.Now().Add(time.Duration(tokenResp.ExpiresIn) * time.Second)
 	}
 	return time.Now().Add(defaultAoneSessionTTL)
-}
-
-func setSessionCookie(ctx *fasthttp.RequestCtx, token string, expiresAt time.Time) {
-	cookie := fasthttp.AcquireCookie()
-	defer fasthttp.ReleaseCookie(cookie)
-	cookie.SetKey("token")
-	cookie.SetValue(token)
-	cookie.SetExpire(expiresAt)
-	cookie.SetPath("/")
-	cookie.SetHTTPOnly(true)
-	cookie.SetSameSite(fasthttp.CookieSameSiteLaxMode)
-	if lib.IsHTTPSRequest(ctx) {
-		cookie.SetSecure(true)
-	}
-	ctx.Response.Header.SetCookie(cookie)
 }
 
 func dashboardAuthTypeFromConfig(authConfig *configstore.AuthConfig) string {
