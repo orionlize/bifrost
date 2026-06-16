@@ -2442,6 +2442,23 @@ func (g *GenericRouter) handleStreamingRequest(ctx *fasthttp.RequestCtx, config 
 		return
 	}
 
+	// Large payload streaming passthrough — bypass SSE event processing, pipe raw upstream.
+	// Must run before the stream==nil guard: providers return an empty closed channel here
+	// (CheckFirstStreamChunkForError collapses it to nil) while the body lives in context.
+	if g.tryStreamLargeResponse(ctx, bifrostCtx) {
+		ctx.Response.Header.Set("Cache-Control", "no-cache")
+		ctx.Response.Header.Set("Connection", "keep-alive")
+		ctx.Response.Header.Set("Access-Control-Allow-Origin", "*")
+		cancel()
+		if stream != nil {
+			go func() {
+				for range stream {
+				}
+			}()
+		}
+		return
+	}
+
 	// No request type matched — stream is nil. Return error without spawning
 	// a drain goroutine (for-range on nil channel blocks forever).
 	if stream == nil {
@@ -2455,19 +2472,6 @@ func (g *GenericRouter) handleStreamingRequest(ctx *fasthttp.RequestCtx, config 
 		for key, value := range headers {
 			ctx.Response.Header.Set(key, value)
 		}
-	}
-
-	// Large payload streaming passthrough — bypass SSE event processing, pipe raw upstream
-	if g.tryStreamLargeResponse(ctx, bifrostCtx) {
-		ctx.Response.Header.Set("Cache-Control", "no-cache")
-		ctx.Response.Header.Set("Connection", "keep-alive")
-		ctx.Response.Header.Set("Access-Control-Allow-Origin", "*")
-		cancel()
-		go func() {
-			for range stream {
-			}
-		}()
-		return
 	}
 
 	// Check if streaming is configured for this route

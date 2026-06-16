@@ -135,6 +135,13 @@ func streamLargeResponseIfActive(ctx *fasthttp.RequestCtx, bifrostCtx *schemas.B
 	if !ok || !isLargeResponse {
 		return false
 	}
+	// Forward provider response headers before streaming — providers store them in
+	// context via BifrostContextKeyProviderResponseHeaders.
+	if headers, ok := bifrostCtx.Value(schemas.BifrostContextKeyProviderResponseHeaders).(map[string]string); ok {
+		for key, value := range headers {
+			ctx.Response.Header.Set(key, value)
+		}
+	}
 	if !lib.StreamLargeResponseBody(ctx, bifrostCtx) {
 		SendError(ctx, fasthttp.StatusInternalServerError, "Large response reader not available")
 	}

@@ -1575,6 +1575,29 @@ func (h *CompletionHandler) handleStreamingResponse(ctx *fasthttp.RequestCtx, bi
 		return
 	}
 
+	// Large payload streaming passthrough — bypass SSE event processing, pipe raw upstream.
+	// Must run before normal SSE handling: providers return an empty closed channel here
+	// (CheckFirstStreamChunkForError collapses it to nil) while the body lives in context.
+	if streamLargeResponseIfActive(ctx, bifrostCtx) {
+		cancel()
+		if stream != nil {
+			go func() {
+				for range stream {
+				}
+			}()
+		}
+		return
+	}
+
+	// No request type matched — stream is nil. Return error without spawning
+	// a drain goroutine (for-range on nil channel blocks forever).
+	if stream == nil {
+		cancel()
+		forwardProviderHeadersFromContext(ctx, bifrostCtx)
+		SendError(ctx, fasthttp.StatusBadRequest, "streaming is not supported for this request type")
+		return
+	}
+
 	// SSE headers set only after successful stream setup
 	ctx.SetContentType("text/event-stream")
 	ctx.Response.Header.Set("Cache-Control", "no-cache")
