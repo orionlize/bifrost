@@ -1,12 +1,12 @@
 import { NoPermissionView } from "@/components/noPermissionView";
-import { useIsAoneUserSession } from "@/hooks/useIsAoneUserSession";
+import { useIsAoneUserOnlySession } from "@/hooks/useIsAoneUserOnlySession";
 import { useGetCoreConfigQuery } from "@/lib/store";
 import { createFileRoute, Navigate } from "@tanstack/react-router";
 import { RbacOperation, RbacResource, useRbac } from "@enterprise/lib";
 import PromptsPage from "./page";
 
 function RouteComponent() {
-	const isAoneUserSession = useIsAoneUserSession();
+	const isAoneUserSession = useIsAoneUserOnlySession();
 	const hasPromptRepositoryAccess = useRbac(RbacResource.PromptRepository, RbacOperation.View);
 	const { data: coreConfig } = useGetCoreConfigQuery({});
 	const isDbConnected = coreConfig?.is_db_connected ?? false;

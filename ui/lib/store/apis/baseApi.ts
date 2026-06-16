@@ -1,11 +1,12 @@
 import { IS_ENTERPRISE } from "@/lib/constants/config";
 import { BifrostErrorResponse } from "@/lib/types/config";
 import { getApiBaseUrl, getEndpointUrl } from "@/lib/utils/port";
+import { stripBasePath } from "@/lib/utils/basePath";
 import { createBaseQueryWithRefresh } from "@enterprise/lib/store/utils/baseQueryWithRefresh";
 import { clearOAuthStorage } from "@enterprise/lib/store/utils/tokenManager";
 import { createApi, fetchBaseQuery } from "@reduxjs/toolkit/query/react";
 import { getActiveTempToken, getSuppressGlobal401 } from "./tempToken";
-import { getLoggingOut, isLogoutRequest } from "./logoutState";
+import { getLoggingOut, isAllowedDuringLogout } from "./logoutState";
 
 // Auth tokens are now stored in HTTP-only cookies (set by server)
 // No client-side token needed — handled by credentials: "include"
@@ -68,8 +69,15 @@ const baseQuery = fetchBaseQuery({
 const baseQueryWithRefresh = createBaseQueryWithRefresh(baseQuery);
 
 // Enhanced base query with error handling
+const isAdminLoginPage = (): boolean => {
+	if (typeof window === "undefined") {
+		return false;
+	}
+	return stripBasePath(window.location.pathname) === "/admin-login";
+};
+
 const baseQueryWithErrorHandling: typeof baseQueryWithRefresh = async (args: any, api: any, extraOptions: any) => {
-	if (getLoggingOut() && !isLogoutRequest(args)) {
+	if (getLoggingOut() && !isAllowedDuringLogout(args)) {
 		return {
 			error: {
 				status: "CUSTOM_ERROR",
@@ -87,10 +95,8 @@ const baseQueryWithErrorHandling: typeof baseQueryWithRefresh = async (args: any
 
 		// Handle 401 for non-enterprise (no refresh available)
 		if (error?.status === 401 && !IS_ENTERPRISE) {
-			// When a TempTokenScope wrapper is active, the wrapped page handles
-			// its own 401 display (an "invalid/expired link" view). Skip the
-			// global redirect so the user stays on the page they opened.
-			if (getSuppressGlobal401() || getLoggingOut()) {
+			// Admin login validates credentials inline; keep the user on /admin-login.
+			if (getSuppressGlobal401() || getLoggingOut() || isAdminLoginPage()) {
 				return result;
 			}
 			clearAuthStorage();

@@ -12,7 +12,7 @@ import {
 } from "@/lib/store/apis/promptsApi";
 import { useGetModelParametersQuery } from "@/lib/store/apis/providersApi";
 import { Folder, ModelParams, Prompt, PromptSession, PromptVersion } from "@/lib/types/prompts";
-import { useIsAoneUserSession } from "@/hooks/useIsAoneUserSession";
+import { useIsAoneUserOnlySession } from "@/hooks/useIsAoneUserOnlySession";
 import { RbacOperation, RbacResource, useRbac } from "@enterprise/lib";
 import { parseAsInteger, parseAsString, useQueryStates } from "nuqs";
 import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
@@ -165,7 +165,7 @@ export function PromptProvider({ children }: { children: ReactNode }) {
 	const activeRunRef = useRef<symbol | null>(null);
 	const [variables, setVariables] = useState<VariableMap>({});
 	const [customHeaders, setCustomHeaders] = useState<Record<string, string>>({});
-	const isAoneUserSession = useIsAoneUserSession();
+	const isAoneUserSession = useIsAoneUserOnlySession();
 	const useAoneApiKeyAuth = isAoneUserSession;
 
 	const buildExecutionConfig = useCallback(

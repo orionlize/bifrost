@@ -24,21 +24,28 @@ export const Route = createFileRoute("/workspace")({
 			return;
 		}
 
-		let isAoneUserSession = false;
+		let isAoneUserOnlySession = false;
 		try {
 			const response = await fetch(getEndpointUrl("/api/session/is-auth-enabled"), {
 				credentials: "include",
 			});
 			if (response.ok) {
-				const data = (await response.json()) as { is_aone_user_session?: boolean };
-				isAoneUserSession = data.is_aone_user_session === true;
+				const data = (await response.json()) as {
+					is_aone_user_session?: boolean;
+					is_local_admin_session?: boolean;
+					has_valid_token?: boolean;
+				};
+				isAoneUserOnlySession =
+					data.has_valid_token === true &&
+					data.is_aone_user_session === true &&
+					data.is_local_admin_session !== true;
 			}
 		} catch {
 			// Fall back to the admin default route below.
 		}
 
 		throw redirect({
-			to: isAoneUserSession ? AONE_USER_DEFAULT_WORKSPACE_PATH : "/workspace/dashboard",
+			to: isAoneUserOnlySession ? AONE_USER_DEFAULT_WORKSPACE_PATH : "/workspace/dashboard",
 			replace: true,
 		});
 	},

@@ -19,7 +19,10 @@ function RouteComponent() {
 }
 
 export const Route = createFileRoute("/admin-login")({
-	beforeLoad: async () => {
+	beforeLoad: async ({ location }) => {
+		if (new URLSearchParams(location.searchStr).get("error")) {
+			return;
+		}
 		const auth = await probeAuthSession();
 		if (shouldRedirectFromAdminLogin(auth)) {
 			throw redirect({ to: defaultAuthenticatedPath(), replace: true });

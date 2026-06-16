@@ -1,4 +1,6 @@
 import { IS_ENTERPRISE } from "@/lib/constants/config";
+import { DEFAULT_POST_LOGIN_PATH } from "@/lib/utils/loginGoto";
+import { probeAuthSession } from "@/lib/utils/authRedirect";
 import { getEndpointUrl } from "@/lib/utils/port";
 import { baseApi, clearAuthStorage } from "./baseApi";
 import { setLoggingOut } from "./logoutState";
@@ -11,6 +13,7 @@ export interface LoginRequest {
 
 export interface LoginResponse {
 	message: string;
+	establish_path?: string;
 }
 
 export interface IsAuthEnabledResponse {
@@ -75,26 +78,24 @@ export const sessionApi = baseApi.injectEndpoints({
 
 				return { data: { message: "Logout successful" } };
 			},
-			async onQueryStarted(arg, { dispatch, queryFulfilled }) {
+			async onQueryStarted(arg, { queryFulfilled }) {
 				setLoggingOut(true);
 				clearAuthStorage();
 				clearAoneApiKey();
 				const scope = arg && typeof arg === "object" && arg.scope ? arg.scope : "user";
 				try {
 					await queryFulfilled;
-					const authStatus = await dispatch(
-						sessionApi.endpoints.isAuthEnabled.initiate(undefined, { forceRefetch: true }),
-					).unwrap();
+					const authStatus = await probeAuthSession();
 					if (typeof window === "undefined") {
 						return;
 					}
-					if (authStatus.has_valid_token) {
+					if (authStatus?.has_valid_token) {
 						if (scope === "user" && authStatus.is_local_admin_session) {
 							window.location.replace(getEndpointUrl("/workspace/logs"));
 							return;
 						}
 						if (scope === "admin" && authStatus.is_aone_user_session) {
-							window.location.replace(getEndpointUrl("/workspace/quick-start"));
+							window.location.replace(getEndpointUrl(DEFAULT_POST_LOGIN_PATH));
 							return;
 						}
 					}

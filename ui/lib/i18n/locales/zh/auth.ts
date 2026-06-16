@@ -13,8 +13,10 @@ export const auth = {
 	sessionNotEstablished: "登录成功，但会话未建立，请重试。",
 	adminSignInTitle: "管理员登录",
 	adminSignInDescription: "使用管理员账号密码登录。不会影响当前已登录的普通用户会话。",
-	adminSessionNotEstablished: "管理员登录成功，但管理员会话未建立，请重试。",
+	adminSessionNotEstablished: "管理员登录失败，未能建立管理员会话。请检查账号密码后重试。",
 	logout: "退出登录",
+	logoutUser: "退出用户登录",
+	logoutAdmin: "退出管理员登录",
 	redirecting: "正在跳转...",
 	zdSwitch: {
 		loginSuccess: "登录成功",

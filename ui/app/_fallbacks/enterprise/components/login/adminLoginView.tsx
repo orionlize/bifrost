@@ -3,41 +3,55 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { LanguageSwitcher } from "@/components/languageSwitcher";
 import { LoginBrandHeader } from "@/components/loginBrandHeader";
-import { useAppDispatch } from "@/lib/store";
-import { configApi, getErrorMessage, sessionApi, useIsAuthEnabledQuery, useLoginMutation } from "@/lib/store/apis";
-import { DEFAULT_POST_LOGIN_PATH } from "@/lib/utils/loginGoto";
+import { getErrorMessage, useIsAuthEnabledQuery, useLoginMutation } from "@/lib/store/apis";
 import { useT } from "@/lib/i18n";
-import { useNavigate } from "@tanstack/react-router";
+import { probeAuthSession } from "@/lib/utils/authRedirect";
+import { getEndpointUrl } from "@/lib/utils/port";
+import { useSearch } from "@tanstack/react-router";
 import { Eye, EyeOff, Loader2 } from "lucide-react";
-import { useState } from "react";
+import { useEffect, useState } from "react";
+
+function readLoginErrorFromLocation(): string {
+	if (typeof window === "undefined") {
+		return "";
+	}
+	return new URLSearchParams(window.location.search).get("error")?.trim() ?? "";
+}
+
+const ADMIN_POST_LOGIN_PATH = "/workspace/dashboard";
 
 export default function AdminLoginView() {
 	const t = useT();
+	const search = useSearch({ strict: false }) as { error?: string };
 	const [username, setUsername] = useState("");
 	const [password, setPassword] = useState("");
 	const [showPassword, setShowPassword] = useState(false);
 	const [errorMessage, setErrorMessage] = useState("");
-	const navigate = useNavigate();
 	const [isLoading, setIsLoading] = useState(false);
 	const [login, { isLoading: isLoggingIn }] = useLoginMutation();
-	const dispatch = useAppDispatch();
 	const { data: authState, isLoading: authLoading, isFetching: authFetching } = useIsAuthEnabledQuery();
 	const authReady = !authLoading && !authFetching && authState !== undefined;
 	const showPasswordForm = authState?.is_auth_enabled === true;
 
+	useEffect(() => {
+		const error = search.error ?? readLoginErrorFromLocation();
+		if (error) {
+			setErrorMessage(error);
+		}
+	}, [search.error]);
+
 	const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
-		setIsLoading(true);
 		e.preventDefault();
+		setIsLoading(true);
 		setErrorMessage("");
 		try {
 			await login({ username, password }).unwrap();
-			const refreshedAuth = await dispatch(sessionApi.endpoints.isAuthEnabled.initiate(undefined, { forceRefetch: true })).unwrap();
-			if (!refreshedAuth.is_local_admin_session) {
+			const auth = await probeAuthSession();
+			if (auth?.is_local_admin_session !== true) {
 				setErrorMessage(t("auth.adminSessionNotEstablished"));
 				return;
 			}
-			await dispatch(configApi.endpoints.getCoreConfig.initiate({}, { forceRefetch: true })).unwrap();
-			navigate({ to: DEFAULT_POST_LOGIN_PATH });
+			window.location.replace(getEndpointUrl(ADMIN_POST_LOGIN_PATH));
 		} catch (error) {
 			setErrorMessage(getErrorMessage(error));
 		} finally {

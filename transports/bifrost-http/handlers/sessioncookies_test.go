@@ -111,3 +111,24 @@ func TestSessionCookiePathDefaultsToRoot(t *testing.T) {
 		t.Fatalf("sessionCookiePath = %q, want /", got)
 	}
 }
+
+func TestAdminSessionCookieIgnoresAdminLoginReferer(t *testing.T) {
+	SetSessionCookieBasePath("")
+	t.Cleanup(func() { SetSessionCookieBasePath("") })
+
+	ctx := &fasthttp.RequestCtx{}
+	ctx.Request.SetRequestURI("/api/session/login")
+	ctx.Request.Header.Set("Referer", "http://localhost:8080/admin-login")
+
+	setAdminSessionCookie(ctx, "admin-token", time.Now().Add(time.Hour))
+	setCookie := strings.ToLower(string(ctx.Response.Header.Peek("Set-Cookie")))
+	if !strings.Contains(setCookie, "admin_token=admin-token") {
+		t.Fatalf("expected admin_token cookie, got %q", setCookie)
+	}
+	if strings.Contains(setCookie, "path=/admin") {
+		t.Fatalf("admin login must not scope cookie to /admin, got %q", setCookie)
+	}
+	if !strings.Contains(setCookie, "path=/") {
+		t.Fatalf("expected root path cookie, got %q", setCookie)
+	}
+}

@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"net/url"
 	"strings"
 	"time"
 
@@ -19,21 +20,30 @@ import (
 
 // SessionHandler manages HTTP requests for session operations
 type SessionHandler struct {
-	configStore   configstore.ConfigStore
-	wsTicketStore *WSTicketStore
+	configStore            configstore.ConfigStore
+	wsTicketStore          *WSTicketStore
+	adminEstablishStore    *AdminEstablishTicketStore
 }
 
 // NewSessionHandler creates a new session handler instance
-func NewSessionHandler(configStore configstore.ConfigStore, wsTicketStore *WSTicketStore) *SessionHandler {
+func NewSessionHandler(configStore configstore.ConfigStore, wsTicketStore *WSTicketStore, adminEstablishStore *AdminEstablishTicketStore) *SessionHandler {
+	if adminEstablishStore == nil {
+		adminEstablishStore = NewAdminEstablishTicketStore()
+	}
 	return &SessionHandler{
-		configStore:   configStore,
-		wsTicketStore: wsTicketStore,
+		configStore:         configStore,
+		wsTicketStore:       wsTicketStore,
+		adminEstablishStore: adminEstablishStore,
 	}
 }
+
+const defaultAdminPostLoginPath = "/workspace/dashboard"
 
 // RegisterRoutes registers the session-related routes
 func (h *SessionHandler) RegisterRoutes(r *router.Router, middlewares ...schemas.BifrostHTTPMiddleware) {
 	r.POST("/api/session/login", lib.ChainMiddlewares(h.login, middlewares...))
+	r.POST("/api/session/admin-login", lib.ChainMiddlewares(h.adminLoginForm, middlewares...))
+	r.GET("/api/session/admin-login/establish", lib.ChainMiddlewares(h.adminLoginEstablish, middlewares...))
 	r.POST("/api/session/logout", lib.ChainMiddlewares(h.logout, middlewares...))
 	r.GET("/api/session/is-auth-enabled", lib.ChainMiddlewares(h.isAuthEnabled, middlewares...))
 	r.POST("/api/session/ws-ticket", lib.ChainMiddlewares(h.issueWSTicket, middlewares...))
@@ -128,58 +138,122 @@ func (h *SessionHandler) login(ctx *fasthttp.RequestCtx) {
 		return
 	}
 
-	// Get auth config
+	token, expiresAt, statusCode, message := h.createLocalAdminSession(ctx, payload.Username, payload.Password)
+	if statusCode != 0 {
+		SendError(ctx, statusCode, message)
+		return
+	}
+
+	establishPath, err := h.issueAdminEstablishPath(token, expiresAt)
+	if err != nil {
+		SendError(ctx, fasthttp.StatusInternalServerError, fmt.Sprintf("Failed to prepare admin session: %v", err))
+		return
+	}
+
+	// Keep setting the cookie for callers that rely on fetch() (for example /login).
+	setAdminSessionCookie(ctx, token, expiresAt)
+
+	SendJSON(ctx, map[string]any{
+		"message":         "Login successful",
+		"establish_path": establishPath,
+	})
+}
+
+// adminLoginForm handles POST /api/session/admin-login - browser form login for /admin-login.
+// A top-level navigation response is more reliable than fetch() for establishing HttpOnly cookies.
+func (h *SessionHandler) adminLoginForm(ctx *fasthttp.RequestCtx) {
+	if h.configStore == nil {
+		h.redirectAdminLoginError(ctx, "Authentication is not enabled")
+		return
+	}
+
+	username := strings.TrimSpace(string(ctx.FormValue("username")))
+	password := string(ctx.FormValue("password"))
+	_ = validateLoginRedirectURI(string(ctx.FormValue("return_to")), configuredSessionCookieBasePath)
+
+	token, expiresAt, statusCode, message := h.createLocalAdminSession(ctx, username, password)
+	if statusCode != 0 {
+		h.redirectAdminLoginError(ctx, message)
+		return
+	}
+
+	establishPath, err := h.issueAdminEstablishPath(token, expiresAt)
+	if err != nil {
+		h.redirectAdminLoginError(ctx, "Failed to prepare admin session")
+		return
+	}
+
+	ctx.Redirect(establishPath, fasthttp.StatusSeeOther)
+}
+
+// adminLoginEstablish handles GET /api/session/admin-login/establish - sets admin_token via navigation.
+func (h *SessionHandler) adminLoginEstablish(ctx *fasthttp.RequestCtx) {
+	if h.configStore == nil || h.adminEstablishStore == nil {
+		h.redirectAdminLoginError(ctx, "Authentication is not enabled")
+		return
+	}
+
+	ticket := strings.TrimSpace(string(ctx.QueryArgs().Peek("ticket")))
+	token, expiresAt, ok := h.adminEstablishStore.Consume(ticket)
+	if !ok || !validateLocalAdminSession(h.configStore, token) {
+		h.redirectAdminLoginError(ctx, "Admin session could not be established")
+		return
+	}
+
+	setAdminSessionCookie(ctx, token, expiresAt)
+	ctx.Redirect(ensureSubpathRedirect(configuredSessionCookieBasePath, defaultAdminPostLoginPath), fasthttp.StatusSeeOther)
+}
+
+func (h *SessionHandler) issueAdminEstablishPath(token string, expiresAt time.Time) (string, error) {
+	ticket, err := h.adminEstablishStore.Issue(token, expiresAt)
+	if err != nil {
+		return "", err
+	}
+	path := "/api/session/admin-login/establish?ticket=" + url.QueryEscape(ticket)
+	return ensureSubpathRedirect(configuredSessionCookieBasePath, path), nil
+}
+
+func (h *SessionHandler) createLocalAdminSession(ctx *fasthttp.RequestCtx, username, password string) (token string, expiresAt time.Time, statusCode int, message string) {
 	authConfig, err := h.configStore.GetAuthConfig(ctx)
 	if err != nil {
-		SendError(ctx, fasthttp.StatusInternalServerError, fmt.Sprintf("Failed to get auth config: %v", err))
-		return
+		return "", time.Time{}, fasthttp.StatusInternalServerError, fmt.Sprintf("Failed to get auth config: %v", err)
 	}
-
-	// Check if auth is enabled
 	if authConfig == nil || !authConfig.IsEnabled {
-		SendError(ctx, fasthttp.StatusForbidden, "Authentication is not enabled")
-		return
+		return "", time.Time{}, fasthttp.StatusForbidden, "Authentication is not enabled"
 	}
-
-	// Verify credentials
-	if payload.Username != authConfig.AdminUserName.GetValue() {
-		SendError(ctx, fasthttp.StatusUnauthorized, "Invalid username or password")
-		return
+	if username != authConfig.AdminUserName.GetValue() {
+		return "", time.Time{}, fasthttp.StatusUnauthorized, "Invalid username or password"
 	}
-	compare, err := encrypt.CompareHash(authConfig.AdminPassword.GetValue(), payload.Password)
+	compare, err := encrypt.CompareHash(authConfig.AdminPassword.GetValue(), password)
 	if err != nil {
-		SendError(ctx, fasthttp.StatusUnauthorized, "Unauthorized")
-		return
+		return "", time.Time{}, fasthttp.StatusUnauthorized, "Unauthorized"
 	}
 	if !compare {
-		SendError(ctx, fasthttp.StatusUnauthorized, "Invalid username or password")
-		return
+		return "", time.Time{}, fasthttp.StatusUnauthorized, "Invalid username or password"
 	}
 
-	// Creating a new session. Each login gets its own token so multiple browsers
-	// or devices can stay signed in concurrently. The admin session does not expire
-	// on its own (effectively non-expiring); it is only invalidated on explicit logout.
+	// Each login gets its own token so multiple browsers/devices stay signed in.
 	now := time.Now()
-	token := uuid.New().String()
+	expiresAt = now.Add(adminSessionTTL)
+	token = uuid.New().String()
 	session := &tables.SessionsTable{
 		Token:     token,
-		ExpiresAt: now.Add(adminSessionTTL),
+		ExpiresAt: expiresAt,
 		CreatedAt: now,
 		UpdatedAt: now,
 	}
-	err = h.configStore.CreateSession(ctx, session)
-	if err != nil {
-		SendError(ctx, fasthttp.StatusInternalServerError, fmt.Sprintf("Failed to create session: %v", err))
-		return
+	if err := h.configStore.CreateSession(ctx, session); err != nil {
+		return "", time.Time{}, fasthttp.StatusInternalServerError, fmt.Sprintf("Failed to create session: %v", err)
 	}
+	return token, expiresAt, 0, ""
+}
 
-	// Setting cookies — admin sessions use a separate cookie so a concurrent
-	// Aone user session in the same browser is not overwritten.
-	setAdminSessionCookie(ctx, token, session.ExpiresAt)
-
-	SendJSON(ctx, map[string]any{
-		"message": "Login successful",
-	})
+func (h *SessionHandler) redirectAdminLoginError(ctx *fasthttp.RequestCtx, message string) {
+	target := ensureSubpathRedirect(configuredSessionCookieBasePath, "/admin-login")
+	if strings.TrimSpace(message) != "" {
+		target += "?error=" + url.QueryEscape(message)
+	}
+	ctx.Redirect(target, fasthttp.StatusSeeOther)
 }
 
 // logout handles POST /api/session/logout - Logout a user
@@ -212,19 +286,32 @@ func (h *SessionHandler) logout(ctx *fasthttp.RequestCtx) {
 }
 
 func (h *SessionHandler) logoutAdminSession(ctx *fasthttp.RequestCtx) {
-	token := adminSessionTokenFromCookie(ctx)
+	tokensToDelete := make([]string, 0, 2)
+
+	adminToken := adminSessionTokenFromCookie(ctx)
 	clearNamedSessionCookie(ctx, adminSessionCookieName)
-	if token == "" {
-		SendJSON(ctx, map[string]any{
-			"message": "Logout successful",
-		})
-		return
+	if adminToken != "" {
+		tokensToDelete = append(tokensToDelete, adminToken)
 	}
-	if err := h.configStore.DeleteSession(ctx, token); err != nil && !errors.Is(err, configstore.ErrNotFound) {
-		logger.Error("failed to delete admin session during logout: %v", err)
-		SendError(ctx, fasthttp.StatusInternalServerError, "Failed to invalidate session. Please try again.")
-		return
+
+	// Legacy admin sessions lived in the user cookie before admin_token was split out.
+	userToken := userSessionTokenFromCookie(ctx)
+	if userToken != "" {
+		session, err := h.configStore.GetSession(ctx, userToken)
+		if err == nil && session != nil && (session.AoneUserID == nil || strings.TrimSpace(*session.AoneUserID) == "") {
+			clearNamedSessionCookie(ctx, userSessionCookieName)
+			tokensToDelete = append(tokensToDelete, userToken)
+		}
 	}
+
+	for _, token := range tokensToDelete {
+		if err := h.configStore.DeleteSession(ctx, token); err != nil && !errors.Is(err, configstore.ErrNotFound) {
+			logger.Error("failed to delete admin session during logout: %v", err)
+			SendError(ctx, fasthttp.StatusInternalServerError, "Failed to invalidate session. Please try again.")
+			return
+		}
+	}
+
 	SendJSON(ctx, map[string]any{
 		"message": "Logout successful",
 	})

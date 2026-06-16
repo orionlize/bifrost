@@ -8,7 +8,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { getProviderLabel } from "@/lib/constants/logs";
 import { Input } from "@/components/ui/input";
 import { useGetVirtualKeysQuery } from "@/lib/store";
-import { useIsAoneUserSession } from "@/hooks/useIsAoneUserSession";
+import { useIsAoneUserOnlySession } from "@/hooks/useIsAoneUserOnlySession";
 import { useGetAllKeysQuery, useGetProvidersQuery } from "@/lib/store/apis/providersApi";
 import { ModelProviderName } from "@/lib/types/config";
 import { ModelParams } from "@/lib/types/prompts";
@@ -39,7 +39,7 @@ export function SettingsPanel() {
 		selectedPromptId,
 	} = usePromptContext();
 
-	const isAoneUserSession = useIsAoneUserSession();
+	const isAoneUserSession = useIsAoneUserOnlySession();
 	const hideApiKeySelector = isAoneUserSession;
 
 	const onProviderChange = useCallback(

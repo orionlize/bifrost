@@ -38,28 +38,66 @@ func dashboardSessionTokenFromRequest(ctx *fasthttp.RequestCtx) string {
 }
 
 func setUserSessionCookie(ctx *fasthttp.RequestCtx, token string, expiresAt time.Time) {
-	setNamedSessionCookie(ctx, userSessionCookieName, token, expiresAt)
+	writeSessionCookieAtPath(ctx, userSessionCookieName, token, expiresAt, sessionCookiePath(ctx))
 }
 
 func setAdminSessionCookie(ctx *fasthttp.RequestCtx, token string, expiresAt time.Time) {
-	setNamedSessionCookie(ctx, adminSessionCookieName, token, expiresAt)
-}
-
-func clearNamedSessionCookie(ctx *fasthttp.RequestCtx, name string) {
-	clearNamedSessionCookieAtPath(ctx, name, sessionCookiePath(ctx))
-	// Also clear legacy root-scoped cookies from before subpath scoping was added.
-	if sessionCookiePath(ctx) != "/" {
-		clearNamedSessionCookieAtPath(ctx, name, "/")
+	for _, path := range sessionCookieSetPaths() {
+		writeSessionCookieAtPath(ctx, adminSessionCookieName, token, expiresAt, path)
 	}
 }
 
-func setNamedSessionCookie(ctx *fasthttp.RequestCtx, name, token string, expiresAt time.Time) {
+func sessionCookieSetPaths() []string {
+	primary := sessionCookiePath(nil)
+	if primary == "/" {
+		return []string{"/"}
+	}
+	return []string{primary, "/"}
+}
+
+func clearNamedSessionCookie(ctx *fasthttp.RequestCtx, name string) {
+	for _, path := range sessionCookieClearPaths(ctx) {
+		clearNamedSessionCookieAtPath(ctx, name, path)
+	}
+}
+
+func sessionCookieClearPaths(ctx *fasthttp.RequestCtx) []string {
+	seen := make(map[string]struct{})
+	var paths []string
+	add := func(path string) {
+		if path == "" {
+			path = "/"
+		}
+		if _, ok := seen[path]; ok {
+			return
+		}
+		seen[path] = struct{}{}
+		paths = append(paths, path)
+	}
+	add(sessionCookiePath(ctx))
+	add("/")
+	add("/admin") // legacy admin_token cookies scoped to /admin from referer mis-inference
+	if configured := lib.SessionCookiePath(configuredSessionCookieBasePath); configured != "" {
+		add(configured)
+	}
+	if ctx != nil {
+		if bp := basePathFromForwardedHeaders(ctx); bp != "" {
+			add(lib.SessionCookiePath(bp))
+		}
+		if bp := basePathFromReferer(ctx); bp != "" {
+			add(lib.SessionCookiePath(bp))
+		}
+	}
+	return paths
+}
+
+func writeSessionCookieAtPath(ctx *fasthttp.RequestCtx, name, token string, expiresAt time.Time, path string) {
 	cookie := fasthttp.AcquireCookie()
 	defer fasthttp.ReleaseCookie(cookie)
 	cookie.SetKey(name)
 	cookie.SetValue(token)
 	cookie.SetExpire(expiresAt)
-	cookie.SetPath(sessionCookiePath(ctx))
+	cookie.SetPath(path)
 	cookie.SetHTTPOnly(true)
 	cookie.SetSameSite(fasthttp.CookieSameSiteLaxMode)
 	if lib.IsHTTPSRequest(ctx) {
@@ -83,8 +121,11 @@ func clearNamedSessionCookieAtPath(ctx *fasthttp.RequestCtx, name, path string) 
 	ctx.Response.Header.SetCookie(cookie)
 }
 
-func sessionCookiePath(ctx *fasthttp.RequestCtx) string {
-	return lib.SessionCookiePath(resolveEffectiveBasePath(configuredSessionCookieBasePath, ctx, ""))
+func sessionCookiePath(_ *fasthttp.RequestCtx) string {
+	// Session cookies must use the server-configured base path only. Inferring from
+	// Referer is unsafe: /admin-login used to match the "/login" suffix and set
+	// Path=/admin, so admin_token was never sent on /api/* requests.
+	return lib.SessionCookiePath(configuredSessionCookieBasePath)
 }
 
 // resolveDashboardAuthSession authenticates cookie-based dashboard requests.

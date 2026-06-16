@@ -82,6 +82,7 @@ import { useT } from "@/lib/i18n";
 import { Badge } from "./ui/badge";
 import { PromoCardStack } from "./ui/promoCardStack";
 import { useAoneCurrentUser } from "@/hooks/useAoneCurrentUser";
+import { useIsAoneUserOnlySession } from "@/hooks/useIsAoneUserOnlySession";
 import { useIsAoneUserSession } from "@/hooks/useIsAoneUserSession";
 import { useIsLocalAdminSession } from "@/hooks/useIsLocalAdminSession";
 import { useWebsiteBranding } from "@/lib/hooks/useWebsiteBranding";
@@ -520,11 +521,14 @@ export default function AppSidebar() {
 	const showAdaptiveRouting = enterpriseOnly(isAdaptiveRoutingAllowed);
 	const { data: authStatus } = useIsAuthEnabledQuery();
 	const isAoneUserSession = useIsAoneUserSession();
+	const isAoneUserOnlySession = useIsAoneUserOnlySession();
 	const isLocalAdmin = useIsLocalAdminSession();
+	const hasDualSession = isLocalAdmin && isAoneUserSession;
 	const showAoneUsers = !IS_ENTERPRISE && (authStatus?.aone_oauth_enabled ?? false);
 	// Marketplace is admin-facing; Aone OAuth users land on marketplace when prompt repo is hidden.
 	const showMarketplace =
-		isAoneUserSession || (!isAoneUserSession && (hasPluginsAccess || showAoneUsers || hasSettingsAccess || isLocalAdmin));
+		isAoneUserOnlySession ||
+		(!isAoneUserOnlySession && (hasPluginsAccess || showAoneUsers || hasSettingsAccess || isLocalAdmin));
 	const hideManualVirtualKeys = showAoneUsers;
 	const { enabled: aoneUserEnabled, displayName: aoneDisplayName, avatar: aoneAvatar } = useAoneCurrentUser();
 	const hasAnyGovernanceAccess =
@@ -539,7 +543,7 @@ export default function AppSidebar() {
 		showAuditLogs;
 	const { data: coreConfig } = useGetCoreConfigQuery({});
 	const isDbConnected = coreConfig?.is_db_connected ?? false;
-	const showPromptRepository = hasPromptRepositoryAccess && isDbConnected && !isAoneUserSession;
+	const showPromptRepository = hasPromptRepositoryAccess && isDbConnected && !isAoneUserOnlySession;
 	const { data: globalApiKeyAccess } = useGetGlobalApiKeyAccessQuery();
 	const showQuickStart = globalApiKeyAccess?.has_access === true;
 
@@ -760,7 +764,7 @@ export default function AppSidebar() {
 	}, [items]);
 
 	const roleScopedItems: SidebarItem[] = useMemo(() => {
-		if (!isAoneUserSession) {
+		if (!isAoneUserOnlySession) {
 			return accessibleItems;
 		}
 		const allowedUrls = new Set([AONE_USER_DEFAULT_WORKSPACE_PATH]);
@@ -768,7 +772,7 @@ export default function AppSidebar() {
 			allowedUrls.add(AONE_USER_QUICK_START_WORKSPACE_PATH);
 		}
 		return accessibleItems.filter((item) => allowedUrls.has(item.url));
-	}, [accessibleItems, isAoneUserSession, showQuickStart]);
+	}, [accessibleItems, isAoneUserOnlySession, showQuickStart]);
 
 	const filteredItems: SidebarItem[] = useMemo(() => {
 		const query = searchQuery.trim().toLowerCase();
@@ -815,7 +819,12 @@ export default function AppSidebar() {
 	const showAoneUserMenu = aoneUserEnabled && !!aoneDisplayName;
 	const showEnterpriseUserMenu = IS_ENTERPRISE && !!userInfo && !!(userInfo.name || userInfo.email);
 	const showAdminUserMenu =
-		isAuthEnabled && authStatus?.has_valid_token === true && !isAoneUserSession && !showAoneUserMenu && !showEnterpriseUserMenu;
+		isAuthEnabled &&
+		authStatus?.has_valid_token === true &&
+		isLocalAdmin &&
+		!isAoneUserSession &&
+		!showAoneUserMenu &&
+		!showEnterpriseUserMenu;
 	const adminDisplayName = useMemo(() => {
 		const username = coreConfig?.auth_config?.admin_username?.value?.trim();
 		return username || "Admin";
@@ -1264,10 +1273,22 @@ export default function AppSidebar() {
 										onClick={() => handleLogout("user")}
 										className="hover:bg-accent hover:text-accent-foreground flex w-full items-center gap-2 px-4 py-2.5 text-left text-sm transition-colors"
 										type="button"
+										data-testid="sidebar-user-logout-btn"
 									>
 										<LogOut className="h-4 w-4" strokeWidth={2} />
-										<span>{t("auth.logout")}</span>
+										<span>{hasDualSession ? t("auth.logoutUser") : t("auth.logout")}</span>
 									</button>
+									{hasDualSession ? (
+										<button
+											onClick={() => handleLogout("admin")}
+											className="hover:bg-accent hover:text-accent-foreground flex w-full items-center gap-2 px-4 py-2.5 text-left text-sm transition-colors"
+											type="button"
+											data-testid="sidebar-admin-logout-btn"
+										>
+											<LogOut className="h-4 w-4" strokeWidth={2} />
+											<span>{t("auth.logoutAdmin")}</span>
+										</button>
+									) : null}
 								</div>
 							</PopoverContent>
 						</Popover>

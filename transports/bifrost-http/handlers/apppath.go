@@ -127,8 +127,13 @@ func basePathFromReferer(ctx *fasthttp.RequestCtx) string {
 	if err != nil || parsed.Path == "" || parsed.Path == "/" {
 		return ""
 	}
-	for _, marker := range []string{"/login", aoneOAuthCallbackPathSuffix, defaultAoneOAuthReturnTo} {
-		if idx := strings.Index(parsed.Path, marker); idx > 0 {
+	// Check /admin-login before /login — otherwise "/zai/admin-login" matches the
+	// "/login" suffix and yields an incorrect base path of "/zai/admin".
+	for _, marker := range []string{"/admin-login", "/login", aoneOAuthCallbackPathSuffix, defaultAoneOAuthReturnTo} {
+		if idx := strings.Index(parsed.Path, marker); idx >= 0 {
+			if idx == 0 {
+				return ""
+			}
 			return lib.NormalizeBasePath(parsed.Path[:idx])
 		}
 	}

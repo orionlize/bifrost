@@ -13,8 +13,10 @@ export const auth = {
 	sessionNotEstablished: "Login succeeded but the session was not established. Please try again.",
 	adminSignInTitle: "Admin sign in",
 	adminSignInDescription: "Use administrator credentials. This does not affect your signed-in user session.",
-	adminSessionNotEstablished: "Admin login succeeded but the admin session was not established. Please try again.",
+	adminSessionNotEstablished: "Admin login failed and no admin session was established. Check your credentials and try again.",
 	logout: "Logout",
+	logoutUser: "Sign out user",
+	logoutAdmin: "Sign out admin",
 	redirecting: "Redirecting...",
 	zdSwitch: {
 		loginSuccess: "Sign-in successful",

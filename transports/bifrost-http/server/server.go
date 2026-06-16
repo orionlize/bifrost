@@ -1249,7 +1249,7 @@ func (s *BifrostHTTPServer) RegisterAPIRoutes(ctx context.Context, callbacks Ser
 	mcpSessionsHandler := handlers.NewMCPSessionsHandler(s.Config)
 	configHandler := handlers.NewConfigHandler(callbacks, s.Config)
 	pluginsHandler := handlers.NewPluginsHandler(callbacks, s.Config.ConfigStore)
-	sessionHandler := handlers.NewSessionHandler(s.Config.ConfigStore, s.WSTicketStore)
+	sessionHandler := handlers.NewSessionHandler(s.Config.ConfigStore, s.WSTicketStore, nil)
 	aoneOAuthHandler := handlers.NewAoneOAuthHandler(s.Config.ConfigStore, s.AoneOAuthStateStore, s, s.BasePath)
 	aoneUsersHandler := handlers.NewAoneUsersHandler(s.Config.ConfigStore, s)
 	marketplaceHandler := handlers.NewMarketplaceHandler(s.Config.ConfigStore)
