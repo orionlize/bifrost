@@ -61,3 +61,13 @@ func WithBasePath(basePath, endpoint string) string {
 	}
 	return basePath + pathPart + suffix
 }
+
+// SessionCookiePath returns the HTTP cookie Path for dashboard session cookies.
+// Subpath deployments scope cookies to the app prefix so they do not leak to the site root.
+func SessionCookiePath(basePath string) string {
+	basePath = NormalizeBasePath(basePath)
+	if basePath == "" {
+		return "/"
+	}
+	return basePath
+}

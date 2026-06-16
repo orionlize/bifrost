@@ -2,6 +2,7 @@ package handlers
 
 import (
 	"context"
+	"strings"
 	"testing"
 	"time"
 
@@ -78,5 +79,35 @@ func TestResolveDashboardAuthSessionUsesAdminWhenUserMissing(t *testing.T) {
 func TestUserAndAdminSessionCookiesAreDistinct(t *testing.T) {
 	if userSessionCookieName == adminSessionCookieName {
 		t.Fatal("user and admin session cookies must use different names")
+	}
+}
+
+func TestSessionCookiePathUsesConfiguredBasePath(t *testing.T) {
+	SetSessionCookieBasePath("/zai")
+	t.Cleanup(func() { SetSessionCookieBasePath("") })
+
+	ctx := &fasthttp.RequestCtx{}
+	ctx.Request.SetRequestURI("/api/session/login")
+
+	if got := sessionCookiePath(ctx); got != "/zai" {
+		t.Fatalf("sessionCookiePath = %q, want /zai", got)
+	}
+
+	setUserSessionCookie(ctx, "user-token", time.Now().Add(time.Hour))
+	setCookie := string(ctx.Response.Header.Peek("Set-Cookie"))
+	if !strings.Contains(strings.ToLower(setCookie), "path=/zai") {
+		t.Fatalf("expected subpath cookie, got %q", setCookie)
+	}
+}
+
+func TestSessionCookiePathDefaultsToRoot(t *testing.T) {
+	SetSessionCookieBasePath("")
+	t.Cleanup(func() { SetSessionCookieBasePath("") })
+
+	ctx := &fasthttp.RequestCtx{}
+	ctx.Request.SetRequestURI("/api/session/login")
+
+	if got := sessionCookiePath(ctx); got != "/" {
+		t.Fatalf("sessionCookiePath = %q, want /", got)
 	}
 }

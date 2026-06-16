@@ -15,6 +15,13 @@ const (
 	adminSessionCookieName = "admin_token"
 )
 
+var configuredSessionCookieBasePath string
+
+// SetSessionCookieBasePath configures the server base path used to scope session cookies.
+func SetSessionCookieBasePath(basePath string) {
+	configuredSessionCookieBasePath = lib.NormalizeBasePath(basePath)
+}
+
 func userSessionTokenFromCookie(ctx *fasthttp.RequestCtx) string {
 	return strings.TrimSpace(string(ctx.Request.Header.Cookie(userSessionCookieName)))
 }
@@ -39,18 +46,11 @@ func setAdminSessionCookie(ctx *fasthttp.RequestCtx, token string, expiresAt tim
 }
 
 func clearNamedSessionCookie(ctx *fasthttp.RequestCtx, name string) {
-	cookie := fasthttp.AcquireCookie()
-	defer fasthttp.ReleaseCookie(cookie)
-	cookie.SetKey(name)
-	cookie.SetValue("")
-	cookie.SetExpire(time.Now().Add(-time.Hour * 24 * 30))
-	cookie.SetPath("/")
-	cookie.SetHTTPOnly(true)
-	cookie.SetSameSite(fasthttp.CookieSameSiteLaxMode)
-	if lib.IsHTTPSRequest(ctx) {
-		cookie.SetSecure(true)
+	clearNamedSessionCookieAtPath(ctx, name, sessionCookiePath(ctx))
+	// Also clear legacy root-scoped cookies from before subpath scoping was added.
+	if sessionCookiePath(ctx) != "/" {
+		clearNamedSessionCookieAtPath(ctx, name, "/")
 	}
-	ctx.Response.Header.SetCookie(cookie)
 }
 
 func setNamedSessionCookie(ctx *fasthttp.RequestCtx, name, token string, expiresAt time.Time) {
@@ -59,13 +59,32 @@ func setNamedSessionCookie(ctx *fasthttp.RequestCtx, name, token string, expires
 	cookie.SetKey(name)
 	cookie.SetValue(token)
 	cookie.SetExpire(expiresAt)
-	cookie.SetPath("/")
+	cookie.SetPath(sessionCookiePath(ctx))
 	cookie.SetHTTPOnly(true)
 	cookie.SetSameSite(fasthttp.CookieSameSiteLaxMode)
 	if lib.IsHTTPSRequest(ctx) {
 		cookie.SetSecure(true)
 	}
 	ctx.Response.Header.SetCookie(cookie)
+}
+
+func clearNamedSessionCookieAtPath(ctx *fasthttp.RequestCtx, name, path string) {
+	cookie := fasthttp.AcquireCookie()
+	defer fasthttp.ReleaseCookie(cookie)
+	cookie.SetKey(name)
+	cookie.SetValue("")
+	cookie.SetExpire(time.Now().Add(-time.Hour * 24 * 30))
+	cookie.SetPath(path)
+	cookie.SetHTTPOnly(true)
+	cookie.SetSameSite(fasthttp.CookieSameSiteLaxMode)
+	if lib.IsHTTPSRequest(ctx) {
+		cookie.SetSecure(true)
+	}
+	ctx.Response.Header.SetCookie(cookie)
+}
+
+func sessionCookiePath(ctx *fasthttp.RequestCtx) string {
+	return lib.SessionCookiePath(resolveEffectiveBasePath(configuredSessionCookieBasePath, ctx, ""))
 }
 
 // resolveDashboardAuthSession authenticates cookie-based dashboard requests.

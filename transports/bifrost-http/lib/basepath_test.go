@@ -47,3 +47,18 @@ func TestWithBasePath(t *testing.T) {
 		t.Fatalf("WithBasePath idempotent = %q", got)
 	}
 }
+
+func TestSessionCookiePath(t *testing.T) {
+	if got := SessionCookiePath(""); got != "/" {
+		t.Fatalf("SessionCookiePath empty = %q, want /", got)
+	}
+	if got := SessionCookiePath("/"); got != "/" {
+		t.Fatalf("SessionCookiePath / = %q, want /", got)
+	}
+	if got := SessionCookiePath("/bifrost"); got != "/bifrost" {
+		t.Fatalf("SessionCookiePath /bifrost = %q, want /bifrost", got)
+	}
+	if got := SessionCookiePath("/zai/"); got != "/zai" {
+		t.Fatalf("SessionCookiePath /zai/ = %q, want /zai", got)
+	}
+}
