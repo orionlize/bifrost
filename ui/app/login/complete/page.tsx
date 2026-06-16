@@ -1,6 +1,7 @@
 import { useLoginRedirectUri } from "@/lib/hooks/useLoginRedirectUri";
 import { useT } from "@/lib/i18n";
 import { useIsAuthEnabledQuery } from "@/lib/store/apis";
+import { probeAuthSessionAfterRedirect } from "@/lib/utils/authRedirect";
 import { DEFAULT_POST_LOGIN_PATH } from "@/lib/utils/loginGoto";
 import { getEndpointUrl } from "@/lib/utils/port";
 import { executePostLoginRedirect } from "@/lib/utils/postLoginRedirect";
@@ -12,20 +13,38 @@ export default function LoginCompletePage() {
 	const { data: authState, isLoading, isFetching } = useIsAuthEnabledQuery();
 
 	useEffect(() => {
-		if (!redirectUri) {
-			window.location.replace(getEndpointUrl(DEFAULT_POST_LOGIN_PATH));
-			return;
-		}
 		if (isLoading || isFetching || authState === undefined) {
 			return;
 		}
 
-		if (authState.is_auth_enabled && !authState.has_valid_token) {
-			window.location.replace(getEndpointUrl(`/login?redirect_uri=${encodeURIComponent(redirectUri)}`));
-			return;
-		}
+		let cancelled = false;
 
-		void executePostLoginRedirect(redirectUri);
+		void (async () => {
+			const auth = (await probeAuthSessionAfterRedirect()) ?? authState;
+			if (cancelled) {
+				return;
+			}
+
+			if (auth.is_auth_enabled && !auth.has_valid_token) {
+				if (redirectUri) {
+					window.location.replace(getEndpointUrl(`/login?redirect_uri=${encodeURIComponent(redirectUri)}`));
+					return;
+				}
+				window.location.replace(getEndpointUrl("/login"));
+				return;
+			}
+
+			if (redirectUri) {
+				await executePostLoginRedirect(redirectUri);
+				return;
+			}
+
+			window.location.replace(getEndpointUrl(DEFAULT_POST_LOGIN_PATH));
+		})();
+
+		return () => {
+			cancelled = true;
+		};
 	}, [authState, isFetching, isLoading, redirectUri]);
 
 	return (

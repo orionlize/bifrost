@@ -93,11 +93,33 @@ func TestSessionCookiePathUsesConfiguredBasePath(t *testing.T) {
 		t.Fatalf("sessionCookiePath = %q, want /zai", got)
 	}
 
-	setUserSessionCookie(ctx, "user-token", time.Now().Add(time.Hour))
-	setCookie := string(ctx.Response.Header.Peek("Set-Cookie"))
-	if !strings.Contains(strings.ToLower(setCookie), "path=/zai") {
-		t.Fatalf("expected subpath cookie, got %q", setCookie)
+	paths := sessionCookieSetPaths()
+	if len(paths) != 2 || paths[0] != "/zai" || paths[1] != "/" {
+		t.Fatalf("sessionCookieSetPaths() = %v, want [/zai /]", paths)
 	}
+
+	setUserSessionCookie(ctx, "user-token", time.Now().Add(time.Hour))
+	setCookies := collectSetCookieHeaders(ctx)
+	if len(setCookies) == 0 {
+		t.Fatal("expected Set-Cookie headers")
+	}
+	joined := strings.ToLower(strings.Join(setCookies, "\n"))
+	if !strings.Contains(joined, "token=user-token") {
+		t.Fatalf("expected user token cookie, got %q", joined)
+	}
+	if !strings.Contains(joined, "path=/") && !strings.Contains(joined, "path=/zai") {
+		t.Fatalf("expected cookie path / or /zai, got %q", joined)
+	}
+}
+
+func collectSetCookieHeaders(ctx *fasthttp.RequestCtx) []string {
+	var cookies []string
+	ctx.Response.Header.VisitAll(func(key, value []byte) {
+		if strings.EqualFold(string(key), "Set-Cookie") {
+			cookies = append(cookies, string(value))
+		}
+	})
+	return cookies
 }
 
 func TestSessionCookiePathDefaultsToRoot(t *testing.T) {

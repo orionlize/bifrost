@@ -38,7 +38,9 @@ func dashboardSessionTokenFromRequest(ctx *fasthttp.RequestCtx) string {
 }
 
 func setUserSessionCookie(ctx *fasthttp.RequestCtx, token string, expiresAt time.Time) {
-	writeSessionCookieAtPath(ctx, userSessionCookieName, token, expiresAt, sessionCookiePath(ctx))
+	for _, path := range sessionCookieSetPaths() {
+		writeSessionCookieAtPath(ctx, userSessionCookieName, token, expiresAt, path)
+	}
 }
 
 func setAdminSessionCookie(ctx *fasthttp.RequestCtx, token string, expiresAt time.Time) {

@@ -20,6 +20,20 @@ export async function probeAuthSession(): Promise<IsAuthEnabledResponse | null> 
 	}
 }
 
+/** Probe auth after OAuth redirects; retry briefly while Set-Cookie settles. */
+export async function probeAuthSessionAfterRedirect(maxAttempts = 5, delayMs = 100): Promise<IsAuthEnabledResponse | null> {
+	for (let attempt = 0; attempt < maxAttempts; attempt++) {
+		const auth = await probeAuthSession();
+		if (auth?.has_valid_token === true) {
+			return auth;
+		}
+		if (attempt < maxAttempts - 1) {
+			await new Promise((resolve) => setTimeout(resolve, delayMs));
+		}
+	}
+	return probeAuthSession();
+}
+
 /** True when the visitor should enter the dashboard instead of the login page. */
 export function shouldEnterDashboard(auth: IsAuthEnabledResponse | null | undefined): boolean {
 	if (!auth) {
