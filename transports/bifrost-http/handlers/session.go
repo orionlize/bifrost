@@ -84,27 +84,20 @@ func (h *SessionHandler) isAuthEnabled(ctx *fasthttp.RequestCtx) {
 			// session and re-sets the (extended) cookie.
 			if session.ExpiresAt.After(time.Now()) || refreshDashboardSession(ctx, h.configStore, session, token) {
 				hasValidToken = true
-				isAoneUserSession = session.AoneUserID != nil && *session.AoneUserID != ""
-				isLocalAdminSession = !isAoneUserSession
-			}
-		}
-	} else {
-		if userToken != "" {
-			session, err := h.configStore.GetSession(ctx, userToken)
-			if err == nil && session != nil {
-				if session.ExpiresAt.After(time.Now()) || refreshDashboardSession(ctx, h.configStore, session, userToken) {
-					hasValidToken = true
-					isAoneUserSession = session.AoneUserID != nil && *session.AoneUserID != ""
+				if session.AoneUserID != nil && *session.AoneUserID != "" {
+					isAoneUserSession = true
+				} else {
+					isLocalAdminSession = true
 				}
 			}
 		}
-		if adminToken != "" {
-			session, err := h.configStore.GetSession(ctx, adminToken)
-			if err == nil && session != nil && session.ExpiresAt.After(time.Now()) &&
-				(session.AoneUserID == nil || *session.AoneUserID == "") {
-				hasValidToken = true
-				isLocalAdminSession = true
-			}
+	}
+	// Admin sessions use a separate cookie and can coexist with an Aone user
+	// session in the same browser; always evaluate it independently.
+	if adminToken != "" && validateLocalAdminSession(h.configStore, adminToken) {
+		isLocalAdminSession = true
+		if !hasValidToken {
+			hasValidToken = true
 		}
 	}
 	if authConfig == nil || !authConfig.IsEnabled {
