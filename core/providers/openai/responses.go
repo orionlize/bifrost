@@ -139,6 +139,14 @@ func ToOpenAIResponsesRequest(bifrostReq *schemas.BifrostResponsesRequest) *Open
 				// Clone the embedded pointer to avoid mutating the original input
 				reasoningCopy := *message.ResponsesReasoning
 				message.ResponsesReasoning = &reasoningCopy
+				// OpenAI rejects a null 'summary' on reasoning input items with
+				// "Unknown parameter: 'input[N].summary'". Encrypted/ZDR reasoning
+				// replay items often omit the summary, which serializes to null
+				// (the field has no omitempty). Normalize nil -> [] so it serializes
+				// as an empty array, which OpenAI accepts.
+				if message.ResponsesReasoning.Summary == nil {
+					message.ResponsesReasoning.Summary = []schemas.ResponsesReasoningSummary{}
+				}
 				// OpenAI's Responses API does not accept 'role' on reasoning items
 				message.Role = nil
 				// Strip cross-provider encrypted content that non-reasoning models cannot decrypt.

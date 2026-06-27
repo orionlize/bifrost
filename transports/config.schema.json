@@ -2353,6 +2353,10 @@
         "disable_store": {
           "type": "boolean",
           "description": "Disable OpenAI Responses API conversation storage."
+        },
+        "use_raw_request_body": {
+          "type": "boolean",
+          "description": "Forward OpenAI-format chat/text/responses requests received over HTTP to the provider as the exact raw bytes the client sent, bypassing Bifrost's schema round-trip. Useful for pure relay/passthrough to official OpenAI."
         }
       },
       "additionalProperties": false
@@ -4589,6 +4593,10 @@
           "additionalProperties": {
             "type": "string"
           }
+        },
+        "convert_web_search_to_web_fetch": {
+          "type": "boolean",
+          "description": "For Anthropic-compatible custom providers (base_provider_type: anthropic): rewrite Anthropic web_search server tools into web_fetch tools before sending upstream. Use when the provider does not support the web_search server tool but supports web_fetch. Default: false."
         },
         "allowed_requests": {
           "type": "object",

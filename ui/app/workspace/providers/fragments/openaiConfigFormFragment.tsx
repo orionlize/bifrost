@@ -20,6 +20,7 @@ interface OpenAIConfigFormFragmentProps {
 function toOpenAIConfigFormValues(provider: ModelProvider): OpenAIConfigFormSchema {
 	return {
 		disable_store: provider.openai_config?.disable_store ?? false,
+		use_raw_request_body: provider.openai_config?.use_raw_request_body ?? false,
 	};
 }
 
@@ -42,13 +43,14 @@ export function OpenAIConfigFormFragment({ provider }: OpenAIConfigFormFragmentP
 	useEffect(() => {
 		form.reset(toOpenAIConfigFormValues(provider));
 		// eslint-disable-next-line react-hooks/exhaustive-deps
-	}, [provider.name, provider.openai_config?.disable_store]);
+	}, [provider.name, provider.openai_config?.disable_store, provider.openai_config?.use_raw_request_body]);
 
 	const onSubmit = (data: OpenAIConfigFormSchema) => {
 		updateProvider(
 			buildProviderUpdatePayload(provider, {
 				openai_config: {
 					disable_store: data.disable_store,
+					use_raw_request_body: data.use_raw_request_body,
 				},
 			}),
 		)
@@ -86,6 +88,36 @@ export function OpenAIConfigFormFragment({ provider }: OpenAIConfigFormFragmentP
 											disabled={!hasUpdateProviderAccess}
 											onCheckedChange={(checked) => {
 												form.setValue("disable_store", checked, {
+													shouldDirty: true,
+													shouldValidate: true,
+												});
+											}}
+										/>
+									</FormControl>
+								</div>
+								<FormMessage />
+							</FormItem>
+						)}
+					/>
+
+					<FormField
+						control={form.control}
+						name="use_raw_request_body"
+						render={({ field }) => (
+							<FormItem>
+								<div className="flex items-center justify-between space-x-2">
+									<div className="space-y-0.5">
+										<FormLabel>{t("providers.openaiConfig.useRawRequestBody")}</FormLabel>
+										<p className="text-muted-foreground text-xs">{t("providers.openaiConfig.useRawRequestBodyDesc")}</p>
+									</div>
+									<FormControl>
+										<Switch
+											data-testid="provider-openai-use-raw-request-body-switch"
+											size="md"
+											checked={field.value}
+											disabled={!hasUpdateProviderAccess}
+											onCheckedChange={(checked) => {
+												form.setValue("use_raw_request_body", checked, {
 													shouldDirty: true,
 													shouldValidate: true,
 												});

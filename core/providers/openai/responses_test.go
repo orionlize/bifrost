@@ -1917,3 +1917,53 @@ func TestTryPassthroughTerminalResponsesStreamChunk(t *testing.T) {
 		t.Fatal("did not expect passthrough for non-terminal event")
 	}
 }
+
+// TestToOpenAIResponsesRequest_ReasoningSummaryNeverNull guards against regressing
+// the "Unknown parameter: 'input[N].summary'" error from official OpenAI. Encrypted
+// reasoning replay items (e.g. Codex/ZDR) commonly omit "summary"; the embedded
+// Summary field has no omitempty, so a nil slice would serialize to "summary":null,
+// which OpenAI rejects. We must always emit an array.
+func TestToOpenAIResponsesRequest_ReasoningSummaryNeverNull(t *testing.T) {
+	tests := []struct {
+		name      string
+		reasoning *schemas.ResponsesReasoning
+	}{
+		{
+			name:      "encrypted content only, nil summary",
+			reasoning: &schemas.ResponsesReasoning{EncryptedContent: schemas.Ptr("abc")},
+		},
+		{
+			name:      "explicit empty summary",
+			reasoning: &schemas.ResponsesReasoning{Summary: []schemas.ResponsesReasoningSummary{}, EncryptedContent: schemas.Ptr("abc")},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			req := &schemas.BifrostResponsesRequest{
+				Provider: schemas.OpenAI,
+				Model:    "gpt-5",
+				Input: []schemas.ResponsesMessage{
+					{
+						ID:                 schemas.Ptr("rs_1"),
+						Type:               schemas.Ptr(schemas.ResponsesMessageTypeReasoning),
+						ResponsesReasoning: tt.reasoning,
+					},
+				},
+			}
+
+			result := ToOpenAIResponsesRequest(req)
+			b, err := json.Marshal(result)
+			if err != nil {
+				t.Fatalf("marshal failed: %v", err)
+			}
+			out := string(b)
+			if strings.Contains(out, `"summary":null`) {
+				t.Fatalf("reasoning item serialized null summary (OpenAI rejects it): %s", out)
+			}
+			if !strings.Contains(out, `"summary":[]`) {
+				t.Fatalf("expected empty array summary, got: %s", out)
+			}
+		})
+	}
+}

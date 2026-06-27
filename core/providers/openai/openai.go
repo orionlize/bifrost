@@ -34,6 +34,7 @@ type OpenAIProvider struct {
 	sendBackRawResponse  bool                          // Whether to include raw response in BifrostResponse
 	customProviderConfig *schemas.CustomProviderConfig // Custom provider config
 	disableStore         bool                          // Whether to force store=false on outgoing requests
+	useRawRequestBody    bool                          // Whether to forward the client's raw request body as-is (relay/passthrough)
 }
 
 // NewOpenAIProvider creates a new OpenAI provider instance.
@@ -78,7 +79,30 @@ func NewOpenAIProvider(config *schemas.ProviderConfig, logger schemas.Logger) *O
 		sendBackRawResponse:  config.SendBackRawResponse,
 		customProviderConfig: config.CustomProviderConfig,
 		disableStore:         config.OpenAIConfig != nil && config.OpenAIConfig.DisableStore,
+		useRawRequestBody:    config.OpenAIConfig != nil && config.OpenAIConfig.UseRawRequestBody,
 	}
+}
+
+// applyRawRequestBody enables raw request body passthrough when the provider is
+// configured for it and a raw body was captured for this request (only happens for
+// OpenAI-format requests received over the HTTP transport). It sets the
+// BifrostContextKeyUseRawRequestBody context flag so the shared request-body builder
+// (CheckContextAndGetRequestBody) forwards the bytes as-is.
+//
+// It returns true when raw passthrough is active. In that case the caller must NOT
+// mutate the parsed Params (they are ignored). When disableStore is also enabled the
+// store override is applied directly to the raw JSON bytes via setRawBody.
+func (provider *OpenAIProvider) applyRawRequestBody(ctx *schemas.BifrostContext, rawBody []byte, setRawBody func([]byte)) bool {
+	if !provider.useRawRequestBody || ctx == nil || len(rawBody) == 0 {
+		return false
+	}
+	ctx.SetValue(schemas.BifrostContextKeyUseRawRequestBody, true)
+	if provider.disableStore {
+		if newBody, err := providerUtils.SetJSONField(rawBody, "store", false); err == nil {
+			setRawBody(newBody)
+		}
+	}
+	return true
 }
 
 // GetProviderKey returns the provider identifier for OpenAI.
@@ -236,6 +260,7 @@ func (provider *OpenAIProvider) TextCompletion(ctx *schemas.BifrostContext, key 
 	if err := providerUtils.CheckOperationAllowed(schemas.OpenAI, provider.customProviderConfig, schemas.TextCompletionRequest); err != nil {
 		return nil, err
 	}
+	provider.applyRawRequestBody(ctx, request.RawRequestBody, func(b []byte) { request.RawRequestBody = b })
 	return HandleOpenAITextCompletionRequest(
 		ctx,
 		provider.client,
@@ -396,6 +421,7 @@ func (provider *OpenAIProvider) TextCompletionStream(ctx *schemas.BifrostContext
 	if key.Value.GetValue() != "" {
 		authHeader = map[string]string{"Authorization": "Bearer " + key.Value.GetValue()}
 	}
+	provider.applyRawRequestBody(ctx, request.RawRequestBody, func(b []byte) { request.RawRequestBody = b })
 	return HandleOpenAITextCompletionStreaming(
 		ctx,
 		provider.streamingClient,
@@ -749,7 +775,7 @@ func (provider *OpenAIProvider) ChatCompletion(ctx *schemas.BifrostContext, key 
 		return nil, err
 	}
 
-	if provider.disableStore {
+	if !provider.applyRawRequestBody(ctx, request.RawRequestBody, func(b []byte) { request.RawRequestBody = b }) && provider.disableStore {
 		if request.Params == nil {
 			request.Params = &schemas.ChatParameters{}
 		}
@@ -917,7 +943,7 @@ func (provider *OpenAIProvider) ChatCompletionStream(ctx *schemas.BifrostContext
 	if key.Value.GetValue() != "" {
 		authHeader = map[string]string{"Authorization": "Bearer " + key.Value.GetValue()}
 	}
-	if provider.disableStore {
+	if !provider.applyRawRequestBody(ctx, request.RawRequestBody, func(b []byte) { request.RawRequestBody = b }) && provider.disableStore {
 		if request.Params == nil {
 			request.Params = &schemas.ChatParameters{}
 		}
@@ -1427,7 +1453,7 @@ func (provider *OpenAIProvider) Responses(ctx *schemas.BifrostContext, key schem
 		return nil, err
 	}
 
-	if provider.disableStore {
+	if !provider.applyRawRequestBody(ctx, request.RawRequestBody, func(b []byte) { request.RawRequestBody = b }) && provider.disableStore {
 		if request.Params == nil {
 			request.Params = &schemas.ResponsesParameters{}
 		}
@@ -1598,7 +1624,7 @@ func (provider *OpenAIProvider) ResponsesStream(ctx *schemas.BifrostContext, pos
 	if key.Value.GetValue() != "" {
 		authHeader = map[string]string{"Authorization": "Bearer " + key.Value.GetValue()}
 	}
-	if provider.disableStore {
+	if !provider.applyRawRequestBody(ctx, request.RawRequestBody, func(b []byte) { request.RawRequestBody = b }) && provider.disableStore {
 		if request.Params == nil {
 			request.Params = &schemas.ResponsesParameters{}
 		}

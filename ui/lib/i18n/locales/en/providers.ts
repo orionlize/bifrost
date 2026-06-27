@@ -139,6 +139,9 @@ export const providers = {
 		disableStore: "Disable Store",
 		disableStoreDesc:
 			"With the Responses API, store defaults to true, and when it is on, the generated response is stored for later retrieval via API. OpenAI exposes endpoints to retrieve and delete stored responses, so your response IDs become durable server-side objects instead of one-shot IDs.",
+		useRawRequestBody: "Forward Raw Request Body",
+		useRawRequestBodyDesc:
+			'Forward OpenAI-format chat, text and responses requests received over HTTP to the provider as the exact bytes the client sent, bypassing Bifrost\'s schema round-trip. Use this for pure relay/passthrough to official OpenAI to avoid field drift (e.g. a rejected null "summary" on reasoning items). Note: plugin modifications to the request body are skipped while this is on.',
 		save: "Save OpenAI Configuration",
 	},
 	debugging: {

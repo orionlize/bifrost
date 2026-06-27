@@ -489,6 +489,7 @@ export const proxyFormConfigSchema = z
 // OpenAI Config tab
 export const openaiConfigFormSchema = z.object({
 	disable_store: z.boolean(),
+	use_raw_request_body: z.boolean(),
 });
 
 export type OpenAIConfigFormSchema = z.infer<typeof openaiConfigFormSchema>;

@@ -136,6 +136,9 @@ export const providers = {
 		disableStore: "禁用 Store",
 		disableStoreDesc:
 			"使用 Responses API 时，store 默认为 true；启用后，生成的响应会存储以供后续通过 API 检索。OpenAI 提供检索和删除已存储响应的端点，因此响应 ID 会成为持久的服务端对象而非一次性 ID。",
+		useRawRequestBody: "转发原始请求体",
+		useRawRequestBodyDesc:
+			'将通过 HTTP 接收到的 OpenAI 格式的 chat、text 和 responses 请求，以客户端发送的原始字节直接转发给提供商，跳过 Bifrost 的 schema 转换。适用于纯中转/转发到官方 OpenAI 的场景，可避免字段漂移（例如 reasoning 项上被拒绝的 null "summary"）。注意：启用后插件对请求体的修改将被跳过。',
 		save: "保存 OpenAI 配置",
 	},
 	debugging: {

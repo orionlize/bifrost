@@ -495,6 +495,18 @@ type CustomProviderConfig struct {
 	BaseProviderType     ModelProvider          `json:"base_provider_type"`               // Base provider type
 	AllowedRequests      *AllowedRequests       `json:"allowed_requests,omitempty"`       // Allowed requests for the custom provider
 	RequestPathOverrides map[RequestType]string `json:"request_path_overrides,omitempty"` // Mapping of request type to its custom path which will override the default path of the provider (not allowed for Bedrock)
+	// ConvertWebSearchToWebFetch rewrites Anthropic `web_search` server tools into
+	// `web_fetch` tools before the request is sent upstream. Useful for custom
+	// Anthropic-compatible providers (BaseProviderType: anthropic) that don't
+	// support the `web_search` server tool but do support `web_fetch`. Without it,
+	// such providers reject web_search and the request fails. Default: false.
+	ConvertWebSearchToWebFetch bool `json:"convert_web_search_to_web_fetch,omitempty"`
+}
+
+// ShouldConvertWebSearchToWebFetch reports whether web_search server tools
+// should be rewritten to web_fetch for this custom provider. Nil-safe.
+func (cpc *CustomProviderConfig) ShouldConvertWebSearchToWebFetch() bool {
+	return cpc != nil && cpc.ConvertWebSearchToWebFetch
 }
 
 // IsOperationAllowed checks if a specific operation is allowed for this custom provider
@@ -524,6 +536,12 @@ type ProviderConfig struct {
 // OpenAIConfig holds OpenAI-specific provider configuration.
 type OpenAIConfig struct {
 	DisableStore bool `json:"disable_store"` // When true, forces store=false on all outgoing OpenAI requests (default: false)
+	// When true, OpenAI-format requests received over the HTTP transport are forwarded to the
+	// provider as the exact raw bytes the client sent, bypassing Bifrost's schema round-trip.
+	// Useful for pure relay/passthrough to official OpenAI where any field drift (e.g. a null
+	// "summary" on reasoning input items) would be rejected. Only applies to chat completions,
+	// text completions and the responses API. (default: false)
+	UseRawRequestBody bool `json:"use_raw_request_body"`
 }
 
 func (config *ProviderConfig) CheckAndSetDefaults() {

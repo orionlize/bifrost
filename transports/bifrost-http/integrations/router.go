@@ -909,6 +909,20 @@ func (g *GenericRouter) createHandler(config RouteConfig) fasthttp.RequestHandle
 		}
 		if sendRawRequestBody, ok := (*bifrostCtx).Value(schemas.BifrostContextKeyUseRawRequestBody).(bool); ok && sendRawRequestBody {
 			bifrostReq.SetRawRequestBody(rawBody)
+		} else if config.Type == RouteConfigTypeOpenAI {
+			// Capture the original OpenAI-format body so a provider configured with
+			// openai_config.use_raw_request_body can forward it verbatim. Only JSON
+			// bodies are safe to replay (multipart/form uploads are skipped). The
+			// provider decides whether to actually use it; if it doesn't, the bytes
+			// are simply ignored by the request-body builder.
+			if rawBody == nil {
+				if ct := string(ctx.Request.Header.ContentType()); strings.HasPrefix(ct, "application/json") {
+					rawBody = ctx.Request.Body()
+				}
+			}
+			if len(rawBody) > 0 {
+				bifrostReq.SetRawRequestBody(rawBody)
+			}
 		}
 
 		// Extract and parse fallbacks from the request if present

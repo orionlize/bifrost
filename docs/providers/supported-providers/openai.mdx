@@ -60,7 +60,8 @@ Configure OpenAI as a provider.
         }
       ],
       "openai_config": {
-        "disable_store": false
+        "disable_store": false,
+        "use_raw_request_body": false
       }
     }
   }
@@ -86,7 +87,8 @@ curl --location 'http://localhost:8080/api/providers' \
     }
   ],
   "openai_config": {
-    "disable_store": false
+    "disable_store": false,
+    "use_raw_request_body": false
   }
 }'
 ```
@@ -108,6 +110,8 @@ case schemas.OpenAI:
 </Tabs>
 
 Optional provider settings include `network_config` for timeouts, retries, proxy/TLS settings, and `openai_config.disable_store` to force `store=false` on outgoing OpenAI requests.
+
+`openai_config.use_raw_request_body` (default `false`) forwards OpenAI-format chat completions, text completions and responses requests received over the HTTP transport to OpenAI as the exact raw bytes the client sent, bypassing Bifrost's schema round-trip. Enable it for pure relay/passthrough to official OpenAI where any field drift (for example a `null` `summary` on reasoning input items, which OpenAI rejects with `Unknown parameter: 'input[N].summary'`) would break the request. While enabled, plugin modifications to the request body are skipped, and it only applies to requests that arrive in OpenAI format.
 
 ---
 
